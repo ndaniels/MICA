@@ -7,8 +7,21 @@ import (
 	"strings"
 )
 
+var (
+	flagInitDbLen int
+	flagMinMatchLen int
+	flagSeqIdThreshold float64
+)
+
 func init() {
 	log.SetFlags(0)
+
+	flag.IntVar(&flagInitDbLen, "init-db-len", 10000,
+		"The initial size of the 'unique database'.")
+	flag.IntVar(&flagMinMatchLen, "min-match-len", 300,
+		"The minimum size of a match.")
+	flag.Float64Var(&flagSeqIdThreshold, "seq-id-threshold", 0.8,
+		"The sequence identity threshold of a match")
 }
 
 func main() {
