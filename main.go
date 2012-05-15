@@ -2,15 +2,21 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"strings"
+)
+
+const (
+	alphaSize = 20
 )
 
 var (
 	flagInitDbLen      int
 	flagMinMatchLen    int
 	flagSeqIdThreshold float64
+	flagSeedSize int
 )
 
 func init() {
@@ -22,6 +28,8 @@ func init() {
 		"The minimum size of a match.")
 	flag.Float64Var(&flagSeqIdThreshold, "seq-id-threshold", 0.8,
 		"The sequence identity threshold of a match")
+	flag.IntVar(&flagSeedSize, "seed-size", 3,
+		"The size of a seed.")
 }
 
 func main() {
@@ -34,7 +42,7 @@ func main() {
 		flag.Usage()
 	}
 
-	allseqs := make([][]sequence, flag.NArg())
+	allseqs := make([][]originalSeq, flag.NArg())
 	for i, arg := range flag.Args() {
 		allseqs[i], err = readSeqs(arg)
 		if err != nil {
@@ -42,11 +50,11 @@ func main() {
 		}
 	}
 
-	for i, seq := range allseqs[0] {
-		log.Printf("%d :: %s", i, seq.ID)
-		log.Println(seq.String())
-		log.Println("--------------------------------------------------")
-	}
+	ref, seeds := newReference([]originalSeq{allseqs[0][0]})
+
+	fmt.Printf("%s\n", ref)
+	fmt.Println("")
+	fmt.Printf("%s\n", seeds)
 }
 
 func usage() {
