@@ -3,8 +3,8 @@ package main
 import (
 	"io"
 
-	"github.com/kortschak/biogo/seq"
 	"github.com/kortschak/biogo/io/seqio/fasta"
+	"github.com/kortschak/biogo/seq"
 )
 
 type sequence struct {
@@ -37,4 +37,3 @@ func readSeqs(fileName string) ([]sequence, error) {
 
 	return sequences, nil
 }
-

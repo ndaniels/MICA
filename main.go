@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	flagInitDbLen int
-	flagMinMatchLen int
+	flagInitDbLen      int
+	flagMinMatchLen    int
 	flagSeqIdThreshold float64
 )
 
