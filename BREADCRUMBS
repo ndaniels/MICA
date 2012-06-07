@@ -1,0 +1,14 @@
+Start actually using the seeds. i.e., start consuming input.
+
+Screw gapped extension for the moment.
+
+Edit scripts will always be empty. That's cool.
+
+Attempt ungapped extension. Take entire match, run Smith-Waterman, and consume
+from alignment greedily until end of alignment or sequence identity suffers too 
+much.
+
+But try ungapped extension and no gapped extension to get up and running.
+
+Gapped extension is extremely fiddly. Adding extra bases? Truncating? Oh my!
+
