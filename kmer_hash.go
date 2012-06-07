@@ -40,7 +40,6 @@ func hashKmer(kmer []byte) int {
 		if val == -1 {
 			log.Panicf("Invalid amino acid letter: %s", b)
 		}
-
 		key += val * pow(alphaSize, i)
 	}
 	return key

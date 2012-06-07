@@ -42,7 +42,7 @@ func main() {
 		flag.Usage()
 	}
 
-	allseqs := make([][]originalSeq, flag.NArg())
+	allseqs := make([][]*originalSeq, flag.NArg())
 	for i, arg := range flag.Args() {
 		allseqs[i], err = readSeqs(arg)
 		if err != nil {
@@ -50,11 +50,11 @@ func main() {
 		}
 	}
 
-	ref, seeds := newReference([]originalSeq{allseqs[0][0]})
+	cdb := newCompressedDb([]*originalSeq{allseqs[0][0]})
 
-	fmt.Printf("%s\n", ref)
+	fmt.Printf("%s\n", cdb)
 	fmt.Println("")
-	fmt.Printf("%s\n", seeds)
+	fmt.Printf("%s\n", cdb.seeds)
 }
 
 func usage() {
