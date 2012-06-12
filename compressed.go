@@ -11,7 +11,7 @@ import (
 
 type compressedDb struct {
 	seqs []*referenceSeq
-	links linkTable
+	links *linkTable
 	seeds seeds
 }
 
@@ -29,7 +29,41 @@ func newCompressedDb(seqs []*originalSeq) *compressedDb {
 	}
 }
 
-func (cdb *compressedDb) add(s *seq.Seq) {
+func (cdb *compressedDb) nextRefIndex() int {
+	return len(cdb.seqs)
+}
+
+func (cdb *compressedDb) add(origSeq *originalSeq) {
+	lastMatch, current := 0, 0
+	for i := 0; i < len(refSeq.residues()) - flagSeedSize; i++ {
+		kmer := origSeq.residues()[i:i+flagSeedSize]
+		seeds := cdb.seeds.lookup(kmer)
+		possibleMatches := make([]linkEntry, 0, len(seeds))
+
+		for _, seedLoc := range seeds {
+			// ???
+			possibleMatches = append(possibleMatches, linkEntry)
+		}
+		if len(possibleMatches) > 0 {
+			bestMatch := possibleMatches[0]
+			for _, possibleMatch := range possibleMatches[1:] {
+				if bestMatch.Less(possibleMatch) {
+					bestMatch = possibleMatch
+				}
+			}
+
+			// breadcrumbs:
+			// 1) Add all residues between lastMatch and
+			// bestMatch.original.origStartRes to compressed DB.
+			// 2) Process seeds for that sequence.
+
+			cdb.links.add(cdb.nextRefIndex(), bestMatch)
+			current = bestMatch.original.origEndRes
+			lastMatch = current
+		}
+
+		current++
+	}
 	refSeq := newReferenceSeq(s)
 	cdb.seqs = append(cdb.seqs, refSeq)
 	cdb.seeds.add(len(cdb.seqs), refSeq)
@@ -87,11 +121,11 @@ func newSeeds(refSeqs []*referenceSeq) seeds {
 	return seeds
 }
 
-func (ss seeds) add(index int, refSeq *referenceSeq) {
+func (ss seeds) add(refSeqIndex int, refSeq *referenceSeq) {
 	for i := 0; i < len(refSeq.residues()) - flagSeedSize; i++ {
 		kmer := refSeq.residues()[i:i+flagSeedSize]
 		kmerIndex := hashKmer(kmer)
-		loc := newSeedLoc(index, i)
+		loc := newSeedLoc(refSeqIndex, i)
 
 		// If no memory has been allocated for this kmer, then do so now.
 		if ss[kmerIndex] == nil {
@@ -101,6 +135,10 @@ func (ss seeds) add(index int, refSeq *referenceSeq) {
 			ss[kmerIndex] = append(ss[kmerIndex], loc)
 		}
 	}
+}
+
+func (ss seeds) lookup(kmer []byte) []seedLoc {
+	return ss[hashKmer(kmer)]
 }
 
 func (ss seeds) String() string {
@@ -128,7 +166,7 @@ func readSeqs(fileName string) ([]*originalSeq, error) {
 	}
 
 	sequences := make([]*originalSeq, 0)
-	for {
+	for i := 0; true; i++ {
 		seq, err := reader.Read()
 		if err == io.EOF {
 			break
@@ -136,7 +174,7 @@ func readSeqs(fileName string) ([]*originalSeq, error) {
 		if err != nil {
 			return nil, err
 		}
-		sequences = append(sequences, newOriginalSeq(seq))
+		sequences = append(sequences, newOriginalSeq(i, seq))
 	}
 
 	return sequences, nil
