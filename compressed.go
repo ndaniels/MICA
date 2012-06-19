@@ -43,6 +43,9 @@ func (cdb *compressedDb) add(origSeq *originalSeq) {
 		seeds := cdb.seeds.lookup(kmer)
 		possibleMatches := make([]linkEntry, 0, len(seeds))
 
+		// Screw ungapped extension. Just expand in both directions and run
+		// Smith-Waterman. If there's a decent value returned, use that.
+
 		// for _, seedLoc := range seeds { 
 			// ??? 
 			// possibleMatches = append(possibleMatches, linkEntry) 
