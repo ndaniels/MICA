@@ -6,12 +6,11 @@ import (
 	"strings"
 
 	"github.com/kortschak/biogo/io/seqio/fasta"
-	"github.com/kortschak/biogo/seq"
 )
 
 type compressedDb struct {
 	seqs []*referenceSeq
-	links *linkTable
+	links linkTable
 	seeds seeds
 }
 
@@ -35,15 +34,19 @@ func (cdb *compressedDb) nextRefIndex() int {
 
 func (cdb *compressedDb) add(origSeq *originalSeq) {
 	lastMatch, current := 0, 0
-	for i := 0; i < len(refSeq.residues()) - flagSeedSize; i++ {
+	for i := 0; i < len(origSeq.residues()) - flagSeedSize; i++ {
 		kmer := origSeq.residues()[i:i+flagSeedSize]
+		if !isValid(kmer) {
+			continue
+		}
+
 		seeds := cdb.seeds.lookup(kmer)
 		possibleMatches := make([]linkEntry, 0, len(seeds))
 
-		for _, seedLoc := range seeds {
-			// ???
-			possibleMatches = append(possibleMatches, linkEntry)
-		}
+		// for _, seedLoc := range seeds { 
+			// ??? 
+			// possibleMatches = append(possibleMatches, linkEntry) 
+		// } 
 		if len(possibleMatches) > 0 {
 			bestMatch := possibleMatches[0]
 			for _, possibleMatch := range possibleMatches[1:] {
@@ -52,19 +55,21 @@ func (cdb *compressedDb) add(origSeq *originalSeq) {
 				}
 			}
 
-			// breadcrumbs:
-			// 1) Add all residues between lastMatch and
-			// bestMatch.original.origStartRes to compressed DB.
-			// 2) Process seeds for that sequence.
+			cdb.addToCompressed(origSeq.subSequence(
+				lastMatch, bestMatch.original.origStartRes))
 
-			cdb.links.add(cdb.nextRefIndex(), bestMatch)
+			cdb.links.add(bestMatch)
 			current = bestMatch.original.origEndRes
 			lastMatch = current
 		}
 
 		current++
 	}
-	refSeq := newReferenceSeq(s)
+	cdb.addToCompressed(origSeq.subSequence(lastMatch, origSeq.Len()))
+}
+
+func (cdb *compressedDb) addToCompressed(subOrigSeq *originalSeq) {
+	refSeq := newReferenceSeq(subOrigSeq.sequence.Seq)
 	cdb.seqs = append(cdb.seqs, refSeq)
 	cdb.seeds.add(len(cdb.seqs), refSeq)
 }
@@ -124,6 +129,10 @@ func newSeeds(refSeqs []*referenceSeq) seeds {
 func (ss seeds) add(refSeqIndex int, refSeq *referenceSeq) {
 	for i := 0; i < len(refSeq.residues()) - flagSeedSize; i++ {
 		kmer := refSeq.residues()[i:i+flagSeedSize]
+		if !isValid(kmer) {
+			continue
+		}
+
 		kmerIndex := hashKmer(kmer)
 		loc := newSeedLoc(refSeqIndex, i)
 

@@ -13,10 +13,12 @@ const (
 )
 
 var (
-	flagInitDbLen      int
-	flagMinMatchLen    int
-	flagSeqIdThreshold float64
-	flagSeedSize int
+	flagInitDbLen         int
+	flagMinMatchLen       int
+	flagMatchKmerSize int
+	flagUngappedWindowSize int
+	flagSeqIdThreshold    float64
+	flagSeedSize          int
 )
 
 func init() {
@@ -24,9 +26,13 @@ func init() {
 
 	flag.IntVar(&flagInitDbLen, "init-db-len", 10000,
 		"The initial size of the 'unique database'.")
-	flag.IntVar(&flagMinMatchLen, "min-match-len", 300,
+	flag.IntVar(&flagMinMatchLen, "min-match-len", 100,
 		"The minimum size of a match.")
-	flag.Float64Var(&flagSeqIdThreshold, "seq-id-threshold", 0.8,
+	flag.IntVar(&flagMatchKmerSize, "match-kmer-size", 2,
+		"The size of kmer fragments to match in ungapped extension.")
+	flag.IntVar(&flagUngappedWindowSize, "ungapped-window-size", 4,
+		"The size of the ungapped match window.")
+	flag.Float64Var(&flagSeqIdThreshold, "seq-id-threshold", 0.5,
 		"The sequence identity threshold of a match")
 	flag.IntVar(&flagSeedSize, "seed-size", 3,
 		"The size of a seed.")
@@ -77,6 +83,7 @@ func main() {
 		// "adding to the compressed db" includes:
 		// 1. Adding a sequence to the set of sequences in the db.
 		// 2. Adding all kmer windows in the sequence as seeds.
+		cdb.add(origSeq)
 	}
 
 	fmt.Printf("%s\n", cdb)

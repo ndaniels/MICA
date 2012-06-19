@@ -44,3 +44,13 @@ func hashKmer(kmer []byte) int {
 	}
 	return key
 }
+
+func isValid(kmer []byte) bool {
+	for _, b := range kmer {
+		i := int(b - 'A')
+		if i < 0 || i >= len(alphaNums) {
+			return false
+		}
+	}
+	return true
+}

@@ -7,31 +7,33 @@ import (
 // linkTable corresponds to a table of link entries, where rows correspond
 // to reference sequences, and columns correspond to link entries (which each
 // contain a pointer to an original location).
-type linkTable [][]linkEntry
+type linkTable map[int][]linkEntry
 
-func newLinkTable() *linkTable {
-	lt := make(linkTable, 0, 100)
-	return &lt
+func newLinkTable() linkTable {
+	return make(linkTable, 100)
 }
 
-func (lt *linkTable) add(refSeqIndex, lkEntry linkEntry) {
-	if len(lt[refSeqIndex]) == 0 {
-		lt[refSeqIndex] = make([]linkEntry, 1)
-		lt[refSeqIndex][0] = lkEntry
+func (lt linkTable) add(lkEntry linkEntry) {
+	ind := lkEntry.refSeqId
+	if _, ok := lt[ind]; !ok {
+		lt[ind] = make([]linkEntry, 1)
+		lt[ind][0] = lkEntry
 	} else {
-		lt[refSeqIndex] = append(lt[refSeqIndex], lkEntry)
+		lt[ind] = append(lt[ind], lkEntry)
 	}
 }
 
 type linkEntry struct {
+	refSeqId int
 	refStartRes, refEndRes int
 	original originalLoc
 }
 
-func newLinkEntry(refStart, refEnd int, origSeq *originalSeq,
+func newLinkEntry(refSeqId, refStart, refEnd int, origSeq *originalSeq,
 	align seq.Alignment) linkEntry {
 
 	return linkEntry{
+		refSeqId: refSeqId,
 		refStartRes: refStart,
 		refEndRes: refEnd,
 		original: newOriginalLoc(origSeq, align),
