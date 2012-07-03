@@ -8,9 +8,26 @@ import (
 	"github.com/kortschak/biogo/io/seqio/fasta"
 )
 
+// compressedDb represents the compressed database of reference sequences and
+// links from reference sequences to original sequences from the input FASTA
+// file.
 type compressedDb struct {
+	// seqs is a simple list of reference sequences that makes up the core of
+	// the compressed database. In essence, this is the data written as output
+	// in the "coarse" FASTA file. Note that the indices of this slice are
+	// significant, and correspond precisely to indices in the linkTable.
 	seqs []*referenceSeq
+
+	// links is a link table, represented by a map indexed by reference
+	// sequence indices from 'seqs' to slice of linkEntry.
 	links linkTable
+
+	// seeds is a slice of slice of seed locations. The top-level slice is
+	// indexed by hashed kmers (where the length of the slice is always
+	// alphabetsize ^ kmersize). Each seed location contains a reference
+	// sequence index and a reference residue index, so that a seed location,
+	// in combination with 'seqs', can be used to pinpoint precisely where
+	// the kmer starts in the reference sequence.
 	seeds seeds
 }
 
@@ -28,15 +45,32 @@ func newCompressedDb(seqs []*originalSeq) *compressedDb {
 	}
 }
 
+// nextRefIndex returns the next index that should be used when adding a
+// reference sequence to the compressed database. This value increases by 1
+// after a new sequence is added.
 func (cdb *compressedDb) nextRefIndex() int {
 	return len(cdb.seqs)
 }
 
+// add adds an originalSeq sequence to the reference database. This process is
+// the meat and potatoes of cablast compression.
+//
+// An original sequence may result in a *combination of the following things:
+// 1) Multiple additions to the compressed database (multiple reference
+// sequences).
+// 2) The seeds table updated with any additions to the compressed database.
+// 3) Multiply linkEntry's added to the linkTable.
 func (cdb *compressedDb) add(origSeq *originalSeq) {
+	// Keep track of two pointers. 'current' refers to the residue index in the
+	// original sequence that extension is currently originating from.
+	// 'lastMatch' refers to the residue index of the *end* of the last match
+	// with a reference sequence in the compressed database.
 	lastMatch, current := 0, 0
+
+	// Iterate through the original sequence a 'kmer' at a time.
 	for i := 0; i < len(origSeq.residues()) - flagSeedSize; i++ {
 		kmer := origSeq.residues()[i:i+flagSeedSize]
-		if !isValid(kmer) {
+		if !allUpperAlpha(kmer) {
 			continue
 		}
 
@@ -132,7 +166,7 @@ func newSeeds(refSeqs []*referenceSeq) seeds {
 func (ss seeds) add(refSeqIndex int, refSeq *referenceSeq) {
 	for i := 0; i < len(refSeq.residues()) - flagSeedSize; i++ {
 		kmer := refSeq.residues()[i:i+flagSeedSize]
-		if !isValid(kmer) {
+		if !allUpperAlpha(kmer) {
 			continue
 		}
 

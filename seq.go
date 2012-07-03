@@ -27,58 +27,97 @@ func identity(seq1, seq2 []byte) int {
 	return (same * 100) / len(seq1)
 }
 
+// sequence is the underlying (i.e., embedded) type of reference and original 
+// sequences used in cablast.
 type sequence struct {
-	*seq.Seq
+	name string
+	residues []byte
+	offset int
+	original *sequence
 }
 
-func newSeq(s *seq.Seq) *sequence {
-	s.Seq = []byte(strings.ToUpper(string(s.Seq)))
-	return &sequence{s}
-}
-
-func (sequence *sequence) residues() []byte {
-	return sequence.Seq.Seq
-}
-
-func (sequence *sequence) subSequence(start, end int) *sequence {
-	if start < 0 || start >= end || end > sequence.Len() {
-		panic(fmt.Sprintf("Invalid sub sequence (%d, %d) for sequence "+
-			"with length %d.", start, end, sequence.Len()))
+// newSeq creates a new sequence and upper cases the given residues.
+func newSeq(name string, residues []byte) *sequence {
+	return &sequence{
+		name: name,
+		residues: []byte(strings.ToUpper(string(residues))),
+		offset: 0,
+		original: nil,
 	}
-	newId := fmt.Sprintf("%s (%d - %d)", sequence.ID, start, end)
-	return newSeq(seq.New(newId, sequence.Seq.Seq[start:end], nil))
 }
 
+// newBiogoSeq creates a new *sequence value from biogo's Seq type, and ensures 
+// that all residues in the sequence are upper cased.
+func newBiogoSeq(s *seq.Seq) *sequence {
+	return newSeq(s.ID, s.Seq)
+}
+
+// newSubSequence returns a new *sequence value that corresponds to a 
+// subsequence of 'sequence'. 'start' and 'end' specify an inclusive range in 
+// 'sequence'. newSubSequence panics if the range is invalid.
+func (seq *sequence) newSubSequence(start, end int) *sequence {
+	if start < 0 || start >= end || end > seq.Len() {
+		panic(fmt.Sprintf("Invalid sub sequence (%d, %d) for sequence "+
+			"with length %d.", start, end, seq.Len()))
+	}
+	s := newSeq(seq.Name, seq.residues[start:end])
+	s.offset += start
+	if seq.original != nil {
+		s.original = seq.original
+	} else {
+		s.original = seq
+	}
+	return s
+}
+
+// Len retuns the number of residues in this sequence.
+func (seq *sequence) Len() int {
+	return len(seq.residues)
+}
+
+// String returns a string (fasta) representation of this sequence. If this 
+// sequence is a subsequence, then the range of the subsequence (with respect 
+// to the original sequence) is also printed.
+func (seq *sequence) String() string {
+	if seq.offset == 0 {
+		return fmt.Sprintf("> %s\n%s", seq.name, string(seq.residues))
+	}
+	return fmt.Sprintf("> %s (%d, %d)\n%s",
+		seq.name, seq.offset, seq.Len(), string(seq.residues))
+}
+
+// referenceSeq embeds a sequence and serves as a typing mechanism to
+// distguish reference sequences in the compressed database with original
+// sequences from the input FASTA file.
 type referenceSeq struct {
 	*sequence
 }
 
-func newReferenceSeq(seq *seq.Seq) *referenceSeq {
-	return &referenceSeq{newSeq(seq)}
+func newReferenceSeq(name string, residues []byte) *referenceSeq {
+	return &referenceSeq{newSeq(name, residues)}
+
+func newBiogoReferenceSeq(seq *seq.Seq) *referenceSeq {
+	return &referenceSeq{newBiogoSeq(seq)}
 }
 
-func (refSeq *referenceSeq) subSequence(start, end int) *referenceSeq {
-	return newReferenceSeq(refSeq.sequence.subSequence(start, end).Seq)
+func (rseq *referenceSeq) newSubSequence(start, end int) *referenceSeq {
+	return &referenceSeq{rseq.sequence.newSubSequence(start, end)}
 }
 
+// referenceSeq embeds a sequence and serves as a typing mechanism to
+// distguish reference sequences in the compressed database with original
+// sequences from the input FASTA file.
 type originalSeq struct {
-	seqId int
-	start, end int
 	*sequence
 }
 
-func newOriginalSeq(seqId int, seq *seq.Seq) *originalSeq {
-	return &originalSeq{
-		seqId: seqId,
-		start: 0,
-		end: seq.Len(),
-		sequence: newSeq(seq),
-	}
+func newOriginalSeq(name string, residues []byte) *originalSeq {
+	return &originalSeq{newSeq(name, residues)}
+
+func newBiogoOriginalSeq(seq *seq.Seq) *originalSeq {
+	return &originalSeq{newBiogoSeq(seq)}
 }
 
-func (origSeq *originalSeq) subSequence(start, end int) *originalSeq {
-	sliced := newOriginalSeq(origSeq.seqId,
-		origSeq.sequence.subSequence(start, end).Seq)
-	sliced.start, sliced.end = start, end
-	return sliced
+func (oseq *originalSeq) newSubSequence(start, end int) *originalSeq {
+	return &originalSeq{oseq.sequence.newSubSequence(start, end)}
 }
