@@ -1,4 +1,4 @@
-package blosum
+package main
 
 var blosum62Alphabet = "ABCDEFGHIKLMNPQRSTVWXYZ"
 

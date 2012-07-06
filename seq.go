@@ -17,14 +17,13 @@ func identity(seq1, seq2 []byte) int {
 	}
 
 	same := 0
-	for _, r1 := range seq1 {
-		for _, r2 := range seq2 {
-			if r1 == r2 {
-				same++
-			}
+	for i, r1 := range seq1 {
+		if r1 == seq2[i] {
+			same++
 		}
 	}
 	return (same * 100) / len(seq1)
+	// return int(100 * (float64(same) / float64(len(seq1)))) 
 }
 
 // sequence is the underlying (i.e., embedded) type of reference and original 
@@ -70,6 +69,11 @@ func (seq *sequence) newSubSequence(start, end int) *sequence {
 		s.original = seq
 	}
 	return s
+}
+
+// BiogoSeq returns a new *seq.Seq from biogo.
+func (s *sequence) BiogoSeq() *seq.Seq {
+	return seq.New(s.name, s.residues, nil)
 }
 
 // Len retuns the number of residues in this sequence.

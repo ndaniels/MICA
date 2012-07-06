@@ -1,8 +1,11 @@
 package main
 
 import (
+	"log"
+
+	"github.com/kortschak/biogo/seq"
 	"github.com/kortschak/biogo/util"
-	"github.com/kortschak/biogo/align/sw"
+	"github.com/kortschak/biogo/align/nw"
 )
 
 var lookUpP util.CTL
@@ -15,6 +18,16 @@ func init() {
 	lookUpP = *util.NewCTL(m)
 }
 
-func align(rseq *referenceSeq, oseq *referenceSeq) seq.Alignment {
+func align(rseq *referenceSeq, oseq *originalSeq) seq.Alignment {
+	aligner := &nw.Aligner{
+		Matrix: blosum62,
+		LookUp: lookUpP,
+		GapChar: '-',
+	}
+	alignment, err := aligner.Align(rseq.BiogoSeq(), oseq.BiogoSeq())
+	if err != nil {
+		log.Panic(err)
+	}
+	return alignment
 }
 

@@ -75,10 +75,21 @@ func (cdb *compressedDb) add(origSeq *originalSeq) {
 		// Screw ungapped extension. Just expand in both directions and run
 		// Smith-Waterman. If there's a decent value returned, use that.
 
-		// for _, seedLoc := range seeds { 
-		// ??? 
-		// possibleMatches = append(possibleMatches, linkEntry) 
-		// } 
+		for _, seedLoc := range seeds {
+			// we need a reference sequence and an original sequence.
+			// They may both be subsequences.
+			rseq := cdb.seqs[seedLoc.seqInd]
+			subRseq := rseq.newSubSequence(
+				seedLoc.resInd, min(seedLoc.resInd + 50, rseq.Len()))
+			subOseq := origSeq.newSubSequence(
+				current, min(current + 50, origSeq.Len()))
+			alignment := align(subRseq, subOseq)
+			fmt.Println(identity(alignment[0].Seq, alignment[1].Seq))
+			fmt.Println(string(subRseq.residues))
+			fmt.Println(string(subOseq.residues))
+			fmt.Println("")
+			fmt.Println(alignment)
+		}
 		if len(possibleMatches) > 0 {
 			bestMatch := possibleMatches[0]
 			for _, possibleMatch := range possibleMatches[1:] {

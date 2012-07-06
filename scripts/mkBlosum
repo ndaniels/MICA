@@ -85,7 +85,7 @@ lks = ks[0...-1]
 
 puts "package main
 
-var blosum62Alphabet = \"#{lks}\"
+var blosum62Alphabet = \"#{lks.join()}\"
 
 var blosum62 = [][]int{
 "
