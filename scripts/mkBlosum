@@ -80,7 +80,12 @@ ks=BLOSUM62.keys.sort do |a,b|
     elsif b == '-' then -1
     else a <=> b end
 end
+
+lks = ks[0...-1]
+
 puts "package blosum
+
+blosum62Alphabet := \"#{lks}\"
 
 blosum62 := [][]int{
 "
