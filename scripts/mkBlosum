@@ -85,9 +85,9 @@ lks = ks[0...-1]
 
 puts "package blosum
 
-blosum62Alphabet := \"#{lks}\"
+var blosum62Alphabet = \"#{lks}\"
 
-blosum62 := [][]int{
+var blosum62 = [][]int{
 "
 
 ks.each do |i|
@@ -97,6 +97,6 @@ ks.each do |i|
         row << BLOSUM62[i][j]
     end
     print row.join(', ')
-    puts "}"
+    puts "},"
 end
 print "}"
