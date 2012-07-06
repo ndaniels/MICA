@@ -13,12 +13,12 @@ const (
 )
 
 var (
-	flagInitDbLen         int
-	flagMinMatchLen       int
-	flagMatchKmerSize int
+	flagInitDbLen          int
+	flagMinMatchLen        int
+	flagMatchKmerSize      int
 	flagUngappedWindowSize int
-	flagSeqIdThreshold    float64
-	flagSeedSize          int
+	flagSeqIdThreshold     float64
+	flagSeedSize           int
 )
 
 func init() {

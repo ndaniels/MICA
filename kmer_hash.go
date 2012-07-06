@@ -41,9 +41,9 @@ var alphaNums = []int{
 // inclusive range 'A' ... 'Z'.
 // If the value returned by the alphaNums map is -1, aminoValue panics.
 func aminoValue(letter byte) int {
-	val := alphaNums[letter - 'A']
+	val := alphaNums[letter-'A']
 	if val == -1 {
-		log.Panicf("Invalid amino acid letter: %s", b)
+		log.Panicf("Invalid amino acid letter: %s", letter)
 	}
 	return val
 }

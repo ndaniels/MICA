@@ -12,7 +12,7 @@ import (
 // The number returned is an integer in the range 0-100, inclusive.
 func identity(seq1, seq2 []byte) int {
 	if len(seq1) != len(seq2) {
-		log.Panicf("Sequence identity requires that len(seq1) == len(seq2), " +
+		log.Panicf("Sequence identity requires that len(seq1) == len(seq2), "+
 			"but %d != %d.", len(seq1), len(seq2))
 	}
 
@@ -30,26 +30,28 @@ func identity(seq1, seq2 []byte) int {
 // sequence is the underlying (i.e., embedded) type of reference and original 
 // sequences used in cablast.
 type sequence struct {
-	name string
+	name     string
 	residues []byte
-	offset int
+	offset   int
 	original *sequence
+	id       int
 }
 
 // newSeq creates a new sequence and upper cases the given residues.
-func newSeq(name string, residues []byte) *sequence {
+func newSeq(id int, name string, residues []byte) *sequence {
 	return &sequence{
-		name: name,
+		name:     name,
 		residues: []byte(strings.ToUpper(string(residues))),
-		offset: 0,
+		offset:   0,
 		original: nil,
+		id:       id,
 	}
 }
 
 // newBiogoSeq creates a new *sequence value from biogo's Seq type, and ensures 
 // that all residues in the sequence are upper cased.
-func newBiogoSeq(s *seq.Seq) *sequence {
-	return newSeq(s.ID, s.Seq)
+func newBiogoSeq(id int, s *seq.Seq) *sequence {
+	return newSeq(id, s.ID, s.Seq)
 }
 
 // newSubSequence returns a new *sequence value that corresponds to a 
@@ -60,7 +62,7 @@ func (seq *sequence) newSubSequence(start, end int) *sequence {
 		panic(fmt.Sprintf("Invalid sub sequence (%d, %d) for sequence "+
 			"with length %d.", start, end, seq.Len()))
 	}
-	s := newSeq(seq.Name, seq.residues[start:end])
+	s := newSeq(seq.id, seq.name, seq.residues[start:end])
 	s.offset += start
 	if seq.original != nil {
 		s.original = seq.original
@@ -80,10 +82,11 @@ func (seq *sequence) Len() int {
 // to the original sequence) is also printed.
 func (seq *sequence) String() string {
 	if seq.offset == 0 {
-		return fmt.Sprintf("> %s\n%s", seq.name, string(seq.residues))
+		return fmt.Sprintf("> %s (%d)\n%s",
+			seq.name, seq.id, string(seq.residues))
 	}
-	return fmt.Sprintf("> %s (%d, %d)\n%s",
-		seq.name, seq.offset, seq.Len(), string(seq.residues))
+	return fmt.Sprintf("> %s (%d) (%d, %d)\n%s",
+		seq.name, seq.id, seq.offset, seq.Len(), string(seq.residues))
 }
 
 // referenceSeq embeds a sequence and serves as a typing mechanism to
@@ -91,17 +94,33 @@ func (seq *sequence) String() string {
 // sequences from the input FASTA file.
 type referenceSeq struct {
 	*sequence
+	links []*linkEntry
 }
 
-func newReferenceSeq(name string, residues []byte) *referenceSeq {
-	return &referenceSeq{newSeq(name, residues)}
+func newReferenceSeq(id int, name string, residues []byte) *referenceSeq {
+	return &referenceSeq{
+		sequence: newSeq(id, name, residues),
+		links:    make([]*linkEntry, 0),
+	}
+}
 
-func newBiogoReferenceSeq(seq *seq.Seq) *referenceSeq {
-	return &referenceSeq{newBiogoSeq(seq)}
+func newBiogoReferenceSeq(id int, seq *seq.Seq) *referenceSeq {
+	return newReferenceSeq(id, seq.ID, seq.Seq)
 }
 
 func (rseq *referenceSeq) newSubSequence(start, end int) *referenceSeq {
-	return &referenceSeq{rseq.sequence.newSubSequence(start, end)}
+	return &referenceSeq{
+		sequence: rseq.sequence.newSubSequence(start, end),
+		links:    nil,
+	}
+}
+
+func (rseq *referenceSeq) addLink(lkEntry *linkEntry) {
+	if rseq.original != nil {
+		log.Panicf("Cannot add a link to a subsequence of a " +
+			"reference sequence.")
+	}
+	rseq.links = append(rseq.links, lkEntry)
 }
 
 // referenceSeq embeds a sequence and serves as a typing mechanism to
@@ -111,11 +130,12 @@ type originalSeq struct {
 	*sequence
 }
 
-func newOriginalSeq(name string, residues []byte) *originalSeq {
-	return &originalSeq{newSeq(name, residues)}
+func newOriginalSeq(id int, name string, residues []byte) *originalSeq {
+	return &originalSeq{sequence: newSeq(id, name, residues)}
+}
 
-func newBiogoOriginalSeq(seq *seq.Seq) *originalSeq {
-	return &originalSeq{newBiogoSeq(seq)}
+func newBiogoOriginalSeq(id int, seq *seq.Seq) *originalSeq {
+	return &originalSeq{sequence: newBiogoSeq(id, seq)}
 }
 
 func (oseq *originalSeq) newSubSequence(start, end int) *originalSeq {

@@ -18,10 +18,6 @@ type compressedDb struct {
 	// significant, and correspond precisely to indices in the linkTable.
 	seqs []*referenceSeq
 
-	// links is a link table, represented by a map indexed by reference
-	// sequence indices from 'seqs' to slice of linkEntry.
-	links linkTable
-
 	// seeds is a slice of slice of seed locations. The top-level slice is
 	// indexed by hashed kmers (where the length of the slice is always
 	// alphabetsize ^ kmersize). Each seed location contains a reference
@@ -36,11 +32,10 @@ type compressedDb struct {
 func newCompressedDb(seqs []*originalSeq) *compressedDb {
 	refSeqs := make([]*referenceSeq, len(seqs))
 	for i, seq := range seqs {
-		refSeqs[i] = newReferenceSeq(seq.Seq)
+		refSeqs[i] = newReferenceSeq(i, seq.name, seq.residues)
 	}
 	return &compressedDb{
-		seqs: refSeqs,
-		links: newLinkTable(),
+		seqs:  refSeqs,
 		seeds: newSeeds(refSeqs),
 	}
 }
@@ -68,21 +63,21 @@ func (cdb *compressedDb) add(origSeq *originalSeq) {
 	lastMatch, current := 0, 0
 
 	// Iterate through the original sequence a 'kmer' at a time.
-	for i := 0; i < len(origSeq.residues()) - flagSeedSize; i++ {
-		kmer := origSeq.residues()[i:i+flagSeedSize]
+	for i := 0; i < origSeq.Len()-flagSeedSize; i++ {
+		kmer := origSeq.residues[i : i+flagSeedSize]
 		if !allUpperAlpha(kmer) {
 			continue
 		}
 
 		seeds := cdb.seeds.lookup(kmer)
-		possibleMatches := make([]linkEntry, 0, len(seeds))
+		possibleMatches := make([]match, 0, len(seeds))
 
 		// Screw ungapped extension. Just expand in both directions and run
 		// Smith-Waterman. If there's a decent value returned, use that.
 
 		// for _, seedLoc := range seeds { 
-			// ??? 
-			// possibleMatches = append(possibleMatches, linkEntry) 
+		// ??? 
+		// possibleMatches = append(possibleMatches, linkEntry) 
 		// } 
 		if len(possibleMatches) > 0 {
 			bestMatch := possibleMatches[0]
@@ -92,21 +87,22 @@ func (cdb *compressedDb) add(origSeq *originalSeq) {
 				}
 			}
 
-			cdb.addToCompressed(origSeq.subSequence(
-				lastMatch, bestMatch.original.origStartRes))
+			cdb.addToCompressed(origSeq.newSubSequence(
+				lastMatch, bestMatch.link.original.origStartRes))
 
-			cdb.links.add(bestMatch)
-			current = bestMatch.original.origEndRes
+			bestMatch.rseq.addLink(bestMatch.link)
+			current = bestMatch.link.original.origEndRes
 			lastMatch = current
 		}
 
 		current++
 	}
-	cdb.addToCompressed(origSeq.subSequence(lastMatch, origSeq.Len()))
+	cdb.addToCompressed(origSeq.newSubSequence(lastMatch, origSeq.Len()))
 }
 
 func (cdb *compressedDb) addToCompressed(subOrigSeq *originalSeq) {
-	refSeq := newReferenceSeq(subOrigSeq.sequence.Seq)
+	refSeq := newReferenceSeq(cdb.nextRefIndex(),
+		subOrigSeq.name, subOrigSeq.residues)
 	cdb.seqs = append(cdb.seqs, refSeq)
 	cdb.seeds.add(len(cdb.seqs), refSeq)
 }
@@ -120,15 +116,15 @@ func (cdb *compressedDb) addToCompressed(subOrigSeq *originalSeq) {
 //
 // TODO: Bounds checking.
 func (cdb *compressedDb) residues(loc seedLoc, backOff, fwdOff int) []byte {
-	sequence := cdb.seqs[loc.seqInd].residues()
-	start, end := loc.resInd - backOff, loc.resInd + fwdOff
-	return sequence[max(0, start):min(len(sequence) - 1, end)]
+	sequence := cdb.seqs[loc.seqInd].residues
+	start, end := loc.resInd-backOff, loc.resInd+fwdOff
+	return sequence[max(0, start):min(len(sequence)-1, end)]
 }
 
 func (cdb *compressedDb) String() string {
 	strs := make([]string, len(cdb.seqs))
 	for i, seq := range cdb.seqs {
-		strs[i] = fmt.Sprintf("> %s\n%s", seq.ID, string(seq.residues()))
+		strs[i] = seq.String()
 	}
 	return strings.Join(strs, "\n")
 }
@@ -164,8 +160,8 @@ func newSeeds(refSeqs []*referenceSeq) seeds {
 }
 
 func (ss seeds) add(refSeqIndex int, refSeq *referenceSeq) {
-	for i := 0; i < len(refSeq.residues()) - flagSeedSize; i++ {
-		kmer := refSeq.residues()[i:i+flagSeedSize]
+	for i := 0; i < refSeq.Len()-flagSeedSize; i++ {
+		kmer := refSeq.residues[i : i+flagSeedSize]
 		if !allUpperAlpha(kmer) {
 			continue
 		}
@@ -220,7 +216,7 @@ func readSeqs(fileName string) ([]*originalSeq, error) {
 		if err != nil {
 			return nil, err
 		}
-		sequences = append(sequences, newOriginalSeq(i, seq))
+		sequences = append(sequences, newBiogoOriginalSeq(i, seq))
 	}
 
 	return sequences, nil
