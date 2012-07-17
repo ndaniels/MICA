@@ -3,16 +3,18 @@ package main
 import (
 	"log"
 
-	"github.com/kortschak/biogo/seq"
-	"github.com/kortschak/biogo/util"
-	"github.com/kortschak/biogo/align/nw"
+	"cablastp/blosum"
+
+	"code.google.com/p/biogo/align/nw"
+	"code.google.com/p/biogo/seq"
+	"code.google.com/p/biogo/util"
 )
 
 var lookUpP util.CTL
 
 func init() {
 	m := make(map[int]int)
-	for i, v := range blosum62Alphabet {
+	for i, v := range blosum.Alphabet62 {
 		m[int(v)] = i
 	}
 	lookUpP = *util.NewCTL(m)
@@ -20,8 +22,8 @@ func init() {
 
 func align(rseq *referenceSeq, oseq *originalSeq) seq.Alignment {
 	aligner := &nw.Aligner{
-		Matrix: blosum62,
-		LookUp: lookUpP,
+		Matrix:  blosum.Matrix62,
+		LookUp:  lookUpP,
 		GapChar: '-',
 	}
 	alignment, err := aligner.Align(rseq.BiogoSeq(), oseq.BiogoSeq())
@@ -30,4 +32,3 @@ func align(rseq *referenceSeq, oseq *originalSeq) seq.Alignment {
 	}
 	return alignment
 }
-

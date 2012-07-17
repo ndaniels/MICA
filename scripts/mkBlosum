@@ -83,11 +83,11 @@ end
 
 lks = ks[0...-1]
 
-puts "package main
+puts "package blosum
 
-var blosum62Alphabet = \"#{lks.join()}\"
+var Alphabet62 = \"#{lks.join()}\"
 
-var blosum62 = [][]int{
+var Matrix62 = [][]int{
 "
 
 ks.each do |i|

@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/kortschak/biogo/io/seqio/fasta"
+	"code.google.com/p/biogo/io/seqio/fasta"
 )
 
 // compressedDb represents the compressed database of reference sequences and
@@ -80,9 +80,9 @@ func (cdb *compressedDb) add(origSeq *originalSeq) {
 			// They may both be subsequences.
 			rseq := cdb.seqs[seedLoc.seqInd]
 			subRseq := rseq.newSubSequence(
-				seedLoc.resInd, min(seedLoc.resInd + 50, rseq.Len()))
+				seedLoc.resInd, min(seedLoc.resInd+50, rseq.Len()))
 			subOseq := origSeq.newSubSequence(
-				current, min(current + 50, origSeq.Len()))
+				current, min(current+50, origSeq.Len()))
 			alignment := align(subRseq, subOseq)
 			fmt.Println(identity(alignment[0].Seq, alignment[1].Seq))
 			fmt.Println(string(subRseq.residues))

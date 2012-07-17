@@ -5,7 +5,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/kortschak/biogo/seq"
+	"code.google.com/p/biogo/seq"
 )
 
 // identity computes the sequence identity of two byte slices.
