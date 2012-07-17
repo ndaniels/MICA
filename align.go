@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"cablastp/blosum"
+	"github.com/BurntSushi/cablastp/blosum"
 
 	"code.google.com/p/biogo/align/nw"
 	"code.google.com/p/biogo/seq"
