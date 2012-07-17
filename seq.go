@@ -15,6 +15,9 @@ func identity(seq1, seq2 []byte) int {
 		log.Panicf("Sequence identity requires that len(seq1) == len(seq2), "+
 			"but %d != %d.", len(seq1), len(seq2))
 	}
+	if len(seq1) == 0 && len(seq2) == 0 {
+		return 0
+	}
 
 	same := 0
 	for i, r1 := range seq1 {
@@ -23,7 +26,6 @@ func identity(seq1, seq2 []byte) int {
 		}
 	}
 	return (same * 100) / len(seq1)
-	// return int(100 * (float64(same) / float64(len(seq1)))) 
 }
 
 // sequence is the underlying (i.e., embedded) type of reference and original 
@@ -38,9 +40,11 @@ type sequence struct {
 
 // newSeq creates a new sequence and upper cases the given residues.
 func newSeq(id int, name string, residues []byte) *sequence {
+	residuesStr := strings.ToUpper(string(residues))
+	residuesStr = strings.Replace(residuesStr, "*", "", -1)
 	return &sequence{
 		name:     name,
-		residues: []byte(strings.ToUpper(string(residues))),
+		residues: []byte(residuesStr),
 		offset:   0,
 		original: nil,
 		id:       id,

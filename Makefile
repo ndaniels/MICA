@@ -19,3 +19,8 @@ tags:
 loc:
 	find ./ -name '*.go' -and -not -name 'blosum.go' -print | sort | xargs wc -l
 
+push:
+	git push origin master
+	git push tufts master
+	git push github master
+

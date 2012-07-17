@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
+	"path"
+	"runtime/pprof"
 )
 
 const (
@@ -16,36 +17,56 @@ var (
 	flagInitDbLen          int
 	flagMinMatchLen        int
 	flagMatchKmerSize      int
+	flagGappedWindowSize   int
 	flagUngappedWindowSize int
-	flagSeqIdThreshold     float64
+	flagSeqIdThreshold     int
 	flagSeedSize           int
+
+	flagCpuProfile string
+	flagMemProfile string
 )
 
 func init() {
 	log.SetFlags(0)
 
-	flag.IntVar(&flagInitDbLen, "init-db-len", 10000,
-		"The initial size of the 'unique database'.")
-	flag.IntVar(&flagMinMatchLen, "min-match-len", 100,
+	flag.IntVar(&flagInitDbLen, "init-db-len", 1,
+		"The initial size of the 'unique database' in terms of the number "+
+			"of protein sequences added from the input database.")
+	flag.IntVar(&flagMinMatchLen, "min-match-len", 25,
 		"The minimum size of a match.")
-	flag.IntVar(&flagMatchKmerSize, "match-kmer-size", 2,
+	flag.IntVar(&flagMatchKmerSize, "match-kmer-size", 3,
 		"The size of kmer fragments to match in ungapped extension.")
-	flag.IntVar(&flagUngappedWindowSize, "ungapped-window-size", 4,
+	flag.IntVar(&flagGappedWindowSize, "gapped-window-size", 10,
+		"The size of the gapped match window.")
+	flag.IntVar(&flagUngappedWindowSize, "ungapped-window-size", 10,
 		"The size of the ungapped match window.")
-	flag.Float64Var(&flagSeqIdThreshold, "seq-id-threshold", 0.5,
-		"The sequence identity threshold of a match")
+	flag.IntVar(&flagSeqIdThreshold, "seq-id-threshold", 50,
+		"The sequence identity threshold of a match. (An integer in the"+
+			"inclusive range from 0 to 100.)")
 	flag.IntVar(&flagSeedSize, "seed-size", 3,
 		"The size of a seed.")
+
+	flag.StringVar(&flagCpuProfile, "cpuprofile", "",
+		"When set, a CPU profile will be written to the file specified.")
+	flag.StringVar(&flagMemProfile, "memprofile", "",
+		"When set, a memory profile will be written to the file specified.")
 }
 
 func main() {
 	var err error
 
-	flag.Usage = usage
-	flag.Parse()
 	if flag.NArg() < 1 {
 		log.Println("At least one protein fasta file must be specified.")
 		flag.Usage()
+	}
+
+	if len(flagCpuProfile) > 0 {
+		f, err := os.Create(flagCpuProfile)
+		if err != nil {
+			fatalf("%s\n", err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
 	}
 
 	allseqs := make([][]*originalSeq, flag.NArg())
@@ -87,16 +108,35 @@ func main() {
 	}
 
 	fmt.Printf("%s\n", cdb)
-	fmt.Println("")
-	fmt.Printf("%s\n", cdb.seeds)
+
+	if len(flagMemProfile) > 0 {
+		f, err := os.Create(flagMemProfile)
+		if err != nil {
+			fatalf("%s\n", err)
+		}
+		pprof.WriteHeapProfile(f)
+		f.Close()
+	}
+}
+
+func errorf(format string, v ...interface{}) {
+	fmt.Fprintf(os.Stderr, format, v...)
+}
+
+func fatalf(format string, v ...interface{}) {
+	errorf(format, v...)
+	os.Exit(1)
+}
+
+func init() {
+	flag.Usage = usage
+	flag.Parse()
 }
 
 func usage() {
-	basename := os.Args[0]
-	if lastSlash := strings.LastIndex(basename, "/"); lastSlash > -1 {
-		basename = basename[lastSlash+1:]
-	}
-	log.Printf("Usage: %s [flags] fasta-file [fasta-file ...]", basename)
+	fmt.Fprintf(os.Stderr,
+		"Usage: %s [flags] fasta-file [fasta-file ...]",
+		path.Base(os.Args[0]))
 	flag.PrintDefaults()
 	os.Exit(1)
 }
