@@ -9,10 +9,10 @@ type LinkToCompressed struct {
 	RefStart, RefEnd int
 }
 
-func NewLinkToCompressed(orgSeqId int, refSeq *ReferenceSeq) *LinkToCompressed {
+func NewLinkToCompressed(orgSeqId, refStart, refEnd int) *LinkToCompressed {
 	return &LinkToCompressed{
 		OrgSeqId: orgSeqId,
-		RefStart: refSeq.Offset,
-		RefEnd:   refSeq.Offset + refSeq.Len(),
+		RefStart: refStart,
+		RefEnd:   refEnd,
 	}
 }

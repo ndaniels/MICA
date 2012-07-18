@@ -18,25 +18,23 @@ type LinkToReference struct {
 	RefStart, RefEnd int
 }
 
-func NewLinkToReference(refSeqId int, refSeq *ReferenceSeq,
+func NewLinkToReference(refSeqId, refStart, refEnd int,
 	alignment seq.Alignment) *LinkToReference {
 
 	return &LinkToReference{
 		Diff:     NewEditScript(alignment),
 		RefSeqId: refSeqId,
-		RefStart: refSeq.Offset,
-		RefEnd:   refSeq.Offset + refSeq.Len(),
+		RefStart: refStart,
+		RefEnd:   refEnd,
 	}
 }
 
-func NewLinkToReferenceSimple(
-	refSeqId int, refSeq *ReferenceSeq) *LinkToReference {
-
+func NewLinkToReferenceNoDiff(refSeqId, refStart, refEnd int) *LinkToReference {
 	return &LinkToReference{
 		Diff:     EditScript(""),
 		RefSeqId: refSeqId,
-		RefStart: refSeq.Offset,
-		RefEnd:   refSeq.Offset + refSeq.Len(),
+		RefStart: refStart,
+		RefEnd:   refEnd,
 	}
 }
 

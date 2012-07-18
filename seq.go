@@ -149,6 +149,6 @@ func NewBiogoOriginalSeq(id int, seq *seq.Seq) *OriginalSeq {
 	return &OriginalSeq{sequence: newBiogoSeq(id, seq)}
 }
 
-func (oseq *OriginalSeq) newSubSequence(start, end int) *OriginalSeq {
+func (oseq *OriginalSeq) NewSubSequence(start, end int) *OriginalSeq {
 	return &OriginalSeq{oseq.sequence.newSubSequence(start, end)}
 }
