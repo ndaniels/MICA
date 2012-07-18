@@ -4,14 +4,11 @@ import (
 	"github.com/BurntSushi/cablastp"
 )
 
-// add adds an originalSeq sequence to the reference database. This process is
-// the meat and potatoes of cablast compression.
-//
 // An original sequence may result in a combination of the following things:
-// 1) Multiple additions to the compressed database (multiple reference
+// 1) Multiple additions to the reference database (multiple reference
 // sequences).
-// 2) The seeds table updated with any additions to the compressed database.
-// 3) Multiply linkEntry's added to the linkTable.
+// 2) The seeds table updated with any additions to the reference database.
+// 3) Multiple LinkToCompressed added to reference sequence link lists.
 func compress(refdb *referenceDB,
 	orgSeq *cablastp.OriginalSequence) *cablastp.CompressedSeq
 

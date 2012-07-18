@@ -1,4 +1,4 @@
-package main
+package cablastp
 
 import (
 	"fmt"
@@ -8,9 +8,12 @@ import (
 	"code.google.com/p/biogo/seq"
 )
 
-// identity computes the sequence identity of two byte slices.
+// SeqIdentity computes the sequence identity of two byte slices.
 // The number returned is an integer in the range 0-100, inclusive.
-func identity(seq1, seq2 []byte) int {
+// SeqIdentity returns zero if the lengths of both seq1 and seq2 are zero.
+//
+// If the lengths of seq1 and seq2 are not equal, SeqIdentity will panic.
+func SeqIdentity(seq1, seq2 []byte) int {
 	if len(seq1) != len(seq2) {
 		log.Panicf("Sequence identity requires that len(seq1) == len(seq2), "+
 			"but %d != %d.", len(seq1), len(seq2))
@@ -31,11 +34,11 @@ func identity(seq1, seq2 []byte) int {
 // sequence is the underlying (i.e., embedded) type of reference and original 
 // sequences used in cablast.
 type sequence struct {
-	name     string
-	residues []byte
-	offset   int
-	original *sequence
-	id       int
+	Name     string
+	Residues []byte
+	Offset   int
+	Original *sequence
+	Id       int
 }
 
 // newSeq creates a new sequence and upper cases the given residues.
@@ -43,11 +46,11 @@ func newSeq(id int, name string, residues []byte) *sequence {
 	residuesStr := strings.ToUpper(string(residues))
 	residuesStr = strings.Replace(residuesStr, "*", "", -1)
 	return &sequence{
-		name:     name,
-		residues: []byte(residuesStr),
-		offset:   0,
-		original: nil,
-		id:       id,
+		Name:     name,
+		Residues: []byte(residuesStr),
+		Offset:   0,
+		Original: nil,
+		Id:       id,
 	}
 }
 
@@ -65,87 +68,87 @@ func (seq *sequence) newSubSequence(start, end int) *sequence {
 		panic(fmt.Sprintf("Invalid sub sequence (%d, %d) for sequence "+
 			"with length %d.", start, end, seq.Len()))
 	}
-	s := newSeq(seq.id, seq.name, seq.residues[start:end])
-	s.offset += start
-	if seq.original != nil {
-		s.original = seq.original
+	s := newSeq(seq.Id, seq.Name, seq.Residues[start:end])
+	s.Offset += start
+	if seq.Original != nil {
+		s.Original = seq.Original
 	} else {
-		s.original = seq
+		s.Original = seq
 	}
 	return s
 }
 
 // BiogoSeq returns a new *seq.Seq from biogo.
 func (s *sequence) BiogoSeq() *seq.Seq {
-	return seq.New(s.name, s.residues, nil)
+	return seq.New(s.Name, s.Residues, nil)
 }
 
 // Len retuns the number of residues in this sequence.
 func (seq *sequence) Len() int {
-	return len(seq.residues)
+	return len(seq.Residues)
 }
 
 // String returns a string (fasta) representation of this sequence. If this 
 // sequence is a subsequence, then the range of the subsequence (with respect 
 // to the original sequence) is also printed.
 func (seq *sequence) String() string {
-	if seq.offset == 0 {
+	if seq.Offset == 0 {
 		return fmt.Sprintf("> %s (%d)\n%s",
-			seq.name, seq.id, string(seq.residues))
+			seq.Name, seq.Id, string(seq.Residues))
 	}
 	return fmt.Sprintf("> %s (%d) (%d, %d)\n%s",
-		seq.name, seq.id, seq.offset, seq.Len(), string(seq.residues))
+		seq.Name, seq.Id, seq.Offset, seq.Len(), string(seq.Residues))
 }
 
 // referenceSeq embeds a sequence and serves as a typing mechanism to
 // distguish reference sequences in the compressed database with original
 // sequences from the input FASTA file.
-type referenceSeq struct {
+type ReferenceSeq struct {
 	*sequence
-	links []*linkEntry
+	Links []*LinkToCompressed
 }
 
-func newReferenceSeq(id int, name string, residues []byte) *referenceSeq {
-	return &referenceSeq{
+func NewReferenceSeq(id int, name string, residues []byte) *ReferenceSeq {
+	return &ReferenceSeq{
 		sequence: newSeq(id, name, residues),
-		links:    make([]*linkEntry, 0),
+		Links:    make([]*LinkToCompressed, 0),
 	}
 }
 
-func newBiogoReferenceSeq(id int, seq *seq.Seq) *referenceSeq {
-	return newReferenceSeq(id, seq.ID, seq.Seq)
+func NewBiogoReferenceSeq(id int, seq *seq.Seq) *ReferenceSeq {
+	return NewReferenceSeq(id, seq.ID, seq.Seq)
 }
 
-func (rseq *referenceSeq) newSubSequence(start, end int) *referenceSeq {
-	return &referenceSeq{
+func (rseq *ReferenceSeq) NewSubSequence(start, end int) *ReferenceSeq {
+	return &ReferenceSeq{
 		sequence: rseq.sequence.newSubSequence(start, end),
-		links:    nil,
+		Links:    nil,
 	}
 }
 
-func (rseq *referenceSeq) addLink(lkEntry *linkEntry) {
-	if rseq.original != nil {
+func (rseq *ReferenceSeq) AddLink(lk *LinkToCompressed) {
+	if rseq.Original != nil {
 		log.Panicf("Cannot add a link to a subsequence of a " +
 			"reference sequence.")
 	}
-	rseq.links = append(rseq.links, lkEntry)
+	rseq.Links = append(rseq.Links, lk)
 }
 
-// referenceSeq embeds a sequence and serves as a typing mechanism to
+// OriginalSeq embeds a sequence and serves as a typing mechanism to
 // distguish reference sequences in the compressed database with original
 // sequences from the input FASTA file.
-type originalSeq struct {
+type OriginalSeq struct {
 	*sequence
 }
 
-func newOriginalSeq(id int, name string, residues []byte) *originalSeq {
-	return &originalSeq{sequence: newSeq(id, name, residues)}
+func NewOriginalSeq(id int, name string, residues []byte) *OriginalSeq {
+	return &OriginalSeq{sequence: newSeq(id, name, residues)}
 }
 
-func newBiogoOriginalSeq(id int, seq *seq.Seq) *originalSeq {
-	return &originalSeq{sequence: newBiogoSeq(id, seq)}
+func NewBiogoOriginalSeq(id int, seq *seq.Seq) *OriginalSeq {
+	return &OriginalSeq{sequence: newBiogoSeq(id, seq)}
 }
 
-func (oseq *originalSeq) newSubSequence(start, end int) *originalSeq {
-	return &originalSeq{oseq.sequence.newSubSequence(start, end)}
+func (oseq *OriginalSeq) newSubSequence(start, end int) *OriginalSeq {
+	return &OriginalSeq{oseq.sequence.newSubSequence(start, end)}
 }
