@@ -65,6 +65,9 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
+	// For each FASTA file, convert each sequence in each FASTA file to
+	// an OriginalSeq. This preps them for processing and conversion into
+	// CompressedSeq.
 	allseqs := make([][]*originalSeq, flag.NArg())
 	for i, arg := range flag.Args() {
 		allseqs[i], err = cablastp.ReadOriginalSeqs(arg)
@@ -73,6 +76,10 @@ func main() {
 		}
 	}
 
+	// Initialize the reference and compressed databases. For each original
+	// sequence, convert it to a compressed sequence and add it to the
+	// compressed database. (The process of compressing an original sequence
+	// will add to the reference database if applicable.)
 	refdb := newReferenceDB(allseqs[0][0])
 	comdb := cablastp.NewCompressedDB()
 	for _, orgSeq := range allseqs[0][1:] {

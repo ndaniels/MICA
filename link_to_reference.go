@@ -4,17 +4,6 @@ import (
 	"code.google.com/p/biogo/seq"
 )
 
-// CompressedSeq corresponds to the components of a compressed sequence.
-type CompressedSeq struct {
-	// Name is an uncompressed string from the original FASTA header.
-	Name string
-
-	// Links is an ordered lists of links to portions of the reference
-	// database. When all links are followed, the concatenation of each
-	// sequence correspond to each link equals the entire original sequence.
-	Links []*LinkToReference
-}
-
 // LinkToReference represents a component of a compressed original sequence
 // that allows perfect reconstruction (i.e., decompression) of the original
 // sequence.

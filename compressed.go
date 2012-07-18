@@ -1,9 +1,17 @@
 package cablastp
 
-type CompressedDB []*CompressedSeq
+type CompressedDB struct {
+	Seqs []*CompressedSeq
+}
+
+func NewCompressedDB() *CompressedDB {
+	return &CompressedDB{
+		Seqs: make([]*CompressedSeq, 0, 100),
+	}
+}
 
 func (comdb *CompressedDB) Add(comSeq *CompressedSeq) {
-	comdb = append(comdb, comSeq)
+	comdb.Seqs = append(comdb.Seqs, comSeq)
 }
 
 // CompressedSeq corresponds to the components of a compressed sequence.

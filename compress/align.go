@@ -20,13 +20,13 @@ func init() {
 	lookUpP = *util.NewCTL(m)
 }
 
-func alignGapped(rseq *referenceSeq, oseq *originalSeq) seq.Alignment {
+func alignGapped(rseq []byte, oseq []byte) seq.Alignment {
 	aligner := &nw.Aligner{
 		Matrix:  blosum.Matrix62,
 		LookUp:  lookUpP,
 		GapChar: '-',
 	}
-	alignment, err := aligner.Align(rseq.BiogoSeq(), oseq.BiogoSeq())
+	alignment, err := aligner.Align(seq.Seq{Seq: rseq}, seq.Seq{Seq: oseq})
 	if err != nil {
 		log.Panic(err)
 	}
@@ -44,16 +44,20 @@ func alignGapped(rseq *referenceSeq, oseq *originalSeq) seq.Alignment {
 // If a 4-mer match is found, the current value of length is set to the total
 // number of amino acid residues scanned, and a search for the next 4-mer match
 // for the next 10-mer window is started.
-func alignUngapped(rseq *referenceSeq, oseq *originalSeq) int {
-	rres, ores := rseq.residues, oseq.residues
+func alignUngapped(rseq []byte, oseq []byte) int {
 	length, scanned, successive := 0, 0, 0
-	tryNext10 := true
-	for tryNext10 {
-		tryNext10 = false
-		for i := 0; i < 10; i++ {
-			if scanned >= len(rres) || scanned >= len(ores) {
+	tryNextWindow := true
+	for tryNextWindow {
+		tryNextWindow = false
+		for i := 0; i < flagUngappedWindowSize; i++ {
+			// If we've scanned all residues in one of the sub-sequences, then
+			// there is nothing left to do for ungapped extension. Therefore,
+			// quit and return the number of residues scanned up until the
+			// *last* match.
+			if scanned >= len(rseq) || scanned >= len(oseq) {
 				break
 			}
+
 			if rres[scanned] == ores[scanned] {
 				successive++
 			} else {
@@ -62,15 +66,30 @@ func alignUngapped(rseq *referenceSeq, oseq *originalSeq) int {
 
 			scanned++
 			if successive == flagMatchKmerSize {
-				beforeMatch := scanned - flagMatchKmerSize
-				id := identity(rres[length:beforeMatch],
-					ores[length:beforeMatch])
-				if id < flagSeqIdThreshold {
-					break
+				// Get the residues between matches: i.e., after the last
+				// match to the start of this match. But only if there is at
+				// least one residue in that range.
+				if (scanned - flagMatchKmerSize) - length > 0 {
+					refBetween := rseq[length:scanned - flagMatchKmerSize]
+					orgBetween := oseq[length:scanned - flagMatchKmerSize]
+					id := cablastp.SeqIdentity(refBetween, orgBetween)
+
+					// If the identity is less than the threshold, then this
+					// K-mer match is no good. But keep trying until the window
+					// is closed. (We "keep trying" by decrementing successive
+					// matches by 1.)
+					if id < flagSeqIdThreshold {
+						successive--
+						continue
+					}
 				}
+
+				// If we're here, then we've found a valid match. Update the
+				// length to indicate the number of residues scanned and make
+				// sure we try the next Ungapped window.
 				length = scanned
 				successive = 0
-				tryNext10 = true
+				tryNextWindow = true
 				break
 			}
 		}

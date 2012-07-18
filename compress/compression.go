@@ -29,20 +29,11 @@ func compress(refdb *referenceDB,
 		possibleMatches := make([]match, 0, len(seeds))
 
 		for _, seedLoc := range seeds {
-			// fmt.Println(current, seedLoc.seqInd, seedLoc.resInd) 
-			// we need a reference sequence and an original sequence.
-			// They may both be subsequences.
+			refSeq := cdb.seqs[seedLoc.seqInd]
+			refRes := refSeq.Residues[seedLoc.resInd:]
+			orgRes := orgSeq.Residues[current:]
 
-			// 1) Attempt ungapped extension. This returns some offset,
-			// which may be zero.
-			// 2) Attempt gapped extension from the previous offset up to
-			// GAPPED_WINDOW_LENGTH.
-			// 3) Repeat until gapped extension returns an alignment with
-			// less than the sequence identity threshold.
-			rseq := cdb.seqs[seedLoc.seqInd]
-			startRseq := rseq.newSubSequence(seedLoc.resInd, rseq.Len())
-			startOseq := origSeq.newSubSequence(current, origSeq.Len())
-			matchPos := 0
+			refMatchLen, orgMatchLen := 0, 0
 			for {
 				if matchPos == startOseq.Len() {
 					break
