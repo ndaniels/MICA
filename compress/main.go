@@ -9,10 +9,6 @@ import (
 	"runtime/pprof"
 )
 
-const (
-	alphaSize = 20
-)
-
 var (
 	flagInitDbLen          int
 	flagMinMatchLen        int
@@ -71,40 +67,17 @@ func main() {
 
 	allseqs := make([][]*originalSeq, flag.NArg())
 	for i, arg := range flag.Args() {
-		allseqs[i], err = readSeqs(arg)
+		allseqs[i], err = cablastp.ReadOriginalSeqs(arg)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
-	cdb := newCompressedDb([]*originalSeq{allseqs[0][0]})
-	for _, origSeq := range allseqs[0][1:] {
-		// "lastmatch" pointer to last residue of last match. (or 0)
-		// "current" pointer to the starting residue of each kmer window. (or 0)
-
-		// for every kmer, look up in seed table.
-		// if no seed, increment "current" pointer by one.
-		// else, start looking for a match.
-		// ???
-		// if no match is found, increment "current" pointer by one.
-		// else, set "current" pointer to index of last residue + 1 in match.
-		//		 and set "lastmatch" equal to "current" - 1.
-		//		 and create link table entry ???
-
-		// when do things get added to the compressed db?
-		//
-		// Boundary case: when the "current" pointer reaches end of current
-		// sequence, any residues from it back to the "lastmatch" pointer are
-		// added.
-		//
-		// After a match is found, all residues from "lastmatch" up to the
-		// beginning of the match are added to the compressed db. (After
-		// extending match in both directions.)
-		//
-		// "adding to the compressed db" includes:
-		// 1. Adding a sequence to the set of sequences in the db.
-		// 2. Adding all kmer windows in the sequence as seeds.
-		cdb.add(origSeq)
+	refdb := newReferenceDB(allseqs[0][0])
+	comdb := cablastp.NewCompressedDB()
+	for _, orgSeq := range allseqs[0][1:] {
+		comSeq := compress(refdb, orgSeq)
+		comdb.Add(comSeq)
 	}
 
 	fmt.Printf("%s\n", cdb)
