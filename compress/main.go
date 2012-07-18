@@ -83,7 +83,7 @@ func main() {
 	refdb := newReferenceDB(allseqs[0][0])
 	comdb := cablastp.NewCompressedDB()
 	for _, orgSeq := range allseqs[0][1:] {
-		comSeq := compress(refdb, orgSeq)
+		comSeq := compress(refdb, comdb.Len(), orgSeq)
 		comdb.Add(comSeq)
 	}
 

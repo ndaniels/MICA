@@ -8,7 +8,7 @@ import (
 // database. Sequences in the ReferenceDB are use to re-create the original
 // sequences.
 type referenceDB struct {
-	seqs []*cablastp.ReferenceSeq
+	seqs  []*cablastp.ReferenceSeq
 	seeds seeds
 }
 
@@ -17,7 +17,7 @@ type referenceDB struct {
 // each K-mer in each original sequence.
 func newReferenceDB(orgSeqs []*cablastp.OriginalSeq) *ReferenceDB {
 	refdb := &ReferenceDB{
-		seqs: make([]*cablastp.ReferenceSeq, 0, len(orgSeqs)),
+		seqs:  make([]*cablastp.ReferenceSeq, 0, len(orgSeqs)),
 		Seeds: newSeeds(),
 	}
 	for _, orgSeq := range orgSeqs {
@@ -44,4 +44,3 @@ func (refdb *referenceDB) String() string {
 	}
 	return strings.Join(strs, "\n")
 }
-

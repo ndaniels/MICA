@@ -9,8 +9,8 @@ import (
 // sequences).
 // 2) The seeds table updated with any additions to the reference database.
 // 3) Multiple LinkToCompressed added to reference sequence link lists.
-func compress(refdb *referenceDB,
-	orgSeq *cablastp.OriginalSequence) *cablastp.CompressedSeq
+func compress(refdb *referenceDB, orgSeqId int,
+	orgSeq *cablastp.OriginalSequence) *cablastp.CompressedSeq {
 
 	// Keep track of two pointers. 'current' refers to the residue index in the
 	// original sequence that extension is currently originating from.
@@ -28,78 +28,70 @@ func compress(refdb *referenceDB,
 		seeds := refdb.seeds.lookup(kmer)
 		possibleMatches := make([]match, 0, len(seeds))
 
+		// Each seed location corresponding to the current K-mer must be
+		// used to attempt to extend a match. If there is more than one
+		// match, the best one is used.
+		// (What does "best" mean? Length for now...)
 		for _, seedLoc := range seeds {
-			refSeq := cdb.seqs[seedLoc.seqInd]
-			refRes := refSeq.Residues[seedLoc.resInd:]
-			orgRes := orgSeq.Residues[current:]
+			refSeqId := seedLoc.seqInd
+			refSeq := cdb.seqs[refSeqId]
 
-			refMatchLen, orgMatchLen := 0, 0
-			for {
-				if matchPos == startOseq.Len() {
-					break
-				}
+			// The "match" between reference and original sequence will
+			// occur somewhere between the the residue index of the seed and
+			// the end of the sequence for the reference sequence, and the 
+			// position of the "current" pointer and the end of the sequence
+			// for the original sequence.
+			refMatchRes, orgMatchRes := extendMatch(
+				refSeq.Residues[seedLoc.resInd:],
+				orgSeq.Residues[current:])
 
-				subRseq := startRseq.newSubSequence(matchPos, startRseq.Len())
-				subOseq := startOseq.newSubSequence(matchPos, startOseq.Len())
+			// Use an alignment of the matched subsequences to determine
+			// whether the match is worthy (i.e., the length is long enough).
+			// An alignment is also used to generate an edit script for a
+			// LinkToReference.
+			alignment := alignGapped(refMatchRes, orgMatchRes)
 
-				matchLen := alignUngapped(subRseq, subOseq)
-				matchPos += matchLen
-
-				tmpRseq := startRseq.newSubSequence(
-					matchPos,
-					min(startRseq.Len(), matchPos+flagGappedWindowSize))
-				tmpOseq := startOseq.newSubSequence(
-					matchPos,
-					min(startOseq.Len(), matchPos+flagGappedWindowSize))
-				alignment := alignGapped(tmpRseq, tmpOseq)
-				id := identity(alignment[0].Seq, alignment[1].Seq)
-				if id < flagSeqIdThreshold {
-					break
-				}
-
-				matchPos += tmpOseq.Len()
-			}
-
-			if matchPos-current >= flagMinMatchLen {
-				subRseq := rseq.newSubSequence(seedLoc.resInd, matchPos)
-				subOseq := origSeq.newSubSequence(current, matchPos)
-				alignment := alignGapped(subRseq, subOseq)
-
-				fmt.Println("current to matchPos", current, matchPos)
+			// The match is only good if the alignment length is greater
+			// than some user-specified length.
+			if alignment.Len() >= flagMinMatchLen {
+				fmt.Println("seed to (seed + refMatchLen)",
+					seedLoc.resInd, seedLoc.resInd+len(refMatchRes))
+				fmt.Println("current to (current + orgMatchLen)",
+					current, current+len(orgMatchRes))
 				fmt.Println("identity",
-					identity(alignment[0].Seq, alignment[1].Seq))
+					cablastp.SeqIdentity(alignment[0].Seq, alignment[1].Seq))
 				fmt.Println("> ", rseq.name)
-				fmt.Println(string(subRseq.residues))
+				fmt.Println(string(refMatchRes))
 				fmt.Println("> ", origSeq.name)
-				fmt.Println(string(subOseq.residues))
+				fmt.Println(string(orgMatchRes))
 				fmt.Println("")
 				fmt.Println(alignment)
 				fmt.Println("--------------------------------------------")
 
-				link := newLinkEntry(seedLoc.resInd, matchPos, subOseq,
-					alignment)
 				possibleMatches = append(possibleMatches,
 					match{
-						rseq: rseq,
-						link: link,
+						refSeqId: refSeqId,
+						refSeq:   refSeq,
+						refStart: seedLoc.resInd,
+						refEnd:   seedLoc.resInd + len(refMatchRes),
+						orgStart: current,
+						orgEnd:   current + len(orgMatchRes),
 					})
 			}
 		}
 		if len(possibleMatches) > 0 {
-			bestMatch := possibleMatches[0]
-			for _, possibleMatch := range possibleMatches[1:] {
-				if bestMatch.Less(possibleMatch) {
-					bestMatch = possibleMatch
-				}
-			}
+			match := bestMatch(possibleMatches)
 
-			if bestMatch.link.original.origStartRes-lastMatch > 0 {
-				sub := origSeq.newSubSequence(
-					lastMatch, bestMatch.link.original.origStartRes)
-				fmt.Println(strings.Repeat("#", 45))
-				fmt.Println(sub)
-				fmt.Println(strings.Repeat("#", 45))
-				cdb.addToCompressed(sub)
+			// If there are residues between the end of the last match
+			// and the start of this match, then that means no good match
+			// could be found for those residues. Thus, they are added to
+			// the reference database. (A pathological LinkToReference is
+			// created with an empty diff script that points to the added
+			// region in the reference database in its entirety.)
+			if match.orgStart-lastMatch > 0 {
+				orgSub := origSeq.newSubSequence(lastMatch, match.orgStart)
+				nextRefSeqId := len(refdb.seqs)
+				refdb.add(orgSub)
 			}
 
 			bestMatch.rseq.addLink(bestMatch.link)
@@ -108,8 +100,80 @@ func compress(refdb *referenceDB,
 		}
 	}
 	sub := origSeq.newSubSequence(lastMatch, origSeq.Len())
-	fmt.Println(strings.Repeat("#", 45))
-	fmt.Println(sub)
-	fmt.Println(strings.Repeat("#", 45))
 	cdb.addToCompressed(sub)
+}
+
+func extendMatch(refRes, orgRes []byte) (refMatchRes, orgMatchRes []byte) {
+	// Starting at seedLoc.resInd and current, refMatchLen and 
+	// orgMatchLen correspond to the length of the match each of
+	// the reference and the original sequence, respectively.
+	// At the end of the loop, the slices [seedLoc.resInd:refMatchLen]
+	// and [current:orgMatchLen] will correspond to the match.
+	//
+	// A LinkToReference is then created with the reference sequence
+	// id (seedLoc.seqInd), the start and stop residues of the match
+	// in the reference sequence (seedLoc.resInd and
+	// (seedLoc.ResInd + refMatchLen)), and an edit script created
+	// by an alignment between the matched regions of the reference
+	// and original sequences. (A LinkToReference corresponds to a
+	// single component of a CompressedSeq.)
+	refMatchLen, orgMatchLen := 0, 0
+	for {
+		// If the match has consumed either of the reference or original
+		// sequence, then we must quit with what we have.
+		if refMatchLen == len(refRes) || orgMatchLen == len(orgRes) {
+			break
+		}
+
+		// Ungapped extension returns an integer corresponding to the
+		// number of residues that the match was extended by.
+		matchLen := alignUngapped(
+			refRes[refMatchLen:], orgRes[orgMatchLen:])
+
+		// Since ungapped extension increases the reference and
+		// original sequence match portions equivalently, add the
+		// match length to both.
+		refMatchLen += matchLen
+		orgMatchLen += matchLen
+
+		// Gapped extension returns an alignment corresponding to the
+		// window starting after the previous ungapped extension
+		// ended plus the gapped window size. (It is bounded by the
+		// length of each sequence.)
+		winSize := flagGappedWindowSize
+		alignment := alignGapped(
+			refRes[refMatchLen:min(len(refRes), refMatchLen+winSize)],
+			orgRes[orgMatchLen:min(len(orgRes), orgMatchLen+winSize)])
+
+		// If the alignment has a sequence identity below the
+		// threshold, then gapped extension has failed. We therefore
+		// quit and are forced to be satisfied with whatever
+		// refMatchLen and orgMatchLen are set to.
+		id := cablastp.SeqIdentity(alignment[0].Seq, alignment[1].Seq)
+		if id < flagSeqIdThreshold {
+			break
+		}
+
+		// We live to die another day.
+		// We need to add to the refMatch{Pos,Len} and orgMatch{Pos,Len}
+		// just like we did for ungapped extension. However, an
+		// alignment can correspond to two different sized subsequences
+		// of the reference and original sequence. Therefore, only
+		// increase each by the corresponding sizes from the
+		// alignment.
+		refMatchLen += alignLen(alignment[0].Seq)
+		orgMatchLen += alignLen(alignment[1].Seq)
+	}
+
+	return refRes[:refMatchLen], orgRes[:orgMatchLen]
+}
+
+func bestMatch(matches []match) match {
+	bestMatch := matches[0]
+	for _, match := range matches[1:] {
+		if bestMatch.Less(match) {
+			bestMatch = match
+		}
+	}
+	return bestMatch
 }

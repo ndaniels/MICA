@@ -20,6 +20,8 @@ func init() {
 	lookUpP = *util.NewCTL(m)
 }
 
+// alignGapped takes two byte slices and runs Needleman-Wunsch on them to
+// form an alignment.
 func alignGapped(rseq []byte, oseq []byte) seq.Alignment {
 	aligner := &nw.Aligner{
 		Matrix:  blosum.Matrix62,
@@ -31,6 +33,17 @@ func alignGapped(rseq []byte, oseq []byte) seq.Alignment {
 		log.Panic(err)
 	}
 	return alignment
+}
+
+// alignLen computes the length of a sequence in an alignment.
+// (i.e., the number of residues that aren't "-".)
+func alignLen(seq []byte) (length int) {
+	for _, res := range seq {
+		if res != '-' {
+			length++
+		}
+	}
+	return
 }
 
 // alignUngapped takes a reference and an original sub-sequence
@@ -69,9 +82,9 @@ func alignUngapped(rseq []byte, oseq []byte) int {
 				// Get the residues between matches: i.e., after the last
 				// match to the start of this match. But only if there is at
 				// least one residue in that range.
-				if (scanned - flagMatchKmerSize) - length > 0 {
-					refBetween := rseq[length:scanned - flagMatchKmerSize]
-					orgBetween := oseq[length:scanned - flagMatchKmerSize]
+				if (scanned-flagMatchKmerSize)-length > 0 {
+					refBetween := rseq[length : scanned-flagMatchKmerSize]
+					orgBetween := oseq[length : scanned-flagMatchKmerSize]
 					id := cablastp.SeqIdentity(refBetween, orgBetween)
 
 					// If the identity is less than the threshold, then this

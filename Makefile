@@ -7,8 +7,8 @@ blosum/blosum.go:
 	scripts/mkBlosum | gofmt > blosum/blosum.go
 
 gofmt:
-	gofmt -w *.go
-	scripts/colcheck *.go
+	gofmt -w *.go compress/*.go
+	scripts/colcheck *.go compress/*.go
 
 tags:
 	find ./ \( \
