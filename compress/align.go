@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 
+	"github.com/BurntSushi/cablastp"
 	"github.com/BurntSushi/cablastp/blosum"
 
 	"code.google.com/p/biogo/align/nw"
@@ -28,7 +29,7 @@ func alignGapped(rseq []byte, oseq []byte) seq.Alignment {
 		LookUp:  lookUpP,
 		GapChar: '-',
 	}
-	alignment, err := aligner.Align(seq.Seq{Seq: rseq}, seq.Seq{Seq: oseq})
+	alignment, err := aligner.Align(&seq.Seq{Seq: rseq}, &seq.Seq{Seq: oseq})
 	if err != nil {
 		log.Panic(err)
 	}
@@ -49,14 +50,14 @@ func alignLen(seq []byte) (length int) {
 // alignUngapped takes a reference and an original sub-sequence
 // and a starting offset for each sequence. A length
 // corresponding to the number of amino acids scanned by greedily consuming
-// successive 4-mer matches in 10-mer windows.
+// successive K-mer matches in N-mer windows.
 //
-// The algorithm works by attempting to find *exact* 4-mer matches between the
-// sequences in 10-mer windows. If 10 residues are scanned and no 4-mer match
+// The algorithm works by attempting to find *exact* K-mer matches between the
+// sequences in N-mer windows. If N residues are scanned and no K-mer match
 // is found, the the current value of length is returned (which may be 0).
-// If a 4-mer match is found, the current value of length is set to the total
-// number of amino acid residues scanned, and a search for the next 4-mer match
-// for the next 10-mer window is started.
+// If a K-mer match is found, the current value of length is set to the total
+// number of amino acid residues scanned, and a search for the next K-mer match
+// for the next N-mer window is started.
 func alignUngapped(rseq []byte, oseq []byte) int {
 	length, scanned, successive := 0, 0, 0
 	tryNextWindow := true
@@ -71,7 +72,7 @@ func alignUngapped(rseq []byte, oseq []byte) int {
 				break
 			}
 
-			if rres[scanned] == ores[scanned] {
+			if rseq[scanned] == oseq[scanned] {
 				successive++
 			} else {
 				successive = 0

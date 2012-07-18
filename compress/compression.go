@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/BurntSushi/cablastp"
 )
 
@@ -10,7 +12,9 @@ import (
 // 2) The seeds table updated with any additions to the reference database.
 // 3) Multiple LinkToCompressed added to reference sequence link lists.
 func compress(refdb *referenceDB, orgSeqId int,
-	orgSeq *cablastp.OriginalSequence) *cablastp.CompressedSeq {
+	orgSeq *cablastp.OriginalSeq) *cablastp.CompressedSeq {
+
+	cseq := cablastp.NewCompressedSeq(orgSeq.Name)
 
 	// Keep track of two pointers. 'current' refers to the residue index in the
 	// original sequence that extension is currently originating from.
@@ -20,7 +24,7 @@ func compress(refdb *referenceDB, orgSeqId int,
 
 	// Iterate through the original sequence a 'kmer' at a time.
 	for current = 0; current < orgSeq.Len()-flagSeedSize; current++ {
-		kmer := orgSeq.residues[current : current+flagSeedSize]
+		kmer := orgSeq.Residues[current : current+flagSeedSize]
 		if !allUpperAlpha(kmer) {
 			continue
 		}
@@ -34,7 +38,7 @@ func compress(refdb *referenceDB, orgSeqId int,
 		// (What does "best" mean? Length for now...)
 		for _, seedLoc := range seeds {
 			refSeqId := seedLoc.seqInd
-			refSeq := cdb.seqs[refSeqId]
+			refSeq := refdb.seqs[refSeqId]
 
 			// The "match" between reference and original sequence will
 			// occur somewhere between the the residue index of the seed and
@@ -60,9 +64,9 @@ func compress(refdb *referenceDB, orgSeqId int,
 					current, current+len(orgMatchRes))
 				fmt.Println("identity",
 					cablastp.SeqIdentity(alignment[0].Seq, alignment[1].Seq))
-				fmt.Println("> ", rseq.name)
+				fmt.Println("> ", refSeq.Name)
 				fmt.Println(string(refMatchRes))
-				fmt.Println("> ", origSeq.name)
+				fmt.Println("> ", orgSeq.Name)
 				fmt.Println(string(orgMatchRes))
 				fmt.Println("")
 				fmt.Println(alignment)
@@ -89,20 +93,46 @@ func compress(refdb *referenceDB, orgSeqId int,
 			// created with an empty diff script that points to the added
 			// region in the reference database in its entirety.)
 			if match.orgStart-lastMatch > 0 {
-				orgSub := origSeq.newSubSequence(lastMatch, match.orgStart)
-				nextRefSeqId := len(refdb.seqs)
-				refdb.add(orgSub)
+				orgSub := orgSeq.NewSubSequence(lastMatch, match.orgStart)
+				nextRefSeqId := addWithoutMatch(refdb, orgSeqId, orgSub)
+				cseq.Add(cablastp.NewLinkToReferenceNoDiff(
+					nextRefSeqId, 0, orgSub.Len()))
 			}
 
-			bestMatch.rseq.addLink(bestMatch.link)
-			current = bestMatch.link.original.origEndRes
-			lastMatch = current
+			// For the given match, add a LinkToReference to the portion of the 
+			// reference sequence matched. This serves as a component of a
+			// compressed original sequence. Also, add a LinkToCompressed to
+			// the reference sequence matched. This servers as a bridge to
+			// expand coarse sequences into their original sequences.
+			cseq.Add(cablastp.NewLinkToReference(
+				match.refSeqId, match.refStart, match.refEnd, match.alignment))
+			match.refSeq.AddLink(cablastp.NewLinkToCompressed(
+				orgSeqId, match.refStart, match.refEnd))
+
+			// Skip the current pointer ahead to the end of this match.
+			// Update the lastMatch pointer to point at the end of this match.
+			lastMatch = match.orgEnd
+			current = match.orgEnd - 1
 		}
 	}
-	sub := origSeq.newSubSequence(lastMatch, origSeq.Len())
-	cdb.addToCompressed(sub)
+
+	// If there are any leftover residues, then no good match for them
+	// could be found. Therefore, add them to the reference database and
+	// create the appropriate links.
+	if orgSeq.Len()-lastMatch > 0 {
+		orgSub := orgSeq.NewSubSequence(lastMatch, orgSeq.Len())
+		nextRefSeqId := addWithoutMatch(refdb, orgSeqId, orgSub)
+		cseq.Add(cablastp.NewLinkToReferenceNoDiff(
+			nextRefSeqId, 0, orgSub.Len()))
+	}
+
+	return cseq
 }
 
+// extendMatch uses a combination of ungapped and gapped extension to find
+// quality candidates for compression.
+//
+// More details to come soon.
 func extendMatch(refRes, orgRes []byte) (refMatchRes, orgMatchRes []byte) {
 	// Starting at seedLoc.resInd and current, refMatchLen and 
 	// orgMatchLen correspond to the length of the match each of
@@ -168,12 +198,17 @@ func extendMatch(refRes, orgRes []byte) (refMatchRes, orgMatchRes []byte) {
 	return refRes[:refMatchLen], orgRes[:orgMatchLen]
 }
 
-func bestMatch(matches []match) match {
-	bestMatch := matches[0]
-	for _, match := range matches[1:] {
-		if bestMatch.Less(match) {
-			bestMatch = match
-		}
-	}
-	return bestMatch
+// addWithoutMatch adds a portion of an original sequence that could not be
+// matched to anything in the reference database to the reference database.
+// A LinkToCompressed is created and automatically added to the new reference
+// sequence.
+//
+// The id of the new reference sequence added is returned.
+func addWithoutMatch(refdb *referenceDB, orgSeqId int,
+	orgSeq *cablastp.OriginalSeq) int {
+
+	refSeqId := len(refdb.seqs)
+	refSeq := refdb.add(orgSeq)
+	refSeq.AddLink(cablastp.NewLinkToCompressed(orgSeqId, 0, orgSeq.Len()))
+	return refSeqId
 }

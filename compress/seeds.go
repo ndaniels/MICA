@@ -1,6 +1,12 @@
 package main
 
-import "log"
+import (
+	"fmt"
+	"log"
+	"strings"
+
+	"github.com/BurntSushi/cablastp"
+)
 
 // alphaSize is the number of letters in the K-mer alphabet.
 const alphaSize = 20
@@ -72,7 +78,7 @@ func newSeeds() seeds {
 // the seeds table. Invalid K-mers are automatically skipped.
 func (ss seeds) add(refSeqIndex int, refSeq *cablastp.ReferenceSeq) {
 	for i := 0; i < refSeq.Len()-flagSeedSize; i++ {
-		kmer := refSeq.residues[i : i+flagSeedSize]
+		kmer := refSeq.Residues[i : i+flagSeedSize]
 		if !allUpperAlpha(kmer) {
 			continue
 		}
