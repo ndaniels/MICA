@@ -66,11 +66,13 @@ func main() {
 	// an OriginalSeq. This preps them for processing and conversion into
 	// CompressedSeq.
 	allseqs := make([][]*cablastp.OriginalSeq, flag.NArg()-3)
+	seqCnt := 0
 	for i, arg := range flag.Args()[3:] {
 		allseqs[i], err = cablastp.ReadOriginalSeqs(arg)
 		if err != nil {
 			log.Fatal(err)
 		}
+		seqCnt += len(allseqs[i])
 	}
 
 	// Initialize the reference and compressed databases. For each original
@@ -85,6 +87,9 @@ func main() {
 			comSeq := compress(refdb, orgSeqId, orgSeq)
 			comdb.Add(comSeq)
 			orgSeqId++
+			if orgSeqId % 50 == 0 {
+				fmt.Printf("%d/%d complete\n", orgSeqId, seqCnt)
+			}
 		}
 	}
 

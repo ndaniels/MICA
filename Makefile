@@ -24,3 +24,5 @@ push:
 	git push tufts master
 	git push github master
 
+par:
+	time GOMAXPROCS=8 ./compress/compress par-coarse.fasta par-coarse.links par-compressed.cbp data/medium.fasta

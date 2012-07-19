@@ -1,6 +1,8 @@
 package main
 
 import (
+	"runtime"
+
 	"github.com/BurntSushi/cablastp"
 )
 
@@ -20,6 +22,13 @@ func compress(refdb *referenceDB, orgSeqId int,
 	// with a reference sequence in the compressed database.
 	lastMatch, current := 0, 0
 
+	queries := make(chan seedQuery, 20)
+	matches := make(chan match, 20)
+	done := make(chan struct{}, 0)
+	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
+		go generateMatches(queries, matches)
+	}
+
 	// Iterate through the original sequence a 'kmer' at a time.
 	for current = 0; current < orgSeq.Len()-flagSeedSize; current++ {
 		kmer := orgSeq.Residues[current : current+flagSeedSize]
@@ -29,6 +38,17 @@ func compress(refdb *referenceDB, orgSeqId int,
 
 		seeds := refdb.seeds.lookup(kmer)
 		possibleMatches := make([]match, 0, len(seeds))
+
+		go func() {
+			for _ = range seeds {
+				match := <-matches
+
+				if match.refSeqId >= 0 {
+					possibleMatches = append(possibleMatches, match)
+				}
+			}
+			done <- struct{}{}
+		}()
 
 		// Each seed location corresponding to the current K-mer must be
 		// used to attempt to extend a match. If there is more than one
@@ -43,30 +63,17 @@ func compress(refdb *referenceDB, orgSeqId int,
 			// the end of the sequence for the reference sequence, and the 
 			// position of the "current" pointer and the end of the sequence
 			// for the original sequence.
-			refMatchRes, orgMatchRes := extendMatch(
-				refSeq.Residues[seedLoc.resInd:],
-				orgSeq.Residues[current:])
-
-			// Use an alignment of the matched subsequences to determine
-			// whether the match is worthy (i.e., the length is long enough).
-			// An alignment is also used to generate an edit script for a
-			// LinkToReference.
-			alignment := alignGapped(refMatchRes, orgMatchRes)
-
-			// The match is only good if the alignment length is greater
-			// than some user-specified length.
-			if alignment.Len() >= flagMinMatchLen {
-				possibleMatches = append(possibleMatches,
-					match{
-						refSeqId: refSeqId,
-						refSeq:   refSeq,
-						refStart: seedLoc.resInd,
-						refEnd:   seedLoc.resInd + len(refMatchRes),
-						orgStart: current,
-						orgEnd:   current + len(orgMatchRes),
-					})
+			queries <- seedQuery{
+				refSeqId: refSeqId,
+				seedLoc: seedLoc,
+				current: current,
+				refSeq: refSeq,
+				orgSeq: orgSeq,
 			}
 		}
+
+		<-done
+
 		if len(possibleMatches) > 0 {
 			match := bestMatch(possibleMatches)
 
@@ -111,6 +118,36 @@ func compress(refdb *referenceDB, orgSeqId int,
 	}
 
 	return cseq
+}
+
+type seedQuery struct {
+	refSeqId int
+	seedLoc seedLoc
+	current int
+	refSeq *cablastp.ReferenceSeq
+	orgSeq *cablastp.OriginalSeq
+}
+
+func generateMatches(queries chan seedQuery, matches chan match) {
+	for q := range queries {
+		refMatch, orgMatch := extendMatch(
+			q.refSeq.Residues[q.seedLoc.resInd:],
+			q.orgSeq.Residues[q.current:])
+
+		if len(orgMatch) >= flagMinMatchLen {
+			matches <- match{
+				refSeqId: q.refSeqId,
+				refSeq: q.refSeq,
+				refStart: q.seedLoc.resInd,
+				refEnd: q.seedLoc.resInd + len(refMatch),
+				orgStart: q.current,
+				orgEnd: q.current + len(orgMatch),
+				alignment: alignGapped(refMatch, orgMatch),
+			}
+		} else {
+			matches <- match{refSeqId: -1}
+		}
+	}
 }
 
 // extendMatch uses a combination of ungapped and gapped extension to find
