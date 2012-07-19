@@ -12,7 +12,6 @@ import (
 )
 
 var (
-	flagInitDbLen          = 1
 	flagMinMatchLen        = 25
 	flagMatchKmerSize      = 3
 	flagGappedWindowSize   = 25
@@ -27,9 +26,6 @@ var (
 func init() {
 	log.SetFlags(0)
 
-	flag.IntVar(&flagInitDbLen, "init-db-len", flagInitDbLen,
-		"The initial size of the 'unique database' in terms of the number "+
-			"of protein sequences added from the input database.")
 	flag.IntVar(&flagMinMatchLen, "min-match-len", flagMinMatchLen,
 		"The minimum size of a match.")
 	flag.IntVar(&flagMatchKmerSize, "match-kmer-size", flagMatchKmerSize,
