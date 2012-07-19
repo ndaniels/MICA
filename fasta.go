@@ -8,25 +8,22 @@ import (
 
 // ReadOriginalSeqs reads a FASTA formatted file and returns a slice of
 // original sequences.
-func ReadOriginalSeqs(fileName string) ([]*OriginalSeq, error) {
+func ReadOriginalSeqs(fileName string, f func(seq *OriginalSeq)) error {
 	reader, err := fasta.NewReaderName(fileName)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	sequences := make([]*OriginalSeq, 0)
 	for i := 0; true; i++ {
 		seq, err := reader.Read()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
-		sequences = append(sequences, NewBiogoOriginalSeq(i, seq))
+		f(NewBiogoOriginalSeq(i, seq))
 	}
-
-	return sequences, nil
+	return nil
 }
 
 // ReadReferenceSeqs reads a FASTA formatted file and returns a slice of

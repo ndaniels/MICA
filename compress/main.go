@@ -65,33 +65,39 @@ func main() {
 	// For each FASTA file, convert each sequence in each FASTA file to
 	// an OriginalSeq. This preps them for processing and conversion into
 	// CompressedSeq.
-	allseqs := make([][]*cablastp.OriginalSeq, flag.NArg()-3)
-	seqCnt := 0
-	for i, arg := range flag.Args()[3:] {
-		allseqs[i], err = cablastp.ReadOriginalSeqs(arg)
+	orgSeqId := 0
+	refdb := newReferenceDB()
+	comdb := cablastp.NewCompressedDB()
+	for _, arg := range flag.Args()[3:] {
+		err = cablastp.ReadOriginalSeqs(arg,
+			func(orgSeq *cablastp.OriginalSeq) {
+				comSeq := compress(refdb, orgSeqId, orgSeq)
+				comdb.Add(comSeq)
+				orgSeqId++
+				if orgSeqId % 100 == 0 {
+					fmt.Printf("%d complete\n", orgSeqId)
+				}
+			})
 		if err != nil {
 			log.Fatal(err)
 		}
-		seqCnt += len(allseqs[i])
 	}
 
 	// Initialize the reference and compressed databases. For each original
 	// sequence, convert it to a compressed sequence and add it to the
 	// compressed database. (The process of compressing an original sequence
 	// will add to the reference database if applicable.)
-	refdb := newReferenceDB()
-	comdb := cablastp.NewCompressedDB()
-	orgSeqId := 0
-	for _, fastaSeqs := range allseqs {
-		for _, orgSeq := range fastaSeqs {
-			comSeq := compress(refdb, orgSeqId, orgSeq)
-			comdb.Add(comSeq)
-			orgSeqId++
-			if orgSeqId % 50 == 0 {
-				fmt.Printf("%d/%d complete\n", orgSeqId, seqCnt)
-			}
-		}
-	}
+	// orgSeqId := 0 
+	// for _, fastaSeqs := range allseqs { 
+		// for _, orgSeq := range fastaSeqs { 
+			// comSeq := compress(refdb, orgSeqId, orgSeq) 
+			// comdb.Add(comSeq) 
+			// orgSeqId++ 
+			// if orgSeqId % 100 == 0 { 
+				// fmt.Printf("%d complete\n", orgSeqId) 
+			// } 
+		// } 
+	// } 
 
 	if err := refdb.savePlain(flag.Arg(0), flag.Arg(1)); err != nil {
 		fatalf("Could not save coarse database: %s\n", err)
