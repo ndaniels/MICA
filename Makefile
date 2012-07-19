@@ -24,8 +24,3 @@ push:
 	git push tufts master
 	git push github master
 
-pushr:
-	git push origin refactor
-	git push tufts refactor
-	git push github refactor
-
