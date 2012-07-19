@@ -53,8 +53,7 @@ func init() {
 func main() {
 	var err error
 
-	if flag.NArg() < 1 {
-		log.Print("At least one protein fasta file must be specified.\n\n")
+	if flag.NArg() < 3 {
 		flag.Usage()
 	}
 
@@ -70,8 +69,8 @@ func main() {
 	// For each FASTA file, convert each sequence in each FASTA file to
 	// an OriginalSeq. This preps them for processing and conversion into
 	// CompressedSeq.
-	allseqs := make([][]*cablastp.OriginalSeq, flag.NArg())
-	for i, arg := range flag.Args() {
+	allseqs := make([][]*cablastp.OriginalSeq, flag.NArg()-3)
+	for i, arg := range flag.Args()[3:] {
 		allseqs[i], err = cablastp.ReadOriginalSeqs(arg)
 		if err != nil {
 			log.Fatal(err)
@@ -82,15 +81,23 @@ func main() {
 	// sequence, convert it to a compressed sequence and add it to the
 	// compressed database. (The process of compressing an original sequence
 	// will add to the reference database if applicable.)
-	refdb := newReferenceDB(allseqs[0][0:1])
+	refdb := newReferenceDB()
 	comdb := cablastp.NewCompressedDB()
-	for _, orgSeq := range allseqs[0][1:] {
-		comSeq := compress(refdb, comdb.Len(), orgSeq)
-		comdb.Add(comSeq)
+	orgSeqId := 0
+	for _, fastaSeqs := range allseqs {
+		for _, orgSeq := range fastaSeqs {
+			comSeq := compress(refdb, orgSeqId, orgSeq)
+			comdb.Add(comSeq)
+			orgSeqId++
+		}
 	}
 
-	fmt.Println("######################################################")
-	fmt.Printf("%s\n", refdb)
+	if err := refdb.savePlain(flag.Arg(0), flag.Arg(1)); err != nil {
+		fatalf("Could not save coarse database: %s\n", err)
+	}
+	if err := comdb.SavePlain(flag.Arg(2)); err != nil {
+		fatalf("Could not save compressed database: %s\n", err)
+	}
 
 	if len(flagMemProfile) > 0 {
 		f, err := os.Create(flagMemProfile)
@@ -118,7 +125,10 @@ func init() {
 
 func usage() {
 	fmt.Fprintf(os.Stderr,
-		"Usage: %s [flags] fasta-file [fasta-file ...]\n",
+		"Usage: %s [flags] "+
+			"output-coarse-fasta-name "+
+			"output-compressed-links "+
+			"fasta-file [fasta-file ...]\n",
 		path.Base(os.Args[0]))
 	flag.PrintDefaults()
 	os.Exit(1)

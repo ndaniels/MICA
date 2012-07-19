@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/BurntSushi/cablastp"
 )
 
@@ -58,16 +56,6 @@ func compress(refdb *referenceDB, orgSeqId int,
 			// The match is only good if the alignment length is greater
 			// than some user-specified length.
 			if alignment.Len() >= flagMinMatchLen {
-				fmt.Println("seed to (seed + refMatchLen)",
-					seedLoc.resInd, seedLoc.resInd+len(refMatchRes))
-				fmt.Println("current to (current + orgMatchLen)",
-					current, current+len(orgMatchRes))
-				fmt.Println("identity",
-					cablastp.SeqIdentity(alignment[0].Seq, alignment[1].Seq))
-				fmt.Println("seed", string(kmer))
-				fmt.Println(alignment)
-				fmt.Println("--------------------------------------------")
-
 				possibleMatches = append(possibleMatches,
 					match{
 						refSeqId: refSeqId,

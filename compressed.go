@@ -1,5 +1,11 @@
 package cablastp
 
+import (
+	"bufio"
+	"fmt"
+	"os"
+)
+
 type CompressedDB struct {
 	Seqs []*CompressedSeq
 }
@@ -16,6 +22,44 @@ func (comdb *CompressedDB) Add(comSeq *CompressedSeq) {
 
 func (comdb *CompressedDB) Len() int {
 	return len(comdb.Seqs)
+}
+
+// Save will save the compressed database as a binary encoding of all
+// compressed sequences. (A compressed sequence is simply an ordered list of
+// links into the reference database.)
+func (comdb *CompressedDB) Save(name string) error {
+	return nil
+}
+
+// SavePlain will save the compressed database as a plain text encoding of all
+// compressed sequences. (A compressed sequence is simply an ordered list of
+// links into the reference database.)
+func (comdb *CompressedDB) SavePlain(name string) error {
+	f, err := os.Create(name)
+	if err != nil {
+		return err
+	}
+
+	bufWriter := bufio.NewWriter(f)
+	for i, seq := range comdb.Seqs {
+		_, err = fmt.Fprintf(bufWriter, "> %d; %s\n", i, seq.Name)
+		if err != nil {
+			return err
+		}
+		for _, link := range seq.Links {
+			_, err := fmt.Fprintf(bufWriter, "%s\n", link)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if err := bufWriter.Flush(); err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // CompressedSeq corresponds to the components of a compressed sequence.
