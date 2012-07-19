@@ -9,7 +9,7 @@ import (
 )
 
 // alphaSize is the number of letters in the K-mer alphabet.
-const alphaSize = 21
+const alphaSize = 26
 
 // alphaNums is a map to assign *valid* amino acid resiudes contiunous values
 // so that base-20 arithmetic can be performed on them.
