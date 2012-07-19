@@ -64,11 +64,7 @@ func compress(refdb *referenceDB, orgSeqId int,
 					current, current+len(orgMatchRes))
 				fmt.Println("identity",
 					cablastp.SeqIdentity(alignment[0].Seq, alignment[1].Seq))
-				fmt.Println("> ", refSeq.Name)
-				fmt.Println(string(refMatchRes))
-				fmt.Println("> ", orgSeq.Name)
-				fmt.Println(string(orgMatchRes))
-				fmt.Println("")
+				fmt.Println("seed", string(kmer))
 				fmt.Println(alignment)
 				fmt.Println("--------------------------------------------")
 

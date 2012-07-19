@@ -128,7 +128,7 @@ func (ss seeds) String() string {
 func aminoValue(letter byte) int {
 	val := alphaNums[letter-'A']
 	if val == -1 {
-		log.Panicf("Invalid amino acid letter: %s", letter)
+		log.Panicf("Invalid amino acid letter: %c", letter)
 	}
 	return val
 }

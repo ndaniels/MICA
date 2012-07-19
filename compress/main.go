@@ -89,6 +89,7 @@ func main() {
 		comdb.Add(comSeq)
 	}
 
+	fmt.Println("######################################################")
 	fmt.Printf("%s\n", refdb)
 
 	if len(flagMemProfile) > 0 {
