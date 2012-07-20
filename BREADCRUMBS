@@ -1,0 +1,35 @@
+Parallelism
+===========
+Concurrency at the level of processing seed locations doesn't scale well for
+parallelism. It's executed so much that the overhead of context switches makes 
+it ineffective.
+
+Instead, try for parallelism at the "compress a sequence" level. This is 
+slightly complicated by the fact that compressing a sequence requires changes 
+to the reference database. Therefore, we must encapsulate all read/write 
+operations of the reference database behind channel sends/receives.
+
+GOB
+===
+Coarse links and CompressedDB need to be written as GOB data. They also need
+corresponding readers to read the data back in.
+
+The seeds data also needs to be GOB'd, as it allows for compressed databases to 
+be added to without re-compressing everything.
+
+Memory usage
+============
+Memory usage is not good. One possible way to relieve the memory requirements 
+is to stream the compressed sequence data out as we generate it. 
+A compressed sequence is a name and a list of links, where 
+each link comprises three integers and a string of the edit script. Thus, each 
+compressed sequence is a few hundred (or thousand, depending upon the length of 
+the name) bytes in size. If there are 18,000,000 sequences in NR and each 
+sequences corresponds to about 300 bytes in size, then we're looking at ~5GB
+of memory. (Protip: Use another goroutine to receive writes to the disk so we
+don't hold up the main goroutine.)
+
+I think our only other recourse will be to store the reference database or 
+seeds on disk during compression. This may cause compression to take too long, 
+though.
+
