@@ -74,7 +74,7 @@ func main() {
 				comSeq := compress(refdb, orgSeqId, orgSeq)
 				comdb.Add(comSeq)
 				orgSeqId++
-				if orgSeqId % 100 == 0 {
+				if orgSeqId%100 == 0 {
 					fmt.Printf("%d complete\n", orgSeqId)
 				}
 			})
@@ -89,14 +89,14 @@ func main() {
 	// will add to the reference database if applicable.)
 	// orgSeqId := 0 
 	// for _, fastaSeqs := range allseqs { 
-		// for _, orgSeq := range fastaSeqs { 
-			// comSeq := compress(refdb, orgSeqId, orgSeq) 
-			// comdb.Add(comSeq) 
-			// orgSeqId++ 
-			// if orgSeqId % 100 == 0 { 
-				// fmt.Printf("%d complete\n", orgSeqId) 
-			// } 
-		// } 
+	// for _, orgSeq := range fastaSeqs { 
+	// comSeq := compress(refdb, orgSeqId, orgSeq) 
+	// comdb.Add(comSeq) 
+	// orgSeqId++ 
+	// if orgSeqId % 100 == 0 { 
+	// fmt.Printf("%d complete\n", orgSeqId) 
+	// } 
+	// } 
 	// } 
 
 	if err := refdb.savePlain(flag.Arg(0), flag.Arg(1)); err != nil {

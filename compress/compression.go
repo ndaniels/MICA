@@ -65,10 +65,10 @@ func compress(refdb *referenceDB, orgSeqId int,
 			// for the original sequence.
 			queries <- seedQuery{
 				refSeqId: refSeqId,
-				seedLoc: seedLoc,
-				current: current,
-				refSeq: refSeq,
-				orgSeq: orgSeq,
+				seedLoc:  seedLoc,
+				current:  current,
+				refSeq:   refSeq,
+				orgSeq:   orgSeq,
 			}
 		}
 
@@ -122,10 +122,10 @@ func compress(refdb *referenceDB, orgSeqId int,
 
 type seedQuery struct {
 	refSeqId int
-	seedLoc seedLoc
-	current int
-	refSeq *cablastp.ReferenceSeq
-	orgSeq *cablastp.OriginalSeq
+	seedLoc  seedLoc
+	current  int
+	refSeq   *cablastp.ReferenceSeq
+	orgSeq   *cablastp.OriginalSeq
 }
 
 func generateMatches(queries chan seedQuery, matches chan match) {
@@ -136,12 +136,12 @@ func generateMatches(queries chan seedQuery, matches chan match) {
 
 		if len(orgMatch) >= flagMinMatchLen {
 			matches <- match{
-				refSeqId: q.refSeqId,
-				refSeq: q.refSeq,
-				refStart: q.seedLoc.resInd,
-				refEnd: q.seedLoc.resInd + len(refMatch),
-				orgStart: q.current,
-				orgEnd: q.current + len(orgMatch),
+				refSeqId:  q.refSeqId,
+				refSeq:    q.refSeq,
+				refStart:  q.seedLoc.resInd,
+				refEnd:    q.seedLoc.resInd + len(refMatch),
+				orgStart:  q.current,
+				orgEnd:    q.current + len(orgMatch),
 				alignment: alignGapped(refMatch, orgMatch),
 			}
 		} else {

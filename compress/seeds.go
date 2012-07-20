@@ -16,7 +16,7 @@ const alphaSize = 26
 // Invalid amino acid resiudes map to -1 and will produce a panic.
 var alphaNums = []int{
 	0,  // 'A'
-	1, // 'B'
+	1,  // 'B'
 	2,  // 'C'
 	3,  // 'D'
 	4,  // 'E'
@@ -24,9 +24,9 @@ var alphaNums = []int{
 	6,  // 'G'
 	7,  // 'H'
 	8,  // 'I'
-	9, // 'J'
-	10,  // 'K'
-	11,  // 'L'
+	9,  // 'J'
+	10, // 'K'
+	11, // 'L'
 	12, // 'M'
 	13, // 'N'
 	14, // 'O'
