@@ -6,12 +6,14 @@ import (
 	"log"
 	"os"
 	"path"
+	"runtime"
 	"runtime/pprof"
 
 	"github.com/BurntSushi/cablastp"
 )
 
 var (
+	flagGoMaxProcs         = runtime.NumCPU()
 	flagMinMatchLen        = 25
 	flagMatchKmerSize      = 3
 	flagGappedWindowSize   = 25
@@ -26,6 +28,8 @@ var (
 func init() {
 	log.SetFlags(0)
 
+	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
+		"The maximum number of CPUs that can be executing simultaneously.")
 	flag.IntVar(&flagMinMatchLen, "min-match-len", flagMinMatchLen,
 		"The minimum size of a match.")
 	flag.IntVar(&flagMatchKmerSize, "match-kmer-size", flagMatchKmerSize,
@@ -47,8 +51,6 @@ func init() {
 }
 
 func main() {
-	var err error
-
 	if flag.NArg() < 3 {
 		flag.Usage()
 	}
@@ -62,42 +64,34 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	// For each FASTA file, convert each sequence in each FASTA file to
-	// an OriginalSeq. This preps them for processing and conversion into
-	// CompressedSeq.
+	queries := make(chan seedQuery, 200)
+	matches := make(chan match, 200)
+	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
+		go generateMatches(queries, matches)
+	}
+
 	orgSeqId := 0
 	refdb := newReferenceDB()
 	comdb := cablastp.NewCompressedDB()
 	for _, arg := range flag.Args()[3:] {
-		err = cablastp.ReadOriginalSeqs(arg,
-			func(orgSeq *cablastp.OriginalSeq) {
-				comSeq := compress(refdb, orgSeqId, orgSeq)
-				comdb.Add(comSeq)
-				orgSeqId++
-				if orgSeqId%100 == 0 {
-					fmt.Printf("%d complete\n", orgSeqId)
-				}
-			})
+		seqChan, err := cablastp.ReadOriginalSeqs(arg)
 		if err != nil {
 			log.Fatal(err)
 		}
-	}
+		for readSeq := range seqChan {
+			if readSeq.Err != nil {
+				log.Fatal(err)
+			}
 
-	// Initialize the reference and compressed databases. For each original
-	// sequence, convert it to a compressed sequence and add it to the
-	// compressed database. (The process of compressing an original sequence
-	// will add to the reference database if applicable.)
-	// orgSeqId := 0 
-	// for _, fastaSeqs := range allseqs { 
-	// for _, orgSeq := range fastaSeqs { 
-	// comSeq := compress(refdb, orgSeqId, orgSeq) 
-	// comdb.Add(comSeq) 
-	// orgSeqId++ 
-	// if orgSeqId % 100 == 0 { 
-	// fmt.Printf("%d complete\n", orgSeqId) 
-	// } 
-	// } 
-	// } 
+			comSeq := compress(refdb, orgSeqId, readSeq.Seq, queries, matches)
+			comdb.Add(comSeq)
+			orgSeqId++
+
+			if orgSeqId%100 == 0 {
+				fmt.Printf("\r%d sequences compressed", orgSeqId)
+			}
+		}
+	}
 
 	if err := refdb.savePlain(flag.Arg(0), flag.Arg(1)); err != nil {
 		fatalf("Could not save coarse database: %s\n", err)
@@ -114,6 +108,9 @@ func main() {
 		pprof.WriteHeapProfile(f)
 		f.Close()
 	}
+
+	fmt.Print("\r")
+	fmt.Println("")
 }
 
 func errorf(format string, v ...interface{}) {
@@ -128,6 +125,8 @@ func fatalf(format string, v ...interface{}) {
 func init() {
 	flag.Usage = usage
 	flag.Parse()
+
+	runtime.GOMAXPROCS(flagGoMaxProcs)
 }
 
 func usage() {
@@ -135,6 +134,7 @@ func usage() {
 		"Usage: %s [flags] "+
 			"output-coarse-fasta-name "+
 			"output-compressed-links "+
+			"output-compressed-sequences "+
 			"fasta-file [fasta-file ...]\n",
 		path.Base(os.Args[0]))
 	flag.PrintDefaults()

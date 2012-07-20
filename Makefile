@@ -1,7 +1,7 @@
 all: gofmt blosum/blosum.go install
 
 install:
-	go install -p 6 .
+	go install -p 6 . ./compress
 
 blosum/blosum.go:
 	scripts/mkBlosum | gofmt > blosum/blosum.go

@@ -1,18 +1,12 @@
 package main
 
 import (
-	"runtime"
-
 	"github.com/BurntSushi/cablastp"
 )
 
-// An original sequence may result in a combination of the following things:
-// 1) Multiple additions to the reference database (multiple reference
-// sequences).
-// 2) The seeds table updated with any additions to the reference database.
-// 3) Multiple LinkToCompressed added to reference sequence link lists.
 func compress(refdb *referenceDB, orgSeqId int,
-	orgSeq *cablastp.OriginalSeq) *cablastp.CompressedSeq {
+	orgSeq *cablastp.OriginalSeq,
+	queries chan seedQuery, matches chan match) *cablastp.CompressedSeq {
 
 	cseq := cablastp.NewCompressedSeq(orgSeq.Name)
 
@@ -22,12 +16,7 @@ func compress(refdb *referenceDB, orgSeqId int,
 	// with a reference sequence in the compressed database.
 	lastMatch, current := 0, 0
 
-	queries := make(chan seedQuery, 20)
-	matches := make(chan match, 20)
 	done := make(chan struct{}, 0)
-	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
-		go generateMatches(queries, matches)
-	}
 
 	// Iterate through the original sequence a 'kmer' at a time.
 	for current = 0; current < orgSeq.Len()-flagSeedSize; current++ {
