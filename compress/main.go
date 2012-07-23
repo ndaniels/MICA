@@ -15,6 +15,8 @@ import (
 	"github.com/BurntSushi/cablastp"
 )
 
+var ignoredResidues = []byte{'J', 'O', 'U'}
+
 var (
 	flagGoMaxProcs         = runtime.NumCPU()
 	flagMinMatchLen        = 25
@@ -92,7 +94,7 @@ func main() {
 
 	start := time.Now()
 	for _, arg := range flag.Args()[1:] {
-		seqChan, err := cablastp.ReadOriginalSeqs(arg)
+		seqChan, err := cablastp.ReadOriginalSeqs(arg, ignoredResidues)
 		if err != nil {
 			log.Fatal(err)
 		}

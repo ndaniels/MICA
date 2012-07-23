@@ -16,8 +16,6 @@ import (
 	"code.google.com/p/biogo/util"
 )
 
-const initPoolSize = 15
-
 var (
 	nwLookUpP util.CTL
 	aligner   = &nw.Aligner{

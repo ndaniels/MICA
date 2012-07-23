@@ -13,7 +13,9 @@ type ReadOriginalSeq struct {
 
 // ReadOriginalSeqs reads a FASTA formatted file and returns a slice of
 // original sequences.
-func ReadOriginalSeqs(fileName string) (chan ReadOriginalSeq, error) {
+func ReadOriginalSeqs(fileName string,
+	ignore []byte) (chan ReadOriginalSeq, error) {
+
 	reader, err := fasta.NewReaderName(fileName)
 	if err != nil {
 		return nil, err
@@ -33,6 +35,14 @@ func ReadOriginalSeqs(fileName string) (chan ReadOriginalSeq, error) {
 				}
 				close(seqChan)
 				break
+			}
+			for i, residue := range seq.Seq {
+				for _, toignore := range ignore {
+					if toignore == residue {
+						seq.Seq[i] = 'X'
+						break
+					}
+				}
 			}
 			seqChan <- ReadOriginalSeq{
 				Seq: NewBiogoOriginalSeq(i, seq),
