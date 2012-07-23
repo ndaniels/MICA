@@ -5,8 +5,6 @@ import (
 	"log"
 	"strconv"
 	"strings"
-
-	"code.google.com/p/biogo/seq"
 )
 
 const (
@@ -19,8 +17,8 @@ type EditScript struct {
 	Mods []*Mod
 }
 
-func NewEditScript(alignment seq.Alignment) *EditScript {
-	return newEditScript(alignment[0].Seq, alignment[1].Seq)
+func NewEditScript(alignment [2][]byte) *EditScript {
+	return newEditScript(alignment[0], alignment[1])
 }
 
 func NewEditScriptParse(editScript string) (*EditScript, error) {

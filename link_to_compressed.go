@@ -11,15 +11,15 @@ type LinkToCompressed struct {
 	RefStart, RefEnd int
 }
 
-func NewLinkToCompressed(orgSeqId, refStart, refEnd int) *LinkToCompressed {
-	return &LinkToCompressed{
+func NewLinkToCompressed(orgSeqId, refStart, refEnd int) LinkToCompressed {
+	return LinkToCompressed{
 		OrgSeqId: orgSeqId,
 		RefStart: refStart,
 		RefEnd:   refEnd,
 	}
 }
 
-func (lk *LinkToCompressed) String() string {
+func (lk LinkToCompressed) String() string {
 	return fmt.Sprintf("original sequence id: %d, reference range: (%d, %d)",
 		lk.OrgSeqId, lk.RefStart, lk.RefEnd)
 }

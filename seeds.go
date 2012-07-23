@@ -62,8 +62,8 @@ func (loc SeedLoc) String() string {
 }
 
 type Seeds struct {
-	// Locs     [][]SeedLoc 
-	Locs     map[string][]SeedLoc
+	Locs [][]SeedLoc
+	// Locs     map[string][]SeedLoc 
 	SeedSize int
 	lock     *sync.RWMutex
 }
@@ -75,8 +75,8 @@ type Seeds struct {
 // each K-mer.
 func NewSeeds(seedSize int) *Seeds {
 	return &Seeds{
-		// Locs:     make([][]SeedLoc, pow(SeedAlphaSize, seedSize)), 
-		Locs:     make(map[string][]SeedLoc, 100),
+		Locs: make([][]SeedLoc, pow(SeedAlphaSize, seedSize)),
+		// Locs:     make(map[string][]SeedLoc, 100), 
 		SeedSize: seedSize,
 		lock:     &sync.RWMutex{},
 	}
@@ -99,28 +99,28 @@ func (ss *Seeds) Add(refSeqIndex int, refSeq *ReferenceSeq) {
 			continue
 		}
 
-		// kmerIndex := hashKmer(kmer) 
-		kmerKey := string(kmer)
+		kmerIndex := hashKmer(kmer)
+		// kmerKey := string(kmer) 
 		loc := NewSeedLoc(refSeqIndex, i)
 
-		ss.lock.Lock()
-		if _, ok := ss.Locs[kmerKey]; !ok {
-			ss.Locs[kmerKey] = make([]SeedLoc, 1)
-			ss.Locs[kmerKey][0] = loc
-		} else {
-			ss.Locs[kmerKey] = append(ss.Locs[kmerKey], loc)
-		}
-		ss.lock.Unlock()
-
-		// If no memory has been allocated for this kmer, then do so now.
 		// ss.lock.Lock() 
-		// if ss.Locs[kmerIndex] == nil { 
-		// ss.Locs[kmerIndex] = make([]SeedLoc, 1) 
-		// ss.Locs[kmerIndex][0] = loc 
+		// if _, ok := ss.Locs[kmerKey]; !ok { 
+		// ss.Locs[kmerKey] = make([]SeedLoc, 1) 
+		// ss.Locs[kmerKey][0] = loc 
 		// } else { 
-		// ss.Locs[kmerIndex] = append(ss.Locs[kmerIndex], loc) 
+		// ss.Locs[kmerKey] = append(ss.Locs[kmerKey], loc) 
 		// } 
 		// ss.lock.Unlock() 
+
+		// If no memory has been allocated for this kmer, then do so now.
+		ss.lock.Lock()
+		if ss.Locs[kmerIndex] == nil {
+			ss.Locs[kmerIndex] = make([]SeedLoc, 1)
+			ss.Locs[kmerIndex][0] = loc
+		} else {
+			ss.Locs[kmerIndex] = append(ss.Locs[kmerIndex], loc)
+		}
+		ss.lock.Unlock()
 	}
 }
 
@@ -130,8 +130,8 @@ func (ss *Seeds) Lookup(kmer []byte) []SeedLoc {
 	ss.lock.RLock()
 	defer ss.lock.RUnlock()
 
-	// seeds := ss.Locs[hashKmer(kmer)] 
-	seeds := ss.Locs[string(kmer)]
+	seeds := ss.Locs[hashKmer(kmer)]
+	// seeds := ss.Locs[string(kmer)] 
 	cpy := make([]SeedLoc, len(seeds))
 	copy(cpy, seeds)
 	return cpy

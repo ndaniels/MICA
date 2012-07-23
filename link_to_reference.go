@@ -2,8 +2,6 @@ package cablastp
 
 import (
 	"fmt"
-
-	"code.google.com/p/biogo/seq"
 )
 
 // LinkToReference represents a component of a compressed original sequence
@@ -21,9 +19,9 @@ type LinkToReference struct {
 }
 
 func NewLinkToReference(refSeqId, refStart, refEnd int,
-	alignment seq.Alignment) *LinkToReference {
+	alignment [2][]byte) LinkToReference {
 
-	return &LinkToReference{
+	return LinkToReference{
 		Diff:     NewEditScript(alignment).String(),
 		RefSeqId: refSeqId,
 		RefStart: refStart,
@@ -31,8 +29,8 @@ func NewLinkToReference(refSeqId, refStart, refEnd int,
 	}
 }
 
-func NewLinkToReferenceNoDiff(refSeqId, refStart, refEnd int) *LinkToReference {
-	return &LinkToReference{
+func NewLinkToReferenceNoDiff(refSeqId, refStart, refEnd int) LinkToReference {
+	return LinkToReference{
 		Diff:     "",
 		RefSeqId: refSeqId,
 		RefStart: refStart,
@@ -40,7 +38,7 @@ func NewLinkToReferenceNoDiff(refSeqId, refStart, refEnd int) *LinkToReference {
 	}
 }
 
-func (lk *LinkToReference) String() string {
+func (lk LinkToReference) String() string {
 	return fmt.Sprintf(
 		"reference sequence id: %d, reference range: (%d, %d)\n%s",
 		lk.RefSeqId, lk.RefStart, lk.RefEnd, lk.Diff)

@@ -22,7 +22,7 @@ func compressWorker(DB *cablastp.DB, jobs chan compressJob,
 }
 
 func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
-	orgSeq *cablastp.OriginalSeq) *cablastp.CompressedSeq {
+	orgSeq *cablastp.OriginalSeq) cablastp.CompressedSeq {
 
 	cseq := cablastp.NewCompressedSeq(orgSeqId, orgSeq.Name)
 	seedSize := coarsedb.Seeds.SeedSize
@@ -70,7 +70,7 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 			refEnd := refStart + len(refMatch)
 			orgStart := current
 			orgEnd := orgStart + len(orgMatch)
-			alignment := alignGapped(refMatch, orgMatch)
+			alignment := nwAlign(refMatch, orgMatch)
 
 			// If there are residues between the end of the last match
 			// and the start of this match, then that means no good match
@@ -161,15 +161,14 @@ func extendMatch(refRes, orgRes []byte) (refMatchRes, orgMatchRes []byte) {
 		// ended plus the gapped window size. (It is bounded by the
 		// length of each sequence.)
 		winSize := flagGappedWindowSize
-		alignment := alignGapped(
+		alignment := nwAlign(
 			refRes[refMatchLen:min(len(refRes), refMatchLen+winSize)],
 			orgRes[orgMatchLen:min(len(orgRes), orgMatchLen+winSize)])
-
 		// If the alignment has a sequence identity below the
 		// threshold, then gapped extension has failed. We therefore
 		// quit and are forced to be satisfied with whatever
 		// refMatchLen and orgMatchLen are set to.
-		id := cablastp.SeqIdentity(alignment[0].Seq, alignment[1].Seq)
+		id := cablastp.SeqIdentity(alignment[0], alignment[1])
 		if id < flagSeqIdThreshold {
 			break
 		}
@@ -181,8 +180,8 @@ func extendMatch(refRes, orgRes []byte) (refMatchRes, orgMatchRes []byte) {
 		// of the reference and original sequence. Therefore, only
 		// increase each by the corresponding sizes from the
 		// alignment.
-		refMatchLen += alignLen(alignment[0].Seq)
-		orgMatchLen += alignLen(alignment[1].Seq)
+		refMatchLen += alignLen(alignment[0])
+		orgMatchLen += alignLen(alignment[1])
 	}
 
 	return refRes[:refMatchLen], orgRes[:orgMatchLen]

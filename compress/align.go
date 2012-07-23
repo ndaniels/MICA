@@ -1,40 +1,8 @@
 package main
 
 import (
-	"log"
-
 	"github.com/BurntSushi/cablastp"
-	"github.com/BurntSushi/cablastp/blosum"
-
-	"code.google.com/p/biogo/align/nw"
-	"code.google.com/p/biogo/seq"
-	"code.google.com/p/biogo/util"
 )
-
-var lookUpP util.CTL
-
-func init() {
-	m := make(map[int]int)
-	for i, v := range blosum.Alphabet62 {
-		m[int(v)] = i
-	}
-	lookUpP = *util.NewCTL(m)
-}
-
-// alignGapped takes two byte slices and runs Needleman-Wunsch on them to
-// form an alignment.
-func alignGapped(rseq []byte, oseq []byte) seq.Alignment {
-	aligner := &nw.Aligner{
-		Matrix:  blosum.Matrix62,
-		LookUp:  lookUpP,
-		GapChar: '-',
-	}
-	alignment, err := aligner.Align(&seq.Seq{Seq: rseq}, &seq.Seq{Seq: oseq})
-	if err != nil {
-		log.Panic(err)
-	}
-	return alignment
-}
 
 // alignLen computes the length of a sequence in an alignment.
 // (i.e., the number of residues that aren't "-".)

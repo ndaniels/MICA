@@ -7,19 +7,19 @@ import (
 )
 
 type CompressedDB struct {
-	Seqs       []*CompressedSeq
+	Seqs       []CompressedSeq
 	File       *os.File
 	Index      *os.File
-	writerChan chan *CompressedSeq
+	writerChan chan CompressedSeq
 	writerDone chan struct{}
 }
 
 func NewCompressedDB(file *os.File, index *os.File, plain bool) *CompressedDB {
 	cdb := &CompressedDB{
-		Seqs:       make([]*CompressedSeq, 0, 100),
+		Seqs:       make([]CompressedSeq, 0, 100),
 		File:       file,
 		Index:      index,
-		writerChan: make(chan *CompressedSeq, 200),
+		writerChan: make(chan CompressedSeq, 200),
 		writerDone: make(chan struct{}, 0),
 	}
 
@@ -41,7 +41,7 @@ func (comdb *CompressedDB) Close() {
 	comdb.Index.Close()
 }
 
-func (comdb *CompressedDB) Add(comSeq *CompressedSeq) {
+func (comdb *CompressedDB) Add(comSeq CompressedSeq) {
 	comdb.Seqs = append(comdb.Seqs, comSeq)
 }
 
@@ -72,7 +72,7 @@ func (comdb *CompressedDB) writerBinary() {
 	comdb.File.Close()
 }
 
-func (comdb *CompressedDB) Write(cseq *CompressedSeq) {
+func (comdb *CompressedDB) Write(cseq CompressedSeq) {
 	comdb.writerChan <- cseq
 }
 
@@ -124,20 +124,20 @@ type CompressedSeq struct {
 	// Links is an ordered lists of links to portions of the reference
 	// database. When all links are followed, the concatenation of each
 	// sequence correspond to each link equals the entire original sequence.
-	Links []*LinkToReference
+	Links []LinkToReference
 }
 
 // NewCompressedSeq creates a CompressedSeq value using the name provided.
 // The Link slice is initialized but empty.
-func NewCompressedSeq(id int, name string) *CompressedSeq {
-	return &CompressedSeq{
+func NewCompressedSeq(id int, name string) CompressedSeq {
+	return CompressedSeq{
 		Id:    id,
 		Name:  name,
-		Links: make([]*LinkToReference, 0, 15),
+		Links: make([]LinkToReference, 0, 2),
 	}
 }
 
 // Add will add a LinkToReference to the end of the CompressedSeq's Links list.
-func (cseq *CompressedSeq) Add(link *LinkToReference) {
+func (cseq *CompressedSeq) Add(link LinkToReference) {
 	cseq.Links = append(cseq.Links, link)
 }

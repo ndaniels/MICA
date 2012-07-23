@@ -74,7 +74,7 @@ func main() {
 		pprof.StopCPUProfile()
 		os.Exit(0)
 	}()
-	signal.Notify(sigChan, os.Interrupt)
+	signal.Notify(sigChan, os.Interrupt, os.Kill)
 
 	orgSeqId := 0
 	DB, err := cablastp.NewDB(flag.Arg(0), flagSeedSize, false, true)
@@ -85,7 +85,7 @@ func main() {
 	// Create the compression workers.
 	wg := &sync.WaitGroup{}
 	jobs := make(chan compressJob, 200)
-	for i := 0; i < max(1, runtime.GOMAXPROCS(0)-3); i++ {
+	for i := 0; i < max(1, runtime.GOMAXPROCS(0)-1); i++ {
 		wg.Add(1)
 		go compressWorker(DB, jobs, wg)
 	}
@@ -115,9 +115,9 @@ func main() {
 				kmersPerSec := float64(kmers) / float64(secElapsed)
 				locsPerSec := float64(locs) / float64(secElapsed)
 
-				fmt.Printf("\r%d sequences compressed (%0.4f seqs/sec) "+
+				fmt.Printf("%d sequences compressed (%0.4f seqs/sec) "+
 					":: %d kmers with %d total locations "+
-					"(%0.4f kmers/sec, %0.4f locs/sec)",
+					"(%0.4f kmers/sec, %0.4f locs/sec)\n",
 					orgSeqId, seqsPerSec, kmers, locs, kmersPerSec, locsPerSec)
 
 				if len(flagMemProfile) > 0 {
@@ -141,7 +141,7 @@ func main() {
 
 	DB.Close()
 
-	fmt.Println("\r")
+	fmt.Println("")
 }
 
 func errorf(format string, v ...interface{}) {
