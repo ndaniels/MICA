@@ -7,13 +7,25 @@ import (
 )
 
 type CompressedDB struct {
-	Seqs []*CompressedSeq
+	Seqs       []*CompressedSeq
+	File       *os.File
+	writerChan chan *CompressedSeq
 }
 
-func NewCompressedDB() *CompressedDB {
-	return &CompressedDB{
-		Seqs: make([]*CompressedSeq, 0, 100),
+func NewCompressedDB(file *os.File, plain bool) *CompressedDB {
+	cdb := &CompressedDB{
+		Seqs:       make([]*CompressedSeq, 0, 100),
+		File:       file,
+		writerChan: make(chan *CompressedSeq, 50),
 	}
+
+	if plain {
+		go cdb.writerPlain()
+	} else {
+		go cdb.writerBinary()
+	}
+
+	return cdb
 }
 
 func (comdb *CompressedDB) Add(comSeq *CompressedSeq) {
@@ -22,6 +34,30 @@ func (comdb *CompressedDB) Add(comSeq *CompressedSeq) {
 
 func (comdb *CompressedDB) Len() int {
 	return len(comdb.Seqs)
+}
+
+func (comdb *CompressedDB) writerPlain() {
+	for cseq := range comdb.writerChan {
+		_, err := fmt.Fprintf(comdb.File, "> %d; %s\n", cseq.Id, cseq.Name)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			os.Exit(1)
+		}
+		for _, link := range cseq.Links {
+			_, err := fmt.Fprintf(comdb.File, "%s\n", link)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				os.Exit(1)
+			}
+		}
+	}
+}
+
+func (comdb *CompressedDB) writerBinary() {
+}
+
+func (comdb *CompressedDB) Write(cseq *CompressedSeq) {
+	comdb.writerChan <- cseq
 }
 
 // Save will save the compressed database as a binary encoding of all
@@ -64,6 +100,8 @@ func (comdb *CompressedDB) SavePlain(name string) error {
 
 // CompressedSeq corresponds to the components of a compressed sequence.
 type CompressedSeq struct {
+	Id int
+
 	// Name is an uncompressed string from the original FASTA header.
 	Name string
 
@@ -75,8 +113,9 @@ type CompressedSeq struct {
 
 // NewCompressedSeq creates a CompressedSeq value using the name provided.
 // The Link slice is initialized but empty.
-func NewCompressedSeq(name string) *CompressedSeq {
+func NewCompressedSeq(id int, name string) *CompressedSeq {
 	return &CompressedSeq{
+		Id:    id,
 		Name:  name,
 		Links: make([]*LinkToReference, 0, 15),
 	}

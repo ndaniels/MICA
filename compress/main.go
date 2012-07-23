@@ -64,15 +64,9 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	queries := make(chan seedQuery, 200)
-	matches := make(chan match, 200)
-	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
-		go generateMatches(queries, matches)
-	}
-
 	orgSeqId := 0
-	refdb := newReferenceDB()
-	comdb := cablastp.NewCompressedDB()
+	coarsedb := cablastp.NewCoarseDB(flagSeedSize)
+	comdb := cablastp.NewCompressedDB(nil, true)
 	for _, arg := range flag.Args()[3:] {
 		seqChan, err := cablastp.ReadOriginalSeqs(arg)
 		if err != nil {
@@ -83,7 +77,7 @@ func main() {
 				log.Fatal(err)
 			}
 
-			comSeq := compress(refdb, orgSeqId, readSeq.Seq, queries, matches)
+			comSeq := compress(coarsedb, orgSeqId, readSeq.Seq)
 			comdb.Add(comSeq)
 			orgSeqId++
 
@@ -93,7 +87,7 @@ func main() {
 		}
 	}
 
-	if err := refdb.savePlain(flag.Arg(0), flag.Arg(1)); err != nil {
+	if err := coarsedb.SavePlain(flag.Arg(0), flag.Arg(1)); err != nil {
 		fatalf("Could not save coarse database: %s\n", err)
 	}
 	if err := comdb.SavePlain(flag.Arg(2)); err != nil {

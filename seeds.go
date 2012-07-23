@@ -1,20 +1,19 @@
-package main
+package cablastp
 
 import (
 	"fmt"
 	"log"
+	"math"
 	"strings"
-
-	"github.com/BurntSushi/cablastp"
 )
 
-// alphaSize is the number of letters in the K-mer alphabet.
-const alphaSize = 26
+// SeedAlphaSize is the number of letters in the K-mer alphabet.
+const SeedAlphaSize = 26
 
-// alphaNums is a map to assign *valid* amino acid resiudes contiunous values
-// so that base-20 arithmetic can be performed on them.
+// SeedAlphaNums is a map to assign *valid* amino acid resiudes contiunous 
+// values so that base-26 arithmetic can be performed on them.
 // Invalid amino acid resiudes map to -1 and will produce a panic.
-var alphaNums = []int{
+var SeedAlphaNums = []int{
 	0,  // 'A'
 	1,  // 'B'
 	2,  // 'C'
@@ -24,88 +23,94 @@ var alphaNums = []int{
 	6,  // 'G'
 	7,  // 'H'
 	8,  // 'I'
-	9,  // 'J'
-	10, // 'K'
-	11, // 'L'
-	12, // 'M'
-	13, // 'N'
-	14, // 'O'
-	15, // 'P'
-	16, // 'Q'
-	17, // 'R'
-	18, // 'S'
-	19, // 'T'
-	20, // 'U'
-	21, // 'V'
-	22, // 'W'
-	23, // 'X'
-	24, // 'Y'
-	25, // 'Z'
+	-1, // 'J'
+	9,  // 'K'
+	10, // 'L'
+	11, // 'M'
+	12, // 'N'
+	-1, // 'O'
+	13, // 'P'
+	14, // 'Q'
+	15, // 'R'
+	16, // 'S'
+	17, // 'T'
+	-1, // 'U'
+	18, // 'V'
+	19, // 'W'
+	20, // 'X'
+	21, // 'Y'
+	22, // 'Z'
 }
 
-// seedLoc represents the information required to translate a seed to a slice
+// SeedLoc represents the information required to translate a seed to a slice
 // of residues from the reference database. Namely, the index of the sequence
 // in the reference database and the index of the residue where the seed starts
 // in that sequence. The length of the seed is a constant set at
 // run-time: flagSeedSize.
-type seedLoc struct {
-	seqInd, resInd int
+type SeedLoc struct {
+	SeqInd, ResInd int
 }
 
-func newSeedLoc(seqInd, resInd int) seedLoc {
-	return seedLoc{
-		seqInd: seqInd,
-		resInd: resInd,
+func NewSeedLoc(seqInd, resInd int) SeedLoc {
+	return SeedLoc{
+		SeqInd: seqInd,
+		ResInd: resInd,
 	}
 }
 
-func (loc seedLoc) String() string {
-	return fmt.Sprintf("(%d, %d)", loc.seqInd, loc.resInd)
+func (loc SeedLoc) String() string {
+	return fmt.Sprintf("(%d, %d)", loc.SeqInd, loc.ResInd)
 }
 
-type seeds [][]seedLoc
+type Seeds struct {
+	Locs     [][]SeedLoc
+	SeedSize int
+}
 
 // newSeeds creates a new table of seed location lists. The table is
 // initialized with enough memory to hold lists for all possible K-mers.
 // Namely, the length of seeds is equivalent to 20^(K) where 20 is the number
 // of amino acids (size of alphabet) and K is equivalent to the length of
 // each K-mer.
-func newSeeds() seeds {
-	return make(seeds, pow(alphaSize, flagSeedSize))
+func NewSeeds(seedSize int) *Seeds {
+	return &Seeds{
+		Locs:     make([][]SeedLoc, pow(SeedAlphaSize, seedSize)),
+		SeedSize: seedSize,
+	}
 }
 
 // add will create seed locations for all K-mers in refSeq and add them to
 // the seeds table. Invalid K-mers are automatically skipped.
-func (ss seeds) add(refSeqIndex int, refSeq *cablastp.ReferenceSeq) {
-	for i := 0; i < refSeq.Len()-flagSeedSize; i++ {
-		kmer := refSeq.Residues[i : i+flagSeedSize]
-		if !allUpperAlpha(kmer) {
+func (ss *Seeds) Add(refSeqIndex int, refSeq *ReferenceSeq) {
+	for i := 0; i < refSeq.Len()-ss.SeedSize; i++ {
+		kmer := refSeq.Residues[i : i+ss.SeedSize]
+		if !KmerAllUpperAlpha(kmer) {
 			continue
 		}
 
 		kmerIndex := hashKmer(kmer)
-		loc := newSeedLoc(refSeqIndex, i)
+		loc := NewSeedLoc(refSeqIndex, i)
 
 		// If no memory has been allocated for this kmer, then do so now.
-		if ss[kmerIndex] == nil {
-			ss[kmerIndex] = make([]seedLoc, 1)
-			ss[kmerIndex][0] = loc
+		if ss.Locs[kmerIndex] == nil {
+			ss.Locs[kmerIndex] = make([]SeedLoc, 1)
+			ss.Locs[kmerIndex][0] = loc
 		} else {
-			ss[kmerIndex] = append(ss[kmerIndex], loc)
+			ss.Locs[kmerIndex] = append(ss.Locs[kmerIndex], loc)
 		}
 	}
 }
 
 // lookup returns a list of all seed locations corresponding to a particular
 // K-mer.
-func (ss seeds) lookup(kmer []byte) []seedLoc {
-	return ss[hashKmer(kmer)]
+func (ss *Seeds) Lookup(kmer []byte) []SeedLoc {
+	return ss.Locs[hashKmer(kmer)]
 }
 
 // String returns a fairly crude visual representation of the seeds table.
-func (ss seeds) String() string {
-	strs := make([]string, 0, len(ss))
-	for key, locs := range ss {
+func (ss *Seeds) String() string {
+	strs := make([]string, 0, len(ss.Locs))
+	for key, locs := range ss.Locs {
 		if locs == nil {
 			continue
 		}
@@ -124,9 +129,9 @@ func (ss seeds) String() string {
 // aminoValue gets the base-20 index of a particular resiude.
 // aminoValue assumes that letter is a valid ASCII character in the
 // inclusive range 'A' ... 'Z'.
-// If the value returned by the alphaNums map is -1, aminoValue panics.
+// If the value returned by the SeedAlphaNums map is -1, aminoValue panics.
 func aminoValue(letter byte) int {
-	val := alphaNums[letter-'A']
+	val := SeedAlphaNums[letter-'A']
 	if val == -1 {
 		log.Panicf("Invalid amino acid letter: %c", letter)
 	}
@@ -134,7 +139,7 @@ func aminoValue(letter byte) int {
 }
 
 // hashKmer returns a unique hash of any 'kmer'. hashKmer assumes that 'kmer'
-// satisfies 'allUpperAlpha'. hashKmer panics if there are any invalid amino
+// satisfies 'KmerAllUpperAlpha'. hashKmer panics if there are any invalid amino
 // acid residues (i.e., 'J').
 //
 // hashKmer satisfies this law:
@@ -142,19 +147,23 @@ func aminoValue(letter byte) int {
 func hashKmer(kmer []byte) int {
 	key := 0
 	for i, b := range kmer {
-		key += aminoValue(b) * pow(alphaSize, i)
+		key += aminoValue(b) * pow(SeedAlphaSize, i)
 	}
 	return key
 }
 
-// allUpperAlpha returns true if all values in the 'kmer' slice correspond to
-// values in the inclusive ASCII range 'A' ... 'Z'.
-func allUpperAlpha(kmer []byte) bool {
+// KmerAllUpperAlpha returns true if all values in the 'kmer' slice correspond 
+// to values in the inclusive ASCII range 'A' ... 'Z'.
+func KmerAllUpperAlpha(kmer []byte) bool {
 	for _, b := range kmer {
 		i := int(b - 'A')
-		if i < 0 || i >= len(alphaNums) {
+		if i < 0 || i >= len(SeedAlphaNums) {
 			return false
 		}
 	}
 	return true
+}
+
+func pow(x, y int) int {
+	return int(math.Pow(float64(x), float64(y)))
 }
