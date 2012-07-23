@@ -82,12 +82,12 @@ func NewSeeds(seedSize int) *Seeds {
 	}
 }
 
-func (ss *Seeds) SizeString() string {
+func (ss *Seeds) Size() (int, int) {
 	allSeeds := 0
 	for _, seeds := range ss.Locs {
 		allSeeds += len(seeds)
 	}
-	return fmt.Sprintf("%d kmers (%d total locations)", len(ss.Locs), allSeeds)
+	return len(ss.Locs), allSeeds
 }
 
 // add will create seed locations for all K-mers in refSeq and add them to

@@ -98,11 +98,17 @@ func main() {
 			orgSeqId++
 
 			if orgSeqId%1000 == 0 {
+				kmers, locs := DB.CoarseDB.Seeds.Size()
 				secElapsed := time.Since(start).Seconds()
+
 				seqsPerSec := float64(orgSeqId) / float64(secElapsed)
+				kmersPerSec := float64(kmers) / float64(secElapsed)
+				locsPerSec := float64(locs) / float64(secElapsed)
+
 				fmt.Printf("\r%d sequences compressed (%0.4f seqs/sec) "+
-					":: %s",
-					orgSeqId, seqsPerSec, DB.CoarseDB.Seeds.SizeString())
+					":: %d kmers with %d total locations "+
+					"(%0.4f kmers/sec, %0.4f locs/sec)",
+					orgSeqId, seqsPerSec, kmers, locs, kmersPerSec, locsPerSec)
 
 				if len(flagMemProfile) > 0 {
 					writeMemProfile(fmt.Sprintf("%s.%d",
