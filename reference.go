@@ -13,15 +13,26 @@ import (
 type CoarseDB struct {
 	Seqs  []*ReferenceSeq
 	Seeds *Seeds
+	plain bool
+
+	FileFasta *os.File
+	FileSeeds *os.File
+	FileLinks *os.File
 }
 
 // NewCoarseDB takes a list of initial original sequences, and adds each
 // sequence to the reference database unchanged. Seeds are also generated for
 // each K-mer in each original sequence.
-func NewCoarseDB(seedSize int) *CoarseDB {
+func NewCoarseDB(fastaFile, seedsFile, linksFile *os.File,
+	seedSize int, plain bool) *CoarseDB {
+
 	coarsedb := &CoarseDB{
-		Seqs:  make([]*ReferenceSeq, 0, 1000),
-		Seeds: NewSeeds(seedSize),
+		Seqs:      make([]*ReferenceSeq, 0, 1000),
+		Seeds:     NewSeeds(seedSize),
+		FileFasta: fastaFile,
+		FileSeeds: seedsFile,
+		FileLinks: linksFile,
+		plain:     plain,
 	}
 	return coarsedb
 }
@@ -31,7 +42,6 @@ func NewCoarseDB(seedSize int) *CoarseDB {
 // also generated for each K-mer in the sequence. The resulting reference
 // sequence is returned.
 func (coarsedb *CoarseDB) Add(orgSeq *OriginalSeq) *ReferenceSeq {
-
 	nextIndex := len(coarsedb.Seqs)
 	refSeq := NewReferenceSeq(nextIndex, orgSeq.Name, orgSeq.Residues)
 	coarsedb.Seeds.Add(nextIndex, refSeq)
@@ -39,27 +49,35 @@ func (coarsedb *CoarseDB) Add(orgSeq *OriginalSeq) *ReferenceSeq {
 	return refSeq
 }
 
+func (coarsedb *CoarseDB) Close() {
+	coarsedb.FileFasta.Close()
+	coarsedb.FileSeeds.Close()
+	coarsedb.FileLinks.Close()
+}
+
 // Save will save the reference database as a coarse FASTA file and a binary
 // encoding of all reference links.
-func (coarsedb *CoarseDB) Save(fastaFile, linksFile string) error {
+func (coarsedb *CoarseDB) Save() error {
+	if coarsedb.plain {
+		return coarsedb.savePlain()
+	}
+	return coarsedb.saveBinary()
+}
+
+func (coarsedb *CoarseDB) saveBinary() error {
 	return nil
 }
 
-// SavePlain will save the reference database as a coarse FASTA file and a 
+// savePlain will save the reference database as a coarse FASTA file and a 
 // plain text encoding of all reference links.
-func (coarsedb *CoarseDB) SavePlain(fastaFile, linksFile string) error {
-	if err := coarsedb.SaveFasta(fastaFile); err != nil {
+func (coarsedb *CoarseDB) savePlain() error {
+	if err := coarsedb.saveFasta(); err != nil {
 		return err
 	}
 
-	f, err := os.Create(linksFile)
-	if err != nil {
-		return err
-	}
-
-	bufWriter := bufio.NewWriter(f)
+	bufWriter := bufio.NewWriter(coarsedb.FileLinks)
 	for i, seq := range coarsedb.Seqs {
-		_, err = fmt.Fprintf(bufWriter, "> %d\n", i)
+		_, err := fmt.Fprintf(bufWriter, "> %d\n", i)
 		if err != nil {
 			return err
 		}
@@ -73,33 +91,22 @@ func (coarsedb *CoarseDB) SavePlain(fastaFile, linksFile string) error {
 	if err := bufWriter.Flush(); err != nil {
 		return err
 	}
-	if err := f.Close(); err != nil {
-		return err
-	}
 	return nil
 }
 
 // SaveFasta will save the reference database as a coarse FASTA file.
 // This should *only* be used for debugging, since a coarse FASTA file is
 // usesless without the reference links.
-func (coarsedb *CoarseDB) SaveFasta(fastaFile string) error {
-	f, err := os.Create(fastaFile)
-	if err != nil {
-		return err
-	}
-
-	bufWriter := bufio.NewWriter(f)
+func (coarsedb *CoarseDB) saveFasta() error {
+	bufWriter := bufio.NewWriter(coarsedb.FileFasta)
 	for i, seq := range coarsedb.Seqs {
-		_, err = fmt.Fprintf(bufWriter,
+		_, err := fmt.Fprintf(bufWriter,
 			"> %d\n%s\n", i, string(seq.Residues))
 		if err != nil {
 			return err
 		}
 	}
 	if err := bufWriter.Flush(); err != nil {
-		return err
-	}
-	if err := f.Close(); err != nil {
 		return err
 	}
 	return nil

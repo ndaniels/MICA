@@ -51,7 +51,7 @@ func init() {
 }
 
 func main() {
-	if flag.NArg() < 3 {
+	if flag.NArg() < 2 {
 		flag.Usage()
 	}
 
@@ -65,9 +65,12 @@ func main() {
 	}
 
 	orgSeqId := 0
-	coarsedb := cablastp.NewCoarseDB(flagSeedSize)
-	comdb := cablastp.NewCompressedDB(nil, true)
-	for _, arg := range flag.Args()[3:] {
+	DB, err := cablastp.NewDB(flag.Arg(0), flagSeedSize, false, true)
+	if err != nil {
+		fatalf("%s\n", err)
+	}
+
+	for _, arg := range flag.Args()[1:] {
 		seqChan, err := cablastp.ReadOriginalSeqs(arg)
 		if err != nil {
 			log.Fatal(err)
@@ -77,8 +80,8 @@ func main() {
 				log.Fatal(err)
 			}
 
-			comSeq := compress(coarsedb, orgSeqId, readSeq.Seq)
-			comdb.Add(comSeq)
+			comSeq := compress(DB.CoarseDB, orgSeqId, readSeq.Seq)
+			DB.ComDB.Write(comSeq)
 			orgSeqId++
 
 			if orgSeqId%100 == 0 {
@@ -87,12 +90,11 @@ func main() {
 		}
 	}
 
-	if err := coarsedb.SavePlain(flag.Arg(0), flag.Arg(1)); err != nil {
+	if err := DB.CoarseDB.Save(); err != nil {
 		fatalf("Could not save coarse database: %s\n", err)
 	}
-	if err := comdb.SavePlain(flag.Arg(2)); err != nil {
-		fatalf("Could not save compressed database: %s\n", err)
-	}
+
+	DB.Close()
 
 	if len(flagMemProfile) > 0 {
 		f, err := os.Create(flagMemProfile)
@@ -126,9 +128,7 @@ func init() {
 func usage() {
 	fmt.Fprintf(os.Stderr,
 		"Usage: %s [flags] "+
-			"output-coarse-fasta-name "+
-			"output-compressed-links "+
-			"output-compressed-sequences "+
+			"database-directory "+
 			"fasta-file [fasta-file ...]\n",
 		path.Base(os.Args[0]))
 	flag.PrintDefaults()

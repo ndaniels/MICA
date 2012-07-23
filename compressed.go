@@ -9,14 +9,18 @@ import (
 type CompressedDB struct {
 	Seqs       []*CompressedSeq
 	File       *os.File
+	Index      *os.File
 	writerChan chan *CompressedSeq
+	writerDone chan struct{}
 }
 
-func NewCompressedDB(file *os.File, plain bool) *CompressedDB {
+func NewCompressedDB(file *os.File, index *os.File, plain bool) *CompressedDB {
 	cdb := &CompressedDB{
 		Seqs:       make([]*CompressedSeq, 0, 100),
 		File:       file,
-		writerChan: make(chan *CompressedSeq, 50),
+		Index:      index,
+		writerChan: make(chan *CompressedSeq, 200),
+		writerDone: make(chan struct{}, 0),
 	}
 
 	if plain {
@@ -26,6 +30,15 @@ func NewCompressedDB(file *os.File, plain bool) *CompressedDB {
 	}
 
 	return cdb
+}
+
+func (comdb *CompressedDB) Close() {
+	close(comdb.writerChan) // will close comdb.File
+
+	// Wait for the writer goroutine to finish.
+	<-comdb.writerDone
+
+	comdb.Index.Close()
 }
 
 func (comdb *CompressedDB) Add(comSeq *CompressedSeq) {
@@ -51,9 +64,12 @@ func (comdb *CompressedDB) writerPlain() {
 			}
 		}
 	}
+	comdb.File.Close()
+	comdb.writerDone <- struct{}{}
 }
 
 func (comdb *CompressedDB) writerBinary() {
+	comdb.File.Close()
 }
 
 func (comdb *CompressedDB) Write(cseq *CompressedSeq) {

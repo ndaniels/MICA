@@ -26,9 +26,7 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 		seeds := coarsedb.Seeds.Lookup(kmer)
 
 		// Each seed location corresponding to the current K-mer must be
-		// used to attempt to extend a match. If there is more than one
-		// match, the best one is used.
-		// (What does "best" mean? Length for now...)
+		// used to attempt to extend a match.
 		for _, seedLoc := range seeds {
 			refSeqId := seedLoc.SeqInd
 			refSeq := coarsedb.Seqs[refSeqId]
@@ -74,7 +72,7 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 			// the reference sequence matched. This serves as a component 
 			// of a compressed original sequence. Also, add a 
 			// LinkToCompressed to the reference sequence matched. This 
-			// servers as a bridge to expand coarse sequences into their 
+			// serves as a bridge to expand coarse sequences into their 
 			// original sequences.
 			cseq.Add(cablastp.NewLinkToReference(
 				refSeqId, refStart, refEnd, alignment))
