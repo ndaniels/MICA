@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"path"
 	"runtime"
 	"runtime/pprof"
@@ -65,6 +66,15 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
+
+	sigChan := make(chan os.Signal, 2)
+	go func() {
+		<-sigChan
+		println("\n\nStopping CPU profile...")
+		pprof.StopCPUProfile()
+		os.Exit(0)
+	}()
+	signal.Notify(sigChan, os.Interrupt)
 
 	orgSeqId := 0
 	DB, err := cablastp.NewDB(flag.Arg(0), flagSeedSize, false, true)
