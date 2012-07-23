@@ -47,21 +47,22 @@ func NewCoarseDB(fastaFile, seedsFile, linksFile *os.File,
 // sequence is returned.
 func (coarsedb *CoarseDB) Add(orgSeq *OriginalSeq) (int, *ReferenceSeq) {
 	coarsedb.seqLock.Lock()
-	defer coarsedb.seqLock.Unlock()
-
 	id := len(coarsedb.Seqs)
 	refSeq := NewReferenceSeq(id, orgSeq.Name, orgSeq.Residues)
-	coarsedb.Seeds.Add(id, refSeq)
 	coarsedb.Seqs = append(coarsedb.Seqs, refSeq)
+	coarsedb.seqLock.Unlock()
+
+	coarsedb.Seeds.Add(id, refSeq)
 
 	return id, refSeq
 }
 
 func (coarsedb *CoarseDB) RefSeqGet(i int) *ReferenceSeq {
 	coarsedb.seqLock.RLock()
-	defer coarsedb.seqLock.RUnlock()
+	seq := coarsedb.Seqs[i]
+	coarsedb.seqLock.RUnlock()
 
-	return coarsedb.Seqs[i]
+	return seq
 }
 
 func (coarsedb *CoarseDB) Close() {

@@ -3,7 +3,6 @@ package cablastp
 import (
 	"fmt"
 	"log"
-	"math"
 	"strings"
 	"sync"
 )
@@ -48,9 +47,6 @@ var SeedAlphaNums = []int{
 // in the reference database and the index of the residue where the seed starts
 // in that sequence. The length of the seed is a constant set at
 // run-time: flagSeedSize.
-// type SeedLoc struct { 
-// SeqInd, ResInd int 
-// } 
 type SeedLoc [2]int
 
 func NewSeedLoc(seqInd, resInd int) SeedLoc {
@@ -66,6 +62,7 @@ type Seeds struct {
 	// Locs     map[string][]SeedLoc 
 	SeedSize int
 	lock     *sync.RWMutex
+	powers   []int
 }
 
 // newSeeds creates a new table of seed location lists. The table is
@@ -74,11 +71,19 @@ type Seeds struct {
 // of amino acids (size of alphabet) and K is equivalent to the length of
 // each K-mer.
 func NewSeeds(seedSize int) *Seeds {
+	powers := make([]int, seedSize+1)
+	p := 1
+	for i := 0; i < len(powers); i++ {
+		powers[i] = p
+		p *= SeedAlphaSize
+	}
+
 	return &Seeds{
-		Locs: make([][]SeedLoc, pow(SeedAlphaSize, seedSize)),
+		Locs: make([][]SeedLoc, powers[seedSize]),
 		// Locs:     make(map[string][]SeedLoc, 100), 
 		SeedSize: seedSize,
 		lock:     &sync.RWMutex{},
+		powers:   powers,
 	}
 }
 
@@ -93,47 +98,47 @@ func (ss *Seeds) Size() (int, int) {
 // add will create seed locations for all K-mers in refSeq and add them to
 // the seeds table. Invalid K-mers are automatically skipped.
 func (ss *Seeds) Add(refSeqIndex int, refSeq *ReferenceSeq) {
+	ss.lock.Lock()
+
 	for i := 0; i < refSeq.Len()-ss.SeedSize; i++ {
 		kmer := refSeq.Residues[i : i+ss.SeedSize]
 		if !KmerAllUpperAlpha(kmer) {
 			continue
 		}
 
-		kmerIndex := hashKmer(kmer)
+		kmerIndex := ss.hashKmer(kmer)
 		// kmerKey := string(kmer) 
 		loc := NewSeedLoc(refSeqIndex, i)
 
-		// ss.lock.Lock() 
 		// if _, ok := ss.Locs[kmerKey]; !ok { 
 		// ss.Locs[kmerKey] = make([]SeedLoc, 1) 
 		// ss.Locs[kmerKey][0] = loc 
 		// } else { 
 		// ss.Locs[kmerKey] = append(ss.Locs[kmerKey], loc) 
 		// } 
-		// ss.lock.Unlock() 
 
 		// If no memory has been allocated for this kmer, then do so now.
-		ss.lock.Lock()
 		if ss.Locs[kmerIndex] == nil {
 			ss.Locs[kmerIndex] = make([]SeedLoc, 1)
 			ss.Locs[kmerIndex][0] = loc
 		} else {
 			ss.Locs[kmerIndex] = append(ss.Locs[kmerIndex], loc)
 		}
-		ss.lock.Unlock()
 	}
+
+	ss.lock.Unlock()
 }
 
 // lookup returns a list of all seed locations corresponding to a particular
 // K-mer.
 func (ss *Seeds) Lookup(kmer []byte) []SeedLoc {
 	ss.lock.RLock()
-	defer ss.lock.RUnlock()
-
-	seeds := ss.Locs[hashKmer(kmer)]
+	seeds := ss.Locs[ss.hashKmer(kmer)]
 	// seeds := ss.Locs[string(kmer)] 
 	cpy := make([]SeedLoc, len(seeds))
 	copy(cpy, seeds)
+	ss.lock.RUnlock()
+
 	return cpy
 }
 
@@ -177,10 +182,10 @@ func aminoValue(letter byte) int {
 //
 // hashKmer satisfies this law:
 // Forall a, b in [A..Z]*, hashKmer(a) == hashKmer(b) IFF a == b.
-func hashKmer(kmer []byte) int {
+func (ss *Seeds) hashKmer(kmer []byte) int {
 	key := 0
 	for i, b := range kmer {
-		key += aminoValue(b) * pow(SeedAlphaSize, i)
+		key += aminoValue(b) * ss.powers[i]
 	}
 	return key
 }
@@ -195,8 +200,4 @@ func KmerAllUpperAlpha(kmer []byte) bool {
 		}
 	}
 	return true
-}
-
-func pow(x, y int) int {
-	return int(math.Pow(float64(x), float64(y)))
 }

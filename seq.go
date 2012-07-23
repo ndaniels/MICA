@@ -38,7 +38,6 @@ type sequence struct {
 	Name     string
 	Residues []byte
 	Offset   int
-	Original *sequence
 	Id       int
 }
 
@@ -50,7 +49,6 @@ func newSeq(id int, name string, residues []byte) *sequence {
 		Name:     name,
 		Residues: []byte(residuesStr),
 		Offset:   0,
-		Original: nil,
 		Id:       id,
 	}
 }
@@ -71,11 +69,6 @@ func (seq *sequence) newSubSequence(start, end int) *sequence {
 	}
 	s := newSeq(seq.Id, seq.Name, seq.Residues[start:end])
 	s.Offset += start
-	if seq.Original != nil {
-		s.Original = seq.Original
-	} else {
-		s.Original = seq
-	}
 	return s
 }
 
@@ -131,13 +124,8 @@ func (rseq *ReferenceSeq) NewSubSequence(start, end int) *ReferenceSeq {
 
 func (rseq *ReferenceSeq) AddLink(lk LinkToCompressed) {
 	rseq.linkLock.Lock()
-	defer rseq.linkLock.Unlock()
-
-	if rseq.Original != nil {
-		log.Panicf("Cannot add a link to a subsequence of a " +
-			"reference sequence.")
-	}
 	rseq.Links = append(rseq.Links, lk)
+	rseq.linkLock.Unlock()
 }
 
 // OriginalSeq embeds a sequence and serves as a typing mechanism to

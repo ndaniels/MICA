@@ -14,15 +14,20 @@ type compressJob struct {
 func compressWorker(DB *cablastp.DB, jobs chan compressJob,
 	wg *sync.WaitGroup) {
 
+	table := make([][]int, flagGappedWindowSize+1)
+	for i := range table {
+		table[i] = make([]int, flagGappedWindowSize+1)
+	}
+
 	for job := range jobs {
-		comSeq := compress(DB.CoarseDB, job.orgSeqId, job.orgSeq)
+		comSeq := compress(DB.CoarseDB, job.orgSeqId, job.orgSeq, table)
 		DB.ComDB.Write(comSeq)
 	}
 	wg.Done()
 }
 
 func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
-	orgSeq *cablastp.OriginalSeq) cablastp.CompressedSeq {
+	orgSeq *cablastp.OriginalSeq, table [][]int) cablastp.CompressedSeq {
 
 	cseq := cablastp.NewCompressedSeq(orgSeqId, orgSeq.Name)
 	seedSize := coarsedb.Seeds.SeedSize
@@ -54,8 +59,8 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 			// position of the "current" pointer and the end of the sequence
 			// for the original sequence.
 			refMatch, orgMatch := extendMatch(
-				refSeq.Residues[seedLoc[1]:],
-				orgSeq.Residues[current:])
+				refSeq.Residues[seedLoc[1]:], orgSeq.Residues[current:],
+				table)
 
 			// If the part of the original sequence does not exceed the
 			// minimum match length, then we don't accept the match and move
@@ -70,7 +75,7 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 			refEnd := refStart + len(refMatch)
 			orgStart := current
 			orgEnd := orgStart + len(orgMatch)
-			alignment := nwAlign(refMatch, orgMatch)
+			alignment := nwAlign(refMatch, orgMatch, nil)
 
 			// If there are residues between the end of the last match
 			// and the start of this match, then that means no good match
@@ -123,7 +128,9 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 // quality candidates for compression.
 //
 // More details to come soon.
-func extendMatch(refRes, orgRes []byte) (refMatchRes, orgMatchRes []byte) {
+func extendMatch(refRes, orgRes []byte,
+	table [][]int) (refMatchRes, orgMatchRes []byte) {
+
 	// Starting at seedLoc.resInd and current, refMatchLen and 
 	// orgMatchLen correspond to the length of the match each of
 	// the reference and the original sequence, respectively.
@@ -163,7 +170,8 @@ func extendMatch(refRes, orgRes []byte) (refMatchRes, orgMatchRes []byte) {
 		winSize := flagGappedWindowSize
 		alignment := nwAlign(
 			refRes[refMatchLen:min(len(refRes), refMatchLen+winSize)],
-			orgRes[orgMatchLen:min(len(orgRes), orgMatchLen+winSize)])
+			orgRes[orgMatchLen:min(len(orgRes), orgMatchLen+winSize)],
+			table)
 		// If the alignment has a sequence identity below the
 		// threshold, then gapped extension has failed. We therefore
 		// quit and are forced to be satisfied with whatever

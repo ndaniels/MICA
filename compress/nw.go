@@ -10,18 +10,10 @@ type.
 */
 
 import (
-	"sync"
-
 	"github.com/BurntSushi/cablastp/blosum"
 
 	"code.google.com/p/biogo/align/nw"
 	"code.google.com/p/biogo/util"
-)
-
-const (
-	nwDiag = iota
-	nwUp
-	nwLeft
 )
 
 const initPoolSize = 15
@@ -33,22 +25,9 @@ var (
 		LookUp:  nwLookUpP,
 		GapChar: '-',
 	}
-
-	tablePool = make([][][]int, initPoolSize, 100)
-	tableLock = &sync.Mutex{}
 )
 
 func init() {
-	tableLock.Lock()
-	r, c := flagGappedWindowSize, flagGappedWindowSize
-	for i := 0; i < initPoolSize; i++ {
-		tablePool[i] = make([][]int, r)
-		for j := range tablePool[i] {
-			tablePool[i][j] = make([]int, c)
-		}
-	}
-	tableLock.Unlock()
-
 	m := make(map[int]int)
 	for i, v := range blosum.Alphabet62 {
 		m[int(v)] = i
@@ -56,56 +35,29 @@ func init() {
 	nwLookUpP = *util.NewCTL(m)
 }
 
-func allocTable(r, c int) [][]int {
-	tableLock.Lock()
-	for i := len(tablePool) - 1; i >= 0; i-- {
-		table := tablePool[i]
-		if len(table) == r && len(table[0]) == c {
-			tablePool = append(tablePool[:i], tablePool[i+1:]...)
-			tableLock.Unlock()
-			return table
-		}
-	}
-	tableLock.Unlock()
-
-	// We couldn't find a table with the desired size, so allocate one.
-	// It will be added back to the pool when 'freeTable' is called.
-	table := make([][]int, r)
-	for j := range table {
-		table[j] = make([]int, c)
-	}
-	return table
-}
-
-func freeTable(table [][]int) {
-	tableLock.Lock()
-	defer tableLock.Unlock()
-
-	tablePool = append(tablePool, table)
-}
-
-func nwAlign(rseq, oseq []byte) [2][]byte {
+func nwAlign(rseq, oseq []byte, table [][]int) [2][]byte {
 	gap := len(aligner.Matrix) - 1
 	r, c := len(rseq)+1, len(oseq)+1
 
-	var table [][]int
-	if r == flagGappedWindowSize && c == flagGappedWindowSize {
-		table = allocTable(r, c)
-	} else {
+	if table == nil || len(table) != r {
 		table = make([][]int, r)
 		for j := range table {
 			table[j] = make([]int, c)
 		}
+	} else {
+		for i := range table {
+			table[i][i] = 0
+		}
 	}
 
-	var sdiag, sup, sleft int
+	var sdiag, sup, sleft, rVal, oVal int
 	valToCode := aligner.LookUp.ValueToCode
 	gapChar := aligner.GapChar
 	matrix := aligner.Matrix
 
 	for i := 1; i < r; i++ {
 		for j := 1; j < c; j++ {
-			rVal, oVal := valToCode[rseq[i-1]], valToCode[oseq[j-1]]
+			rVal, oVal = valToCode[rseq[i-1]], valToCode[oseq[j-1]]
 			if rVal < 0 || oVal < 0 {
 				continue
 			} else {
@@ -124,12 +76,12 @@ func nwAlign(rseq, oseq []byte) [2][]byte {
 		}
 	}
 
-	refAln := make([]byte, 0, len(rseq))
-	orgAln := make([]byte, 0, len(oseq))
+	refAln := make([]byte, 0, len(rseq)+10)
+	orgAln := make([]byte, 0, len(oseq)+10)
 
 	i, j := r-1, c-1
 	for i > 0 && j > 0 {
-		rVal, oVal := valToCode[rseq[i-1]], valToCode[oseq[j-1]]
+		rVal, oVal = valToCode[rseq[i-1]], valToCode[oseq[j-1]]
 		if rVal < 0 || oVal < 0 {
 			continue
 		} else {
@@ -154,10 +106,6 @@ func nwAlign(rseq, oseq []byte) [2][]byte {
 		}
 	}
 
-	if r == flagGappedWindowSize && c == flagGappedWindowSize {
-		freeTable(table)
-	}
-
 	for ; i > 0; i-- {
 		refAln = append(refAln, rseq[i-1])
 		orgAln = append(orgAln, gapChar)
@@ -167,11 +115,18 @@ func nwAlign(rseq, oseq []byte) [2][]byte {
 		orgAln = append(orgAln, oseq[j-1])
 	}
 
-	for i, j := 0, len(refAln)-1; i < j; i, j = i+1, j-1 {
-		refAln[i], refAln[j] = refAln[j], refAln[i]
-	}
-	for i, j := 0, len(orgAln)-1; i < j; i, j = i+1, j-1 {
-		orgAln[i], orgAln[j] = orgAln[j], orgAln[i]
+	if len(refAln) == len(orgAln) {
+		for i, j := 0, len(refAln)-1; i < j; i, j = i+1, j-1 {
+			refAln[i], refAln[j] = refAln[j], refAln[i]
+			orgAln[i], orgAln[j] = orgAln[j], orgAln[i]
+		}
+	} else {
+		for i, j := 0, len(refAln)-1; i < j; i, j = i+1, j-1 {
+			refAln[i], refAln[j] = refAln[j], refAln[i]
+		}
+		for i, j := 0, len(orgAln)-1; i < j; i, j = i+1, j-1 {
+			orgAln[i], orgAln[j] = orgAln[j], orgAln[i]
+		}
 	}
 
 	return [2][]byte{refAln, orgAln}
