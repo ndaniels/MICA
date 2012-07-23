@@ -97,11 +97,17 @@ func main() {
 			}
 			orgSeqId++
 
-			if orgSeqId%100 == 0 {
+			if orgSeqId%1000 == 0 {
 				secElapsed := time.Since(start).Seconds()
 				seqsPerSec := float64(orgSeqId) / float64(secElapsed)
-				fmt.Printf("\r%d sequences compressed (%0.4f seqs/sec)",
-					orgSeqId, seqsPerSec)
+				fmt.Printf("\r%d sequences compressed (%0.4f seqs/sec) "+
+					":: %s",
+					orgSeqId, seqsPerSec, DB.CoarseDB.Seeds.SizeString())
+
+				if len(flagMemProfile) > 0 {
+					writeMemProfile(fmt.Sprintf("%s.%d",
+						flagMemProfile, orgSeqId))
+				}
 			}
 		}
 	}
