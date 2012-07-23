@@ -1,8 +1,25 @@
 package main
 
 import (
+	"sync"
+
 	"github.com/BurntSushi/cablastp"
 )
+
+type compressJob struct {
+	orgSeqId int
+	orgSeq   *cablastp.OriginalSeq
+}
+
+func compressWorker(DB *cablastp.DB, jobs chan compressJob,
+	wg *sync.WaitGroup) {
+
+	for job := range jobs {
+		comSeq := compress(DB.CoarseDB, job.orgSeqId, job.orgSeq)
+		DB.ComDB.Write(comSeq)
+	}
+	wg.Done()
+}
 
 func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 	orgSeq *cablastp.OriginalSeq) *cablastp.CompressedSeq {
@@ -28,8 +45,8 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 		// Each seed location corresponding to the current K-mer must be
 		// used to attempt to extend a match.
 		for _, seedLoc := range seeds {
-			refSeqId := seedLoc.SeqInd
-			refSeq := coarsedb.Seqs[refSeqId]
+			refSeqId := seedLoc[0]
+			refSeq := coarsedb.RefSeqGet(refSeqId)
 
 			// The "match" between reference and original sequence will
 			// occur somewhere between the the residue index of the seed and
@@ -37,7 +54,7 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 			// position of the "current" pointer and the end of the sequence
 			// for the original sequence.
 			refMatch, orgMatch := extendMatch(
-				refSeq.Residues[seedLoc.ResInd:],
+				refSeq.Residues[seedLoc[1]:],
 				orgSeq.Residues[current:])
 
 			// If the part of the original sequence does not exceed the
@@ -49,7 +66,7 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 
 			// Otherwise, we accept the first valid match and move on to the 
 			// next kmer after the match ends.
-			refStart := seedLoc.ResInd
+			refStart := seedLoc[1]
 			refEnd := refStart + len(refMatch)
 			orgStart := current
 			orgEnd := orgStart + len(orgMatch)
@@ -180,8 +197,7 @@ func extendMatch(refRes, orgRes []byte) (refMatchRes, orgMatchRes []byte) {
 func addWithoutMatch(coarsedb *cablastp.CoarseDB, orgSeqId int,
 	orgSeq *cablastp.OriginalSeq) int {
 
-	refSeqId := len(coarsedb.Seqs)
-	refSeq := coarsedb.Add(orgSeq)
+	refSeqId, refSeq := coarsedb.Add(orgSeq)
 	refSeq.AddLink(cablastp.NewLinkToCompressed(orgSeqId, 0, orgSeq.Len()))
 	return refSeqId
 }

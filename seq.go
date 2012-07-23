@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 
 	"code.google.com/p/biogo/seq"
 )
@@ -105,13 +106,15 @@ func (seq *sequence) String() string {
 // sequences from the input FASTA file.
 type ReferenceSeq struct {
 	*sequence
-	Links []*LinkToCompressed
+	Links    []*LinkToCompressed
+	linkLock *sync.RWMutex
 }
 
 func NewReferenceSeq(id int, name string, residues []byte) *ReferenceSeq {
 	return &ReferenceSeq{
 		sequence: newSeq(id, name, residues),
 		Links:    make([]*LinkToCompressed, 0),
+		linkLock: &sync.RWMutex{},
 	}
 }
 
@@ -127,6 +130,9 @@ func (rseq *ReferenceSeq) NewSubSequence(start, end int) *ReferenceSeq {
 }
 
 func (rseq *ReferenceSeq) AddLink(lk *LinkToCompressed) {
+	rseq.linkLock.Lock()
+	defer rseq.linkLock.Unlock()
+
 	if rseq.Original != nil {
 		log.Panicf("Cannot add a link to a subsequence of a " +
 			"reference sequence.")

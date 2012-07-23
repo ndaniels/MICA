@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 )
 
 // CoarseDB represents a set of unique sequences that comprise the "coarse"
@@ -18,6 +19,8 @@ type CoarseDB struct {
 	FileFasta *os.File
 	FileSeeds *os.File
 	FileLinks *os.File
+
+	seqLock *sync.RWMutex
 }
 
 // NewCoarseDB takes a list of initial original sequences, and adds each
@@ -33,6 +36,7 @@ func NewCoarseDB(fastaFile, seedsFile, linksFile *os.File,
 		FileSeeds: seedsFile,
 		FileLinks: linksFile,
 		plain:     plain,
+		seqLock:   &sync.RWMutex{},
 	}
 	return coarsedb
 }
@@ -41,12 +45,23 @@ func NewCoarseDB(fastaFile, seedsFile, linksFile *os.File,
 // adds it as a new reference sequence to the reference database. Seeds are
 // also generated for each K-mer in the sequence. The resulting reference
 // sequence is returned.
-func (coarsedb *CoarseDB) Add(orgSeq *OriginalSeq) *ReferenceSeq {
-	nextIndex := len(coarsedb.Seqs)
-	refSeq := NewReferenceSeq(nextIndex, orgSeq.Name, orgSeq.Residues)
-	coarsedb.Seeds.Add(nextIndex, refSeq)
+func (coarsedb *CoarseDB) Add(orgSeq *OriginalSeq) (int, *ReferenceSeq) {
+	coarsedb.seqLock.Lock()
+	defer coarsedb.seqLock.Unlock()
+
+	id := len(coarsedb.Seqs)
+	refSeq := NewReferenceSeq(id, orgSeq.Name, orgSeq.Residues)
+	coarsedb.Seeds.Add(id, refSeq)
 	coarsedb.Seqs = append(coarsedb.Seqs, refSeq)
-	return refSeq
+
+	return id, refSeq
+}
+
+func (coarsedb *CoarseDB) RefSeqGet(i int) *ReferenceSeq {
+	coarsedb.seqLock.RLock()
+	defer coarsedb.seqLock.RUnlock()
+
+	return coarsedb.Seqs[i]
 }
 
 func (coarsedb *CoarseDB) Close() {
@@ -58,6 +73,9 @@ func (coarsedb *CoarseDB) Close() {
 // Save will save the reference database as a coarse FASTA file and a binary
 // encoding of all reference links.
 func (coarsedb *CoarseDB) Save() error {
+	coarsedb.seqLock.RLock()
+	defer coarsedb.seqLock.RUnlock()
+
 	if coarsedb.plain {
 		return coarsedb.savePlain()
 	}
@@ -114,6 +132,9 @@ func (coarsedb *CoarseDB) saveFasta() error {
 
 // String returns a FASTA representation of the reference database.
 func (coarsedb *CoarseDB) String() string {
+	coarsedb.seqLock.RLock()
+	defer coarsedb.seqLock.RUnlock()
+
 	seqStrs := make([]string, len(coarsedb.Seqs))
 	for i, seq := range coarsedb.Seqs {
 		seqStrs[i] = seq.String()

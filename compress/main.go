@@ -8,6 +8,8 @@ import (
 	"path"
 	"runtime"
 	"runtime/pprof"
+	"sync"
+	"time"
 
 	"github.com/BurntSushi/cablastp"
 )
@@ -70,6 +72,15 @@ func main() {
 		fatalf("%s\n", err)
 	}
 
+	// Create the compression workers.
+	wg := &sync.WaitGroup{}
+	jobs := make(chan compressJob, 200)
+	for i := 0; i < max(1, runtime.GOMAXPROCS(0)-3); i++ {
+		wg.Add(1)
+		go compressWorker(DB, jobs, wg)
+	}
+
+	start := time.Now()
 	for _, arg := range flag.Args()[1:] {
 		seqChan, err := cablastp.ReadOriginalSeqs(arg)
 		if err != nil {
@@ -80,14 +91,26 @@ func main() {
 				log.Fatal(err)
 			}
 
-			comSeq := compress(DB.CoarseDB, orgSeqId, readSeq.Seq)
-			DB.ComDB.Write(comSeq)
+			jobs <- compressJob{
+				orgSeqId: orgSeqId,
+				orgSeq:   readSeq.Seq,
+			}
 			orgSeqId++
 
 			if orgSeqId%100 == 0 {
-				fmt.Printf("\r%d sequences compressed", orgSeqId)
+				secElapsed := time.Since(start).Seconds()
+				seqsPerSec := float64(orgSeqId) / float64(secElapsed)
+				fmt.Printf("\r%d sequences compressed (%0.4f seqs/sec)",
+					orgSeqId, seqsPerSec)
 			}
 		}
+	}
+	close(jobs)
+	wg.Wait()
+
+	if len(flagMemProfile) > 0 {
+		writeMemProfile(fmt.Sprintf("%s.%d",
+			flagMemProfile, orgSeqId))
 	}
 
 	if err := DB.CoarseDB.Save(); err != nil {
@@ -96,17 +119,7 @@ func main() {
 
 	DB.Close()
 
-	if len(flagMemProfile) > 0 {
-		f, err := os.Create(flagMemProfile)
-		if err != nil {
-			fatalf("%s\n", err)
-		}
-		pprof.WriteHeapProfile(f)
-		f.Close()
-	}
-
-	fmt.Print("\r")
-	fmt.Println("")
+	fmt.Println("\r")
 }
 
 func errorf(format string, v ...interface{}) {
@@ -116,6 +129,22 @@ func errorf(format string, v ...interface{}) {
 func fatalf(format string, v ...interface{}) {
 	errorf(format, v...)
 	os.Exit(1)
+}
+
+func writeMemProfile(name string) {
+	f, err := os.Create(name)
+	if err != nil {
+		fatalf("%s\n", err)
+	}
+	pprof.WriteHeapProfile(f)
+	f.Close()
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func init() {

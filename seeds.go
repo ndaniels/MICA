@@ -5,10 +5,11 @@ import (
 	"log"
 	"math"
 	"strings"
+	"sync"
 )
 
 // SeedAlphaSize is the number of letters in the K-mer alphabet.
-const SeedAlphaSize = 26
+const SeedAlphaSize = 23
 
 // SeedAlphaNums is a map to assign *valid* amino acid resiudes contiunous 
 // values so that base-26 arithmetic can be performed on them.
@@ -47,24 +48,23 @@ var SeedAlphaNums = []int{
 // in the reference database and the index of the residue where the seed starts
 // in that sequence. The length of the seed is a constant set at
 // run-time: flagSeedSize.
-type SeedLoc struct {
-	SeqInd, ResInd int
-}
+// type SeedLoc struct { 
+// SeqInd, ResInd int 
+// } 
+type SeedLoc [2]int
 
 func NewSeedLoc(seqInd, resInd int) SeedLoc {
-	return SeedLoc{
-		SeqInd: seqInd,
-		ResInd: resInd,
-	}
+	return SeedLoc{seqInd, resInd}
 }
 
 func (loc SeedLoc) String() string {
-	return fmt.Sprintf("(%d, %d)", loc.SeqInd, loc.ResInd)
+	return fmt.Sprintf("(%d, %d)", loc[0], loc[1])
 }
 
 type Seeds struct {
 	Locs     [][]SeedLoc
 	SeedSize int
+	lock     *sync.RWMutex
 }
 
 // newSeeds creates a new table of seed location lists. The table is
@@ -76,6 +76,7 @@ func NewSeeds(seedSize int) *Seeds {
 	return &Seeds{
 		Locs:     make([][]SeedLoc, pow(SeedAlphaSize, seedSize)),
 		SeedSize: seedSize,
+		lock:     &sync.RWMutex{},
 	}
 }
 
@@ -92,23 +93,34 @@ func (ss *Seeds) Add(refSeqIndex int, refSeq *ReferenceSeq) {
 		loc := NewSeedLoc(refSeqIndex, i)
 
 		// If no memory has been allocated for this kmer, then do so now.
+		ss.lock.Lock()
 		if ss.Locs[kmerIndex] == nil {
 			ss.Locs[kmerIndex] = make([]SeedLoc, 1)
 			ss.Locs[kmerIndex][0] = loc
 		} else {
 			ss.Locs[kmerIndex] = append(ss.Locs[kmerIndex], loc)
 		}
+		ss.lock.Unlock()
 	}
 }
 
 // lookup returns a list of all seed locations corresponding to a particular
 // K-mer.
 func (ss *Seeds) Lookup(kmer []byte) []SeedLoc {
-	return ss.Locs[hashKmer(kmer)]
+	ss.lock.RLock()
+	defer ss.lock.RUnlock()
+
+	seeds := ss.Locs[hashKmer(kmer)]
+	cpy := make([]SeedLoc, len(seeds))
+	copy(cpy, seeds)
+	return cpy
 }
 
 // String returns a fairly crude visual representation of the seeds table.
 func (ss *Seeds) String() string {
+	ss.lock.RLock()
+	defer ss.lock.RUnlock()
+
 	strs := make([]string, 0, len(ss.Locs))
 	for key, locs := range ss.Locs {
 		if locs == nil {
