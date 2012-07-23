@@ -57,14 +57,6 @@ func init() {
 }
 
 func allocTable(r, c int) [][]int {
-	if r != flagGappedWindowSize || c != flagGappedWindowSize {
-		table := make([][]int, r)
-		for j := range table {
-			table[j] = make([]int, c)
-		}
-		return table
-	}
-
 	tableLock.Lock()
 	for i := len(tablePool) - 1; i >= 0; i-- {
 		table := tablePool[i]
@@ -78,7 +70,6 @@ func allocTable(r, c int) [][]int {
 
 	// We couldn't find a table with the desired size, so allocate one.
 	// It will be added back to the pool when 'freeTable' is called.
-	println("Allocating new table:", r, c)
 	table := make([][]int, r)
 	for j := range table {
 		table[j] = make([]int, c)
@@ -87,12 +78,6 @@ func allocTable(r, c int) [][]int {
 }
 
 func freeTable(table [][]int) {
-	if len(table) != flagGappedWindowSize ||
-		len(table[0]) != flagGappedWindowSize {
-
-		return
-	}
-
 	tableLock.Lock()
 	defer tableLock.Unlock()
 
@@ -102,7 +87,16 @@ func freeTable(table [][]int) {
 func nwAlign(rseq, oseq []byte) [2][]byte {
 	gap := len(aligner.Matrix) - 1
 	r, c := len(rseq)+1, len(oseq)+1
-	table := allocTable(r, c)
+
+	var table [][]int
+	if r == flagGappedWindowSize && c == flagGappedWindowSize {
+		table = allocTable(r, c)
+	} else {
+		table = make([][]int, r)
+		for j := range table {
+			table[j] = make([]int, c)
+		}
+	}
 
 	var sdiag, sup, sleft int
 	valToCode := aligner.LookUp.ValueToCode
@@ -160,7 +154,9 @@ func nwAlign(rseq, oseq []byte) [2][]byte {
 		}
 	}
 
-	freeTable(table)
+	if r == flagGappedWindowSize && c == flagGappedWindowSize {
+		freeTable(table)
+	}
 
 	for ; i > 0; i-- {
 		refAln = append(refAln, rseq[i-1])
