@@ -47,19 +47,21 @@ var SeedAlphaNums = []int{
 // in the reference database and the index of the residue where the seed starts
 // in that sequence. The length of the seed is a constant set at
 // run-time: flagSeedSize.
-type SeedLoc [2]int
+type SeedLoc struct {
+	SeqInd int
+	ResInd int16
+}
 
 func NewSeedLoc(seqInd, resInd int) SeedLoc {
-	return SeedLoc{seqInd, resInd}
+	return SeedLoc{seqInd, int16(resInd)}
 }
 
 func (loc SeedLoc) String() string {
-	return fmt.Sprintf("(%d, %d)", loc[0], loc[1])
+	return fmt.Sprintf("(%d, %d)", loc.SeqInd, loc.ResInd)
 }
 
 type Seeds struct {
-	Locs [][]SeedLoc
-	// Locs     map[string][]SeedLoc 
+	Locs     [][]SeedLoc
 	SeedSize int
 	lock     *sync.RWMutex
 	powers   []int
@@ -78,9 +80,13 @@ func NewSeeds(seedSize int) *Seeds {
 		p *= SeedAlphaSize
 	}
 
+	locs := make([][]SeedLoc, powers[seedSize])
+	for i := range locs {
+		locs[i] = make([]SeedLoc, 0, 5)
+	}
+
 	return &Seeds{
-		Locs: make([][]SeedLoc, powers[seedSize]),
-		// Locs:     make(map[string][]SeedLoc, 100), 
+		Locs:     locs,
 		SeedSize: seedSize,
 		lock:     &sync.RWMutex{},
 		powers:   powers,
@@ -107,19 +113,11 @@ func (ss *Seeds) Add(refSeqIndex int, refSeq *ReferenceSeq) {
 		}
 
 		kmerIndex := ss.hashKmer(kmer)
-		// kmerKey := string(kmer) 
 		loc := NewSeedLoc(refSeqIndex, i)
-
-		// if _, ok := ss.Locs[kmerKey]; !ok { 
-		// ss.Locs[kmerKey] = make([]SeedLoc, 1) 
-		// ss.Locs[kmerKey][0] = loc 
-		// } else { 
-		// ss.Locs[kmerKey] = append(ss.Locs[kmerKey], loc) 
-		// } 
 
 		// If no memory has been allocated for this kmer, then do so now.
 		if ss.Locs[kmerIndex] == nil {
-			ss.Locs[kmerIndex] = make([]SeedLoc, 1)
+			ss.Locs[kmerIndex] = make([]SeedLoc, 1, 100)
 			ss.Locs[kmerIndex][0] = loc
 		} else {
 			ss.Locs[kmerIndex] = append(ss.Locs[kmerIndex], loc)
@@ -134,7 +132,6 @@ func (ss *Seeds) Add(refSeqIndex int, refSeq *ReferenceSeq) {
 func (ss *Seeds) Lookup(kmer []byte) []SeedLoc {
 	ss.lock.RLock()
 	seeds := ss.Locs[ss.hashKmer(kmer)]
-	// seeds := ss.Locs[string(kmer)] 
 	cpy := make([]SeedLoc, len(seeds))
 	copy(cpy, seeds)
 	ss.lock.RUnlock()

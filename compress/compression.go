@@ -50,7 +50,7 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 		// Each seed location corresponding to the current K-mer must be
 		// used to attempt to extend a match.
 		for _, seedLoc := range seeds {
-			refSeqId := seedLoc[0]
+			refSeqId := seedLoc.SeqInd
 			refSeq := coarsedb.RefSeqGet(refSeqId)
 
 			// The "match" between reference and original sequence will
@@ -59,7 +59,7 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 			// position of the "current" pointer and the end of the sequence
 			// for the original sequence.
 			refMatch, orgMatch := extendMatch(
-				refSeq.Residues[seedLoc[1]:], orgSeq.Residues[current:],
+				refSeq.Residues[seedLoc.ResInd:], orgSeq.Residues[current:],
 				table)
 
 			// If the part of the original sequence does not exceed the
@@ -71,7 +71,7 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 
 			// Otherwise, we accept the first valid match and move on to the 
 			// next kmer after the match ends.
-			refStart := seedLoc[1]
+			refStart := int(seedLoc.ResInd)
 			refEnd := refStart + len(refMatch)
 			orgStart := current
 			orgEnd := orgStart + len(orgMatch)

@@ -30,7 +30,7 @@ func NewCoarseDB(fastaFile, seedsFile, linksFile *os.File,
 	seedSize int, plain bool) *CoarseDB {
 
 	coarsedb := &CoarseDB{
-		Seqs:      make([]*ReferenceSeq, 0, 1000),
+		Seqs:      make([]*ReferenceSeq, 0, 10000),
 		Seeds:     NewSeeds(seedSize),
 		FileFasta: fastaFile,
 		FileSeeds: seedsFile,
@@ -46,9 +46,14 @@ func NewCoarseDB(fastaFile, seedsFile, linksFile *os.File,
 // also generated for each K-mer in the sequence. The resulting reference
 // sequence is returned.
 func (coarsedb *CoarseDB) Add(orgSeq *OriginalSeq) (int, *ReferenceSeq) {
+	// Make sure we copy the residues of the original seq, so we don't pin
+	// any memory.
+	cpy := make([]byte, len(orgSeq.Residues))
+	copy(cpy, orgSeq.Residues)
+
 	coarsedb.seqLock.Lock()
 	id := len(coarsedb.Seqs)
-	refSeq := NewReferenceSeq(id, orgSeq.Name, orgSeq.Residues)
+	refSeq := NewReferenceSeq(id, orgSeq.Name, cpy)
 	coarsedb.Seqs = append(coarsedb.Seqs, refSeq)
 	coarsedb.seqLock.Unlock()
 

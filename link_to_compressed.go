@@ -8,14 +8,14 @@ import "fmt"
 // redundant to the specified residue range in the reference sequence.
 type LinkToCompressed struct {
 	OrgSeqId         int
-	RefStart, RefEnd int
+	RefStart, RefEnd int16
 }
 
-func NewLinkToCompressed(orgSeqId, refStart, refEnd int) LinkToCompressed {
+func NewLinkToCompressed(orgSeqId int, refStart, refEnd int) LinkToCompressed {
 	return LinkToCompressed{
 		OrgSeqId: orgSeqId,
-		RefStart: refStart,
-		RefEnd:   refEnd,
+		RefStart: int16(refStart),
+		RefEnd:   int16(refEnd),
 	}
 }
 
