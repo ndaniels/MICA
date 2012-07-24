@@ -4,3 +4,4 @@ mit
 TAGS
 compress/compress
 *.prof*
+*.stats*
