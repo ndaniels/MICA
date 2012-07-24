@@ -28,6 +28,7 @@ var (
 
 	flagCpuProfile = ""
 	flagMemProfile = ""
+	flagMemStats   = ""
 )
 
 func init() {
@@ -53,6 +54,8 @@ func init() {
 		"When set, a CPU profile will be written to the file specified.")
 	flag.StringVar(&flagMemProfile, "memprofile", flagMemProfile,
 		"When set, a memory profile will be written to the file specified.")
+	flag.StringVar(&flagMemStats, "memstats", flagMemStats,
+		"When set, memory statistics will be written to the file specified.")
 }
 
 func main() {
@@ -110,21 +113,18 @@ func main() {
 			orgSeqId++
 
 			if orgSeqId%1000 == 0 {
-				kmers, locs := DB.CoarseDB.Seeds.Size()
 				secElapsed := time.Since(start).Seconds()
-
 				seqsPerSec := float64(orgSeqId) / float64(secElapsed)
-				kmersPerSec := float64(kmers) / float64(secElapsed)
-				locsPerSec := float64(locs) / float64(secElapsed)
 
-				fmt.Printf("%d sequences compressed (%0.4f seqs/sec) "+
-					":: %d kmers with %d total locations "+
-					"(%0.4f kmers/sec, %0.4f locs/sec)\n",
-					orgSeqId, seqsPerSec, kmers, locs, kmersPerSec, locsPerSec)
+				fmt.Printf("%d sequences compressed (%0.4f seqs/sec)\n",
+					orgSeqId, seqsPerSec)
 
 				if len(flagMemProfile) > 0 {
 					writeMemProfile(fmt.Sprintf("%s.%d",
 						flagMemProfile, orgSeqId))
+				}
+				if len(flagMemStats) > 0 {
+					writeMemStats(fmt.Sprintf("%s.%d", flagMemStats, orgSeqId))
 				}
 			}
 		}
@@ -186,4 +186,58 @@ func usage() {
 		path.Base(os.Args[0]))
 	flag.PrintDefaults()
 	os.Exit(1)
+}
+
+func writeMemStats(name string) {
+	f, err := os.Create(name)
+	if err != nil {
+		fatalf("%s\n", err)
+	}
+
+	kb := uint64(1024)
+	mb := kb * 1024
+	// gb := mb * 1024 
+
+	ms := &runtime.MemStats{}
+	runtime.ReadMemStats(ms)
+	fmt.Fprintf(f,
+		`Alloc: %d MB
+TotalAlloc: %d MB
+Sys: %d MB
+Lookups: %d
+Mallocs: %d
+Frees: %d
+
+HeapAlloc: %d MB
+HeapSys: %d MB
+HeapIdle: %d KB
+HeapInuse: %d KB
+HeapReleased: %d B
+HeapObjects: %d
+
+StackInuse: %d
+StackSys: %d
+MSpanInuse: %d
+MSpanSys: %d
+MCacheInuse: %d
+MCacheSys: %d
+BuckHashSys: %d
+
+NextGC: %d
+LastGC: %d
+PauseTotalNs: %d
+PauseNs: %d
+NumGC: %d
+`,
+		ms.Alloc/mb, ms.TotalAlloc/mb,
+		ms.Sys/mb, ms.Lookups, ms.Mallocs,
+		ms.Frees, ms.HeapAlloc/mb, ms.HeapSys/mb,
+		ms.HeapIdle/kb,
+		ms.HeapInuse/kb, ms.HeapReleased, ms.HeapObjects,
+		ms.StackInuse, ms.StackSys, ms.MSpanInuse, ms.MSpanSys,
+		ms.MCacheInuse, ms.MCacheSys, ms.BuckHashSys,
+		ms.NextGC, ms.LastGC, ms.PauseTotalNs/1000000000,
+		ms.PauseNs, ms.NumGC)
+
+	f.Close()
 }
