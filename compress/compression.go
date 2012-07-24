@@ -85,7 +85,10 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 			// region in the reference database in its entirety.)
 			if orgStart-lastMatch > 0 {
 				orgSub := orgSeq.NewSubSequence(lastMatch, current)
-				nextRefSeqId := addWithoutMatch(coarsedb, orgSeqId, orgSub)
+				orgSubCpy := make([]byte, len(orgSub.Residues))
+				copy(orgSubCpy, orgSub.Residues)
+
+				nextRefSeqId := addWithoutMatch(coarsedb, orgSeqId, orgSubCpy)
 				cseq.Add(cablastp.NewLinkToReferenceNoDiff(
 					nextRefSeqId, 0, orgSub.Len()))
 			}
@@ -116,7 +119,10 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 	// create the appropriate links.
 	if orgSeq.Len()-lastMatch > 0 {
 		orgSub := orgSeq.NewSubSequence(lastMatch, orgSeq.Len())
-		nextRefSeqId := addWithoutMatch(coarsedb, orgSeqId, orgSub)
+		orgSubCpy := make([]byte, len(orgSub.Residues))
+		copy(orgSubCpy, orgSub.Residues)
+
+		nextRefSeqId := addWithoutMatch(coarsedb, orgSeqId, orgSubCpy)
 		cseq.Add(cablastp.NewLinkToReferenceNoDiff(
 			nextRefSeqId, 0, orgSub.Len()))
 	}
@@ -202,10 +208,10 @@ func extendMatch(refRes, orgRes []byte,
 //
 // The id of the new reference sequence added is returned.
 func addWithoutMatch(coarsedb *cablastp.CoarseDB, orgSeqId int,
-	orgSeq *cablastp.OriginalSeq) int {
+	oseq []byte) int {
 
-	refSeqId, refSeq := coarsedb.Add(orgSeq)
-	refSeq.AddLink(cablastp.NewLinkToCompressed(orgSeqId, 0, orgSeq.Len()))
+	refSeqId, refSeq := coarsedb.Add(oseq)
+	refSeq.AddLink(cablastp.NewLinkToCompressed(orgSeqId, 0, len(oseq)))
 	return refSeqId
 }
 

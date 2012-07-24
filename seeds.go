@@ -81,9 +81,9 @@ func NewSeeds(seedSize int) *Seeds {
 	}
 
 	locs := make([][]SeedLoc, powers[seedSize])
-	for i := range locs {
-		locs[i] = make([]SeedLoc, 0, 5)
-	}
+	// for i := range locs { 
+	// locs[i] = make([]SeedLoc, 0, 2) 
+	// } 
 
 	return &Seeds{
 		Locs:     locs,
@@ -117,7 +117,7 @@ func (ss *Seeds) Add(refSeqIndex int, refSeq *ReferenceSeq) {
 
 		// If no memory has been allocated for this kmer, then do so now.
 		if ss.Locs[kmerIndex] == nil {
-			ss.Locs[kmerIndex] = make([]SeedLoc, 1, 100)
+			ss.Locs[kmerIndex] = make([]SeedLoc, 1)
 			ss.Locs[kmerIndex][0] = loc
 		} else {
 			ss.Locs[kmerIndex] = append(ss.Locs[kmerIndex], loc)

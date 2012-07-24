@@ -45,15 +45,10 @@ func NewCoarseDB(fastaFile, seedsFile, linksFile *os.File,
 // adds it as a new reference sequence to the reference database. Seeds are
 // also generated for each K-mer in the sequence. The resulting reference
 // sequence is returned.
-func (coarsedb *CoarseDB) Add(orgSeq *OriginalSeq) (int, *ReferenceSeq) {
-	// Make sure we copy the residues of the original seq, so we don't pin
-	// any memory.
-	cpy := make([]byte, len(orgSeq.Residues))
-	copy(cpy, orgSeq.Residues)
-
+func (coarsedb *CoarseDB) Add(oseq []byte) (int, *ReferenceSeq) {
 	coarsedb.seqLock.Lock()
 	id := len(coarsedb.Seqs)
-	refSeq := NewReferenceSeq(id, orgSeq.Name, cpy)
+	refSeq := NewReferenceSeq(id, "", oseq)
 	coarsedb.Seqs = append(coarsedb.Seqs, refSeq)
 	coarsedb.seqLock.Unlock()
 
