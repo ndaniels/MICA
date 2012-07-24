@@ -31,6 +31,8 @@ func init() {
 		m[int(v)] = i
 	}
 	nwLookUpP = *util.NewCTL(m)
+
+	aligner.LookUp = nwLookUpP
 }
 
 func nwAlign(rseq, oseq []byte, table [][]int) [2][]byte {

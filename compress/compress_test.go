@@ -43,9 +43,71 @@ func TestNeedlemanWunsch(t *testing.T) {
 		// "ABCDEFMNPQRSTZABEGWXYZ", 
 		// }, 
 	}
+	sep := strings.Repeat("-", 45)
+	for _, test := range tests {
+		alignment := nwAlign([]byte(test.seq1), []byte(test.seq2), nil)
+		sout1, sout2 := string(alignment[0]), string(alignment[1])
+
+		if sout1 != test.out1 || sout2 != test.out2 {
+			t.Fatalf(
+				`Alignment for: (sequence identitiy: %d)
+%s
+%s
+%s
+%s
+resulted in
+%s
+%s
+%s
+%s
+but should have been
+%s
+%s
+%s
+%s`,
+				cablastp.SeqIdentity(alignment[0], alignment[1]),
+				sep, test.seq1, test.seq2, sep,
+				sep, sout1, sout2, sep,
+				sep, test.out1, test.out2, sep)
+		}
+	}
+}
+
+func TestBiogoNeedlemanWunsch(t *testing.T) {
+	type test struct {
+		seq1, seq2 string
+		out1, out2 string
+	}
+
+	tests := []test{
+		{
+			"ABCD",
+			"ABCD",
+			"ABCD",
+			"ABCD",
+		},
+		{
+			"GHIKLMNPQR",
+			"GAAAHIKLMN",
+			"---GHIKLMNPQR",
+			"GAAAHIKLMN---",
+		},
+		{
+			"GHIKLMNPQRSTVW",
+			"GAAAHIKLMNPQRSTVW",
+			"---GHIKLMNPQRSTVW",
+			"GAAAHIKLMNPQRSTVW",
+		},
+		// { 
+		// "ABCDEFGWXYZ", 
+		// "ABCDEFMNPQRSTZABEGWXYZ", 
+		// "ABCDEF-----------GWXYZ", 
+		// "ABCDEFMNPQRSTZABEGWXYZ", 
+		// }, 
+	}
 	aligner := &nw.Aligner{
 		Matrix:  blosum.Matrix62,
-		LookUp:  lookUpP,
+		LookUp:  nwLookUpP,
 		GapChar: '-',
 	}
 	sep := strings.Repeat("-", 45)
@@ -56,6 +118,7 @@ func TestNeedlemanWunsch(t *testing.T) {
 			t.Fatal(err)
 		}
 		sout1, sout2 := string(alignment[0].Seq), string(alignment[1].Seq)
+
 		if sout1 != test.out1 || sout2 != test.out2 {
 			t.Fatalf(
 				`Alignment for: (sequence identitiy: %d)
@@ -115,7 +178,8 @@ func TestExtendMatch(t *testing.T) {
 	}
 	sep := strings.Repeat("-", 45)
 	for _, test := range tests {
-		refMatch, orgMatch := extendMatch([]byte(test.rseq), []byte(test.oseq))
+		refMatch, orgMatch := extendMatch(
+			[]byte(test.rseq), []byte(test.oseq), nil)
 		srefMatch, sorgMatch := string(refMatch), string(orgMatch)
 
 		if srefMatch != test.rmseq || sorgMatch != test.omseq {

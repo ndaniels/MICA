@@ -111,7 +111,10 @@ func (ss *Seeds) Add(refSeqIndex int, refSeq *ReferenceSeq) {
 		if ss.Locs[kmerIndex] == nil {
 			ss.Locs[kmerIndex] = loc
 		} else {
-			ss.Locs[kmerIndex].Next = loc
+			lk := ss.Locs[kmerIndex]
+			for ; lk.Next != nil; lk = lk.Next {
+			}
+			lk.Next = loc
 		}
 	}
 

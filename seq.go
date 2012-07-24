@@ -122,12 +122,15 @@ func (rseq *ReferenceSeq) NewSubSequence(start, end int) *ReferenceSeq {
 	}
 }
 
-func (rseq *ReferenceSeq) AddLink(lk *LinkToCompressed) {
+func (rseq *ReferenceSeq) AddLink(link *LinkToCompressed) {
 	rseq.linkLock.Lock()
 	if rseq.Links == nil {
-		rseq.Links = lk
+		rseq.Links = link
 	} else {
-		rseq.Links.Next = lk
+		lk := rseq.Links
+		for ; lk.Next != nil; lk = lk.Next {
+		}
+		lk.Next = link
 	}
 	rseq.linkLock.Unlock()
 }

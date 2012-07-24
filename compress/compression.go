@@ -1,10 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/BurntSushi/cablastp"
 )
+
+var _ = fmt.Println // gah
 
 type compressJob struct {
 	orgSeqId int
@@ -95,7 +98,7 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 
 				nextRefSeqId := addWithoutMatch(coarsedb, orgSeqId, orgSubCpy)
 				cseq.Add(cablastp.NewLinkToReferenceNoDiff(
-					nextRefSeqId, 0, orgSub.Len()))
+					nextRefSeqId, 0, len(orgSubCpy)))
 			}
 
 			// For the given match, add a LinkToReference to the portion of 
@@ -183,6 +186,7 @@ func extendMatch(refRes, orgRes []byte,
 			refRes[refMatchLen:min(len(refRes), refMatchLen+winSize)],
 			orgRes[orgMatchLen:min(len(orgRes), orgMatchLen+winSize)],
 			table)
+
 		// If the alignment has a sequence identity below the
 		// threshold, then gapped extension has failed. We therefore
 		// quit and are forced to be satisfied with whatever
