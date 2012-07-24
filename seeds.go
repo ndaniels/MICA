@@ -1,9 +1,9 @@
 package cablastp
 
 import (
+	"container/list"
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 )
 
@@ -61,7 +61,7 @@ func (loc SeedLoc) String() string {
 }
 
 type Seeds struct {
-	Locs     [][]SeedLoc
+	Locs     []*list.List
 	SeedSize int
 	lock     *sync.RWMutex
 	powers   []int
@@ -80,10 +80,7 @@ func NewSeeds(seedSize int) *Seeds {
 		p *= SeedAlphaSize
 	}
 
-	locs := make([][]SeedLoc, powers[seedSize])
-	// for i := range locs { 
-	// locs[i] = make([]SeedLoc, 0, 2) 
-	// } 
+	locs := make([]*list.List, powers[seedSize])
 
 	return &Seeds{
 		Locs:     locs,
@@ -96,7 +93,7 @@ func NewSeeds(seedSize int) *Seeds {
 func (ss *Seeds) Size() (int, int) {
 	allSeeds := 0
 	for _, seeds := range ss.Locs {
-		allSeeds += len(seeds)
+		allSeeds += seeds.Len()
 	}
 	return len(ss.Locs), allSeeds
 }
@@ -117,11 +114,9 @@ func (ss *Seeds) Add(refSeqIndex int, refSeq *ReferenceSeq) {
 
 		// If no memory has been allocated for this kmer, then do so now.
 		if ss.Locs[kmerIndex] == nil {
-			ss.Locs[kmerIndex] = make([]SeedLoc, 1)
-			ss.Locs[kmerIndex][0] = loc
-		} else {
-			ss.Locs[kmerIndex] = append(ss.Locs[kmerIndex], loc)
+			ss.Locs[kmerIndex] = list.New()
 		}
+		ss.Locs[kmerIndex].PushBack(loc)
 	}
 
 	ss.lock.Unlock()
@@ -129,37 +124,41 @@ func (ss *Seeds) Add(refSeqIndex int, refSeq *ReferenceSeq) {
 
 // lookup returns a list of all seed locations corresponding to a particular
 // K-mer.
-func (ss *Seeds) Lookup(kmer []byte) []SeedLoc {
+func (ss *Seeds) Lookup(kmer []byte) *list.List {
 	ss.lock.RLock()
 	seeds := ss.Locs[ss.hashKmer(kmer)]
-	cpy := make([]SeedLoc, len(seeds))
-	copy(cpy, seeds)
+	if seeds == nil {
+		ss.lock.RUnlock()
+		return nil
+	}
+	cpy := list.New()
+	cpy.PushFrontList(seeds)
 	ss.lock.RUnlock()
 
 	return cpy
 }
 
 // String returns a fairly crude visual representation of the seeds table.
-func (ss *Seeds) String() string {
-	ss.lock.RLock()
-	defer ss.lock.RUnlock()
-
-	strs := make([]string, 0, len(ss.Locs))
-	for key, locs := range ss.Locs {
-		if locs == nil {
-			continue
-		}
-
-		lstrs := make([]string, len(locs))
-		for i, loc := range locs {
-			lstrs[i] = loc.String()
-		}
-
-		strs = append(strs,
-			fmt.Sprintf("%d: %s", key, strings.Join(lstrs, " ")))
-	}
-	return strings.Join(strs, "\n")
-}
+// func (ss *Seeds) String() string { 
+// ss.lock.RLock() 
+// defer ss.lock.RUnlock() 
+//  
+// strs := make([]string, 0, len(ss.Locs)) 
+// for key, locs := range ss.Locs { 
+// if locs == nil { 
+// continue 
+// } 
+//  
+// lstrs := make([]string, len(locs)) 
+// for i, loc := range locs { 
+// lstrs[i] = loc.String() 
+// } 
+//  
+// strs = append(strs, 
+// fmt.Sprintf("%d: %s", key, strings.Join(lstrs, " "))) 
+// } 
+// return strings.Join(strs, "\n") 
+// } 
 
 // aminoValue gets the base-20 index of a particular resiude.
 // aminoValue assumes that letter is a valid ASCII character in the
