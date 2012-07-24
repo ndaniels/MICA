@@ -62,7 +62,7 @@ func nwAlign(rseq, oseq, bufRef, bufOrg []byte, table [][]int) [2][]byte {
 	gapChar := aligner.GapChar
 	matrix := aligner.Matrix
 
-	half := r / 4
+	half := r / 3
 	for i := 1; i < r; i++ {
 		for j := 1; j < c; j++ {
 			if abs(i - j) > half {

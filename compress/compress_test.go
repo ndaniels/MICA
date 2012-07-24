@@ -45,7 +45,8 @@ func TestNeedlemanWunsch(t *testing.T) {
 	}
 	sep := strings.Repeat("-", 45)
 	for _, test := range tests {
-		alignment := nwAlign([]byte(test.seq1), []byte(test.seq2), nil)
+		alignment := nwAlign([]byte(test.seq1), []byte(test.seq2),
+			make([]byte, 0, 1000), make([]byte, 0, 1000), nil)
 		sout1, sout2 := string(alignment[0]), string(alignment[1])
 
 		if sout1 != test.out1 || sout2 != test.out2 {
@@ -179,7 +180,8 @@ func TestExtendMatch(t *testing.T) {
 	sep := strings.Repeat("-", 45)
 	for _, test := range tests {
 		refMatch, orgMatch := extendMatch(
-			[]byte(test.rseq), []byte(test.oseq), nil)
+			[]byte(test.rseq), []byte(test.oseq),
+			make([]byte, 0, 1000), make([]byte, 0, 1000), nil)
 		srefMatch, sorgMatch := string(refMatch), string(orgMatch)
 
 		if srefMatch != test.rmseq || sorgMatch != test.omseq {
