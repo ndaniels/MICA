@@ -31,7 +31,6 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 
 	cseq := cablastp.NewCompressedSeq(orgSeqId, orgSeq.Name)
 	seedSize := coarsedb.Seeds.SeedSize
-	var seedLoc cablastp.SeedLoc
 
 	// Keep track of two pointers. 'current' refers to the residue index in the
 	// original sequence that extension is currently originating from.
@@ -47,15 +46,10 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 		}
 
 		seeds := coarsedb.Seeds.Lookup(kmer)
-		if seeds == nil {
-			continue
-		}
 
 		// Each seed location corresponding to the current K-mer must be
 		// used to attempt to extend a match.
-		for el := seeds.Front(); el != nil; el = el.Next() {
-			seedLoc = el.Value.(cablastp.SeedLoc)
-
+		for _, seedLoc := range seeds {
 			refSeqId := seedLoc.SeqInd
 			refSeq := coarsedb.RefSeqGet(refSeqId)
 
