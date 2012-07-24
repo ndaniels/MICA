@@ -30,7 +30,7 @@ func NewCoarseDB(fastaFile, seedsFile, linksFile *os.File,
 	seedSize int, plain bool) *CoarseDB {
 
 	coarsedb := &CoarseDB{
-		Seqs:      make([]*ReferenceSeq, 0, 10000),
+		Seqs:      make([]*ReferenceSeq, 0, 10000000),
 		Seeds:     NewSeeds(seedSize),
 		FileFasta: fastaFile,
 		FileSeeds: seedsFile,
@@ -100,7 +100,7 @@ func (coarsedb *CoarseDB) savePlain() error {
 		if err != nil {
 			return err
 		}
-		for _, link := range seq.Links {
+		for link := seq.Links; link != nil; link = link.Next {
 			_, err := fmt.Fprintf(bufWriter, "%s\n", link)
 			if err != nil {
 				return err

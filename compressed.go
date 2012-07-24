@@ -19,7 +19,7 @@ func NewCompressedDB(file *os.File, index *os.File, plain bool) *CompressedDB {
 		Seqs:       make([]CompressedSeq, 0, 100),
 		File:       file,
 		Index:      index,
-		writerChan: make(chan CompressedSeq, 200),
+		writerChan: make(chan CompressedSeq, 50),
 		writerDone: make(chan struct{}, 0),
 	}
 
@@ -56,7 +56,7 @@ func (comdb *CompressedDB) writerPlain() {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 			os.Exit(1)
 		}
-		for _, link := range cseq.Links {
+		for link := cseq.Links; link != nil; link = link.Next {
 			_, err := fmt.Fprintf(comdb.File, "%s\n", link)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
@@ -93,12 +93,12 @@ func (comdb *CompressedDB) SavePlain(name string) error {
 	}
 
 	bufWriter := bufio.NewWriter(f)
-	for i, seq := range comdb.Seqs {
-		_, err = fmt.Fprintf(bufWriter, "> %d; %s\n", i, seq.Name)
+	for i, cseq := range comdb.Seqs {
+		_, err = fmt.Fprintf(bufWriter, "> %d; %s\n", i, cseq.Name)
 		if err != nil {
 			return err
 		}
-		for _, link := range seq.Links {
+		for link := cseq.Links; link != nil; link = link.Next {
 			_, err := fmt.Fprintf(bufWriter, "%s\n", link)
 			if err != nil {
 				return err
@@ -124,7 +124,7 @@ type CompressedSeq struct {
 	// Links is an ordered lists of links to portions of the reference
 	// database. When all links are followed, the concatenation of each
 	// sequence correspond to each link equals the entire original sequence.
-	Links []LinkToReference
+	Links *LinkToReference
 }
 
 // NewCompressedSeq creates a CompressedSeq value using the name provided.
@@ -133,11 +133,15 @@ func NewCompressedSeq(id int, name string) CompressedSeq {
 	return CompressedSeq{
 		Id:    id,
 		Name:  name,
-		Links: make([]LinkToReference, 0, 2),
+		Links: nil,
 	}
 }
 
 // Add will add a LinkToReference to the end of the CompressedSeq's Links list.
-func (cseq *CompressedSeq) Add(link LinkToReference) {
-	cseq.Links = append(cseq.Links, link)
+func (cseq *CompressedSeq) Add(link *LinkToReference) {
+	if cseq.Links == nil {
+		cseq.Links = link
+	} else {
+		cseq.Links.Next = link
+	}
 }

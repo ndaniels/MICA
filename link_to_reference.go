@@ -16,25 +16,28 @@ type LinkToReference struct {
 	Diff             string
 	RefSeqId         int
 	RefStart, RefEnd int16
+	Next             *LinkToReference
 }
 
 func NewLinkToReference(refSeqId, refStart, refEnd int,
-	alignment [2][]byte) LinkToReference {
+	alignment [2][]byte) *LinkToReference {
 
-	return LinkToReference{
+	return &LinkToReference{
 		Diff:     NewEditScript(alignment).String(),
 		RefSeqId: refSeqId,
 		RefStart: int16(refStart),
 		RefEnd:   int16(refEnd),
+		Next:     nil,
 	}
 }
 
-func NewLinkToReferenceNoDiff(refSeqId, refStart, refEnd int) LinkToReference {
-	return LinkToReference{
+func NewLinkToReferenceNoDiff(refSeqId, refStart, refEnd int) *LinkToReference {
+	return &LinkToReference{
 		Diff:     "",
 		RefSeqId: refSeqId,
 		RefStart: int16(refStart),
 		RefEnd:   int16(refEnd),
+		Next:     nil,
 	}
 }
 

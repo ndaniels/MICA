@@ -99,14 +99,14 @@ func (seq *sequence) String() string {
 // sequences from the input FASTA file.
 type ReferenceSeq struct {
 	*sequence
-	Links    []LinkToCompressed
+	Links    *LinkToCompressed
 	linkLock *sync.RWMutex
 }
 
 func NewReferenceSeq(id int, name string, residues []byte) *ReferenceSeq {
 	return &ReferenceSeq{
 		sequence: newSeq(id, name, residues),
-		Links:    make([]LinkToCompressed, 2),
+		Links:    nil,
 		linkLock: &sync.RWMutex{},
 	}
 }
@@ -122,9 +122,13 @@ func (rseq *ReferenceSeq) NewSubSequence(start, end int) *ReferenceSeq {
 	}
 }
 
-func (rseq *ReferenceSeq) AddLink(lk LinkToCompressed) {
+func (rseq *ReferenceSeq) AddLink(lk *LinkToCompressed) {
 	rseq.linkLock.Lock()
-	rseq.Links = append(rseq.Links, lk)
+	if rseq.Links == nil {
+		rseq.Links = lk
+	} else {
+		rseq.Links.Next = lk
+	}
 	rseq.linkLock.Unlock()
 }
 

@@ -9,13 +9,15 @@ import "fmt"
 type LinkToCompressed struct {
 	OrgSeqId         int
 	RefStart, RefEnd int16
+	Next             *LinkToCompressed
 }
 
-func NewLinkToCompressed(orgSeqId int, refStart, refEnd int) LinkToCompressed {
-	return LinkToCompressed{
+func NewLinkToCompressed(orgSeqId int, refStart, refEnd int) *LinkToCompressed {
+	return &LinkToCompressed{
 		OrgSeqId: orgSeqId,
 		RefStart: int16(refStart),
 		RefEnd:   int16(refEnd),
+		Next:     nil,
 	}
 }
 

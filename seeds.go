@@ -1,7 +1,6 @@
 package cablastp
 
 import (
-	"container/list"
 	"fmt"
 	"log"
 	"sync"
@@ -50,10 +49,11 @@ var SeedAlphaNums = []int{
 type SeedLoc struct {
 	SeqInd int
 	ResInd int16
+	Next   *SeedLoc
 }
 
-func NewSeedLoc(seqInd, resInd int) SeedLoc {
-	return SeedLoc{seqInd, int16(resInd)}
+func NewSeedLoc(seqInd, resInd int) *SeedLoc {
+	return &SeedLoc{seqInd, int16(resInd), nil}
 }
 
 func (loc SeedLoc) String() string {
@@ -61,7 +61,7 @@ func (loc SeedLoc) String() string {
 }
 
 type Seeds struct {
-	Locs     []*list.List
+	Locs     []*SeedLoc
 	SeedSize int
 	lock     *sync.RWMutex
 	powers   []int
@@ -80,7 +80,7 @@ func NewSeeds(seedSize int) *Seeds {
 		p *= SeedAlphaSize
 	}
 
-	locs := make([]*list.List, powers[seedSize])
+	locs := make([]*SeedLoc, powers[seedSize])
 
 	return &Seeds{
 		Locs:     locs,
@@ -91,11 +91,7 @@ func NewSeeds(seedSize int) *Seeds {
 }
 
 func (ss *Seeds) Size() (int, int) {
-	allSeeds := 0
-	for _, seeds := range ss.Locs {
-		allSeeds += seeds.Len()
-	}
-	return len(ss.Locs), allSeeds
+	return 0, 0
 }
 
 // add will create seed locations for all K-mers in refSeq and add them to
@@ -112,11 +108,11 @@ func (ss *Seeds) Add(refSeqIndex int, refSeq *ReferenceSeq) {
 		kmerIndex := ss.hashKmer(kmer)
 		loc := NewSeedLoc(refSeqIndex, i)
 
-		// If no memory has been allocated for this kmer, then do so now.
 		if ss.Locs[kmerIndex] == nil {
-			ss.Locs[kmerIndex] = list.New()
+			ss.Locs[kmerIndex] = loc
+		} else {
+			ss.Locs[kmerIndex].Next = loc
 		}
-		ss.Locs[kmerIndex].PushBack(loc)
 	}
 
 	ss.lock.Unlock()
@@ -124,41 +120,28 @@ func (ss *Seeds) Add(refSeqIndex int, refSeq *ReferenceSeq) {
 
 // lookup returns a list of all seed locations corresponding to a particular
 // K-mer.
-func (ss *Seeds) Lookup(kmer []byte) *list.List {
+func (ss *Seeds) Lookup(kmer []byte) [][2]int {
 	ss.lock.RLock()
 	seeds := ss.Locs[ss.hashKmer(kmer)]
 	if seeds == nil {
 		ss.lock.RUnlock()
 		return nil
 	}
-	cpy := list.New()
-	cpy.PushFrontList(seeds)
+	cpy := make([][2]int, 0, 10)
+	for seedLoc := seeds; seedLoc != nil; seedLoc = seedLoc.Next {
+		cpy = append(cpy, [2]int{seedLoc.SeqInd, int(seedLoc.ResInd)})
+	}
 	ss.lock.RUnlock()
 
 	return cpy
 }
 
-// String returns a fairly crude visual representation of the seeds table.
-// func (ss *Seeds) String() string { 
-// ss.lock.RLock() 
-// defer ss.lock.RUnlock() 
-//  
-// strs := make([]string, 0, len(ss.Locs)) 
-// for key, locs := range ss.Locs { 
-// if locs == nil { 
-// continue 
-// } 
-//  
-// lstrs := make([]string, len(locs)) 
-// for i, loc := range locs { 
-// lstrs[i] = loc.String() 
-// } 
-//  
-// strs = append(strs, 
-// fmt.Sprintf("%d: %s", key, strings.Join(lstrs, " "))) 
-// } 
-// return strings.Join(strs, "\n") 
-// } 
+func (seedLoc *SeedLoc) Copy() *SeedLoc {
+	if seedLoc.Next == nil {
+		return &SeedLoc{seedLoc.SeqInd, seedLoc.ResInd, nil}
+	}
+	return &SeedLoc{seedLoc.SeqInd, seedLoc.ResInd, seedLoc.Next.Copy()}
+}
 
 // aminoValue gets the base-20 index of a particular resiude.
 // aminoValue assumes that letter is a valid ASCII character in the
