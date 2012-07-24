@@ -142,6 +142,9 @@ func (cseq *CompressedSeq) Add(link *LinkToReference) {
 	if cseq.Links == nil {
 		cseq.Links = link
 	} else {
-		cseq.Links.Next = link
+		lk := cseq.Links
+		for ; lk.Next != nil; lk = lk.Next {
+		}
+		lk.Next = link
 	}
 }
