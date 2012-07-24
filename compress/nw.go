@@ -35,7 +35,14 @@ func init() {
 	aligner.LookUp = nwLookUpP
 }
 
-func nwAlign(rseq, oseq []byte, table [][]int) [2][]byte {
+func abs(a int) int {
+	if a < 0 {
+		return -a
+	}
+	return a
+}
+
+func nwAlign(rseq, oseq, bufRef, bufOrg []byte, table [][]int) [2][]byte {
 	gap := len(aligner.Matrix) - 1
 	r, c := len(rseq)+1, len(oseq)+1
 
@@ -55,8 +62,12 @@ func nwAlign(rseq, oseq []byte, table [][]int) [2][]byte {
 	gapChar := aligner.GapChar
 	matrix := aligner.Matrix
 
+	half := r / 4
 	for i := 1; i < r; i++ {
 		for j := 1; j < c; j++ {
+			if abs(i - j) > half {
+				continue
+			}
 			rVal, oVal = valToCode[rseq[i-1]], valToCode[oseq[j-1]]
 			if rVal < 0 || oVal < 0 {
 				continue
@@ -76,8 +87,9 @@ func nwAlign(rseq, oseq []byte, table [][]int) [2][]byte {
 		}
 	}
 
-	refAln := make([]byte, 0, len(rseq)+10)
-	orgAln := make([]byte, 0, len(oseq)+10)
+	// refAln := make([]byte, 0, len(rseq)+10) 
+	// orgAln := make([]byte, 0, len(oseq)+10) 
+	refAln, orgAln := bufRef[:0], bufOrg[:0]
 
 	i, j := r-1, c-1
 	for i > 0 && j > 0 {

@@ -18,13 +18,14 @@ import (
 var ignoredResidues = []byte{'J', 'O', 'U'}
 
 var (
-	flagGoMaxProcs         = runtime.NumCPU()
-	flagMinMatchLen        = 25
-	flagMatchKmerSize      = 3
-	flagGappedWindowSize   = 25
-	flagUngappedWindowSize = 10
-	flagSeqIdThreshold     = 50
-	flagSeedSize           = 3
+	flagGoMaxProcs          = runtime.NumCPU()
+	flagMinMatchLen         = 25
+	flagMatchKmerSize       = 3
+	flagGappedWindowSize    = 25
+	flagUngappedWindowSize  = 10
+	flagSeqIdThreshold      = 50
+	flagMatchSeqIdThreshold = 70
+	flagSeedSize            = 3
 
 	flagCpuProfile = ""
 	flagMemProfile = ""
@@ -45,8 +46,11 @@ func init() {
 	flag.IntVar(&flagUngappedWindowSize, "ungapped-window-size",
 		flagUngappedWindowSize, "The size of the ungapped match window.")
 	flag.IntVar(&flagSeqIdThreshold, "seq-id-threshold", flagSeqIdThreshold,
-		"The sequence identity threshold of a match. (An integer in the "+
-			"inclusive range from 0 to 100.)")
+		"The sequence identity threshold of [un]gapped extension. "+
+		"(An integer in the inclusive range from 0 to 100.)")
+	flag.IntVar(&flagMatchSeqIdThreshold, "match-seq-id-threshold",
+		flagMatchSeqIdThreshold,
+		"The sequence identity threshold of an entire match.")
 	flag.IntVar(&flagSeedSize, "seed-size", flagSeedSize,
 		"The size of a seed.")
 
