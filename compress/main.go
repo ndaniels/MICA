@@ -130,15 +130,13 @@ func main() {
 			}
 			orgSeqId++
 
-			if orgSeqId%100 == 0 {
+			if orgSeqId%1000 == 0 {
 				secElapsed := time.Since(start).Seconds()
 				seqsPerSec := float64(orgSeqId) / float64(secElapsed)
 
 				fmt.Printf("%d sequences compressed (%0.4f seqs/sec)\n",
 					orgSeqId, seqsPerSec)
-			}
 
-			if orgSeqId%1000 == 0 {
 				if len(flagMemProfile) > 0 {
 					writeMemProfile(fmt.Sprintf("%s.%d",
 						flagMemProfile, orgSeqId))
