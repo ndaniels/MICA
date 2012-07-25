@@ -16,6 +16,11 @@ import (
 	"code.google.com/p/biogo/util"
 )
 
+const (
+	memSeqSize       = 10000
+	dynamicTableSize = memSeqSize * memSeqSize
+)
+
 var (
 	nwLookUpP util.CTL
 	aligner   = &nw.Aligner{
@@ -49,13 +54,16 @@ type nwMemory struct {
 
 func newNwMemory() nwMemory {
 	return nwMemory{
-		table: make([]int, 5000*5000),
-		ref:   make([]byte, 10000),
-		org:   make([]byte, 10000),
+		table: make([]int, memSeqSize*memSeqSize),
+		ref:   make([]byte, memSeqSize),
+		org:   make([]byte, memSeqSize),
 	}
 }
 
 func appendOne(slice []byte, b byte) []byte {
+	if len(slice) == cap(slice) {
+		return append(slice, b)
+	}
 	slice = slice[0 : len(slice)+1]
 	slice[len(slice)-1] = b
 	return slice
@@ -66,10 +74,13 @@ func nwAlign(rseq, oseq []byte, mem nwMemory) [2][]byte {
 	r, c := len(rseq)+1, len(oseq)+1
 	off := 0
 
-	for i := 0; i < r; i++ {
-		off = i * c
-		for j := 0; j < c; j++ {
-			mem.table[off+j] = 0
+	var table []int
+	if r*c > dynamicTableSize {
+		table = make([]int, r*c)
+	} else {
+		table = mem.table[:r*c]
+		for i := range table {
+			table[i] = 0
 		}
 	}
 
@@ -98,16 +109,16 @@ func nwAlign(rseq, oseq []byte, mem nwMemory) [2][]byte {
 				continue
 			} else {
 				off = i2 + (j - 1)
-				sdiag = mem.table[off] + matrix[rVal][oVal]
-				sup = mem.table[off+1] + matrix[rVal][gap]
-				sleft = mem.table[off+c] + matrix[gap][oVal]
+				sdiag = table[off] + matrix[rVal][oVal]
+				sup = table[off+1] + matrix[rVal][gap]
+				sleft = table[off+c] + matrix[gap][oVal]
 				switch {
 				case sdiag > sup && sdiag > sleft:
-					mem.table[i3+j] = sdiag
+					table[i3+j] = sdiag
 				case sup > sleft:
-					mem.table[i3+j] = sup
+					table[i3+j] = sup
 				default:
-					mem.table[i3+j] = sleft
+					table[i3+j] = sleft
 				}
 			}
 		}
@@ -121,9 +132,9 @@ func nwAlign(rseq, oseq []byte, mem nwMemory) [2][]byte {
 		if rVal < 0 || oVal < 0 {
 			continue
 		} else {
-			sdiag = mem.table[(i-1)*c+(j-1)] + matrix[rVal][oVal]
-			sup = mem.table[(i-1)*c+j] + matrix[gap][oVal]
-			sleft = mem.table[i*c+(j-1)] + matrix[rVal][gap]
+			sdiag = table[(i-1)*c+(j-1)] + matrix[rVal][oVal]
+			sup = table[(i-1)*c+j] + matrix[gap][oVal]
+			sleft = table[i*c+(j-1)] + matrix[rVal][gap]
 			switch {
 			case sdiag > sup && sdiag > sleft:
 				i--
