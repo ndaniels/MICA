@@ -13,7 +13,7 @@ import (
 // sequences.
 type CoarseDB struct {
 	Seqs  []*ReferenceSeq
-	Seeds *Seeds
+	Seeds Seeds
 	plain bool
 
 	FileFasta *os.File

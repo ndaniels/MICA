@@ -17,25 +17,19 @@ type compressJob struct {
 func compressWorker(DB *cablastp.DB, jobs chan compressJob,
 	wg *sync.WaitGroup) {
 
-	table := make([][]int, flagGappedWindowSize+1)
-	for i := range table {
-		table[i] = make([]int, flagGappedWindowSize+1)
-	}
-
-	bufRef := make([]byte, 0, 10000)
-	bufOrg := make([]byte, 0, 10000)
+	mem := newNwMemory()
 
 	for job := range jobs {
-		comSeq := compress(DB.CoarseDB, job.orgSeqId, job.orgSeq,
-			bufRef, bufOrg, table)
+		comSeq := compress(DB.CoarseDB, job.orgSeqId, job.orgSeq, mem)
 		DB.ComDB.Write(comSeq)
 	}
 	wg.Done()
 }
 
 func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
-	orgSeq *cablastp.OriginalSeq,
-	bufRef, bufOrg []byte, table [][]int) cablastp.CompressedSeq {
+	orgSeq *cablastp.OriginalSeq, mem nwMemory) cablastp.CompressedSeq {
+
+	tooSmall, tooDiff := 0, 0
 
 	cseq := cablastp.NewCompressedSeq(orgSeqId, orgSeq.Name)
 	seedSize := coarsedb.Seeds.SeedSize
@@ -72,15 +66,55 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 			// position of the "current" pointer and the end of the sequence
 			// for the original sequence.
 			refMatch, orgMatch := extendMatch(
-				refSeq.Residues[refResInd:], orgSeq.Residues[current:],
-				bufRef, bufOrg, table)
+				refSeq.Residues[refResInd:], orgSeq.Residues[current:], mem)
 
 			// If the part of the original sequence does not exceed the
 			// minimum match length, then we don't accept the match and move
 			// on to the next one.
-			hasEnd := len(orgMatch) >= orgSeq.Len() - current
+			hasEnd := len(orgMatch)+flagMatchExtend >= orgSeq.Len()-current
 			if len(orgMatch) < flagMinMatchLen && !hasEnd {
+				tooSmall++
 				continue
+			}
+
+			alignment := nwAlign(refMatch, orgMatch, mem)
+			id := cablastp.SeqIdentity(alignment[0], alignment[1])
+			if id < flagMatchSeqIdThreshold {
+				if tooDiff > 200000 {
+					fmt.Println("#########################################")
+					fmt.Println(orgSeqId)
+					fmt.Println(orgSeq.Name)
+					fmt.Println(string(refMatch))
+					fmt.Println(string(orgMatch))
+					fmt.Println("-----------------------------------------")
+					fmt.Println(id)
+					fmt.Println(string(alignment[0]))
+					fmt.Println(string(alignment[1]))
+					fmt.Println("#########################################")
+				}
+				tooDiff++
+				continue
+			}
+
+			// If we're close to the end of the original sequence, extend
+			// the match to the end.
+			changed := false
+			if hasEnd {
+				orgMatch = orgSeq.Residues[current:]
+				changed = true
+			}
+
+			// And if we're close to the end of the last match, extend this
+			// match backwards.
+			if current-lastMatch <= flagMatchExtend {
+				orgMatch = orgSeq.Residues[lastMatch : current+len(orgMatch)]
+				current = lastMatch
+				changed = true
+			}
+
+			// If we've extended our match, we need another alignment.
+			if changed {
+				alignment = nwAlign(refMatch, orgMatch, mem)
 			}
 
 			// Otherwise, we accept the first valid match and move on to the 
@@ -89,17 +123,6 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 			refEnd := refStart + len(refMatch)
 			orgStart := current
 			orgEnd := orgStart + len(orgMatch)
-
-			if orgStart - lastMatch < 10 {
-				orgStart = lastMatch
-			}
-
-			alignment := nwAlign(refMatch, orgMatch, bufRef, bufOrg, nil)
-
-			id := cablastp.SeqIdentity(alignment[0], alignment[1])
-			if id < flagMatchSeqIdThreshold {
-				continue
-			}
 
 			// If there are residues between the end of the last match
 			// and the start of this match, then that means no good match
@@ -112,12 +135,6 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 				orgSubCpy := make([]byte, len(orgSub.Residues))
 				copy(orgSubCpy, orgSub.Residues)
 
-				if len(orgSubCpy) < 10 {
-					fmt.Printf("Adding a short sequence: %s; "+
-						"org id %d; org range (%d, %d); org length: %d\n",
-						string(orgSubCpy), orgSeqId,
-						lastMatch, current, orgSeq.Len())
-				}
 				nextRefSeqId := addWithoutMatch(coarsedb, orgSeqId, orgSubCpy)
 				cseq.Add(cablastp.NewLinkToReferenceNoDiff(
 					nextRefSeqId, 0, len(orgSubCpy)))
@@ -152,17 +169,15 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 		orgSubCpy := make([]byte, len(orgSub.Residues))
 		copy(orgSubCpy, orgSub.Residues)
 
-		if len(orgSubCpy) < 10 {
-			fmt.Printf("Adding a short sequence: %s; "+
-				"org id: %d, org range (%d, %d); org length: %d (leftovers)\n",
-				string(orgSubCpy), orgSeqId,
-				lastMatch, orgSeq.Len(), orgSeq.Len())
-		}
-
 		nextRefSeqId := addWithoutMatch(coarsedb, orgSeqId, orgSubCpy)
 		cseq.Add(cablastp.NewLinkToReferenceNoDiff(
 			nextRefSeqId, 0, len(orgSubCpy)))
 	}
+
+	// if orgSeqId > 137000 { 
+	// fmt.Printf("id: %d, len: %d, too small: %d, too diff: %d\n", 
+	// orgSeqId, orgSeq.Len(), tooSmall, tooDiff) 
+	// } 
 
 	return cseq
 }
@@ -171,8 +186,8 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 // quality candidates for compression.
 //
 // More details to come soon.
-func extendMatch(refRes, orgRes, bufRef, bufOrg []byte,
-	table [][]int) (refMatchRes, orgMatchRes []byte) {
+func extendMatch(refRes, orgRes []byte,
+	mem nwMemory) (refMatchRes, orgMatchRes []byte) {
 
 	// Starting at seedLoc.resInd and current, refMatchLen and 
 	// orgMatchLen correspond to the length of the match each of
@@ -191,12 +206,7 @@ func extendMatch(refRes, orgRes, bufRef, bufOrg []byte,
 	for {
 		// If the match has consumed either of the reference or original
 		// sequence, then we must quit with what we have.
-		if refMatchLen == len(refRes) {
-			if orgMatchLen >= len(orgRes) - 10 {
-				orgMatchLen = len(orgRes)
-			}
-		}
-		if orgMatchLen == len(orgRes) {
+		if refMatchLen == len(refRes) || orgMatchLen == len(orgRes) {
 			break
 		}
 
@@ -219,7 +229,7 @@ func extendMatch(refRes, orgRes, bufRef, bufOrg []byte,
 		alignment := nwAlign(
 			refRes[refMatchLen:min(len(refRes), refMatchLen+winSize)],
 			orgRes[orgMatchLen:min(len(orgRes), orgMatchLen+winSize)],
-			bufRef, bufOrg, table)
+			mem)
 
 		// If the alignment has a sequence identity below the
 		// threshold, then gapped extension has failed. We therefore
@@ -227,9 +237,6 @@ func extendMatch(refRes, orgRes, bufRef, bufOrg []byte,
 		// refMatchLen and orgMatchLen are set to.
 		id := cablastp.SeqIdentity(alignment[0], alignment[1])
 		if id < flagSeqIdThreshold {
-			if orgMatchLen >= len(orgRes) - 10 {
-				orgMatchLen = len(orgRes)
-			}
 			break
 		}
 

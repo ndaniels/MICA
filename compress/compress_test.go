@@ -36,6 +36,12 @@ func TestNeedlemanWunsch(t *testing.T) {
 			"---GHIKLMNPQRSTVW",
 			"GAAAHIKLMNPQRSTVW",
 		},
+		{
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+		},
 		// { 
 		// "ABCDEFGWXYZ", 
 		// "ABCDEFMNPQRSTZABEGWXYZ", 
@@ -44,9 +50,9 @@ func TestNeedlemanWunsch(t *testing.T) {
 		// }, 
 	}
 	sep := strings.Repeat("-", 45)
+	mem := newNwMemory()
 	for _, test := range tests {
-		alignment := nwAlign([]byte(test.seq1), []byte(test.seq2),
-			make([]byte, 0, 1000), make([]byte, 0, 1000), nil)
+		alignment := nwAlign([]byte(test.seq1), []byte(test.seq2), mem)
 		sout1, sout2 := string(alignment[0]), string(alignment[1])
 
 		if sout1 != test.out1 || sout2 != test.out2 {
@@ -99,6 +105,12 @@ func TestBiogoNeedlemanWunsch(t *testing.T) {
 			"---GHIKLMNPQRSTVW",
 			"GAAAHIKLMNPQRSTVW",
 		},
+		// { 
+		// "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", 
+		// "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", 
+		// "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", 
+		// "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", 
+		// }, 
 		// { 
 		// "ABCDEFGWXYZ", 
 		// "ABCDEFMNPQRSTZABEGWXYZ", 
@@ -178,10 +190,10 @@ func TestExtendMatch(t *testing.T) {
 		},
 	}
 	sep := strings.Repeat("-", 45)
+	mem := newNwMemory()
 	for _, test := range tests {
 		refMatch, orgMatch := extendMatch(
-			[]byte(test.rseq), []byte(test.oseq),
-			make([]byte, 0, 1000), make([]byte, 0, 1000), nil)
+			[]byte(test.rseq), []byte(test.oseq), mem)
 		srefMatch, sorgMatch := string(refMatch), string(orgMatch)
 
 		if srefMatch != test.rmseq || sorgMatch != test.omseq {

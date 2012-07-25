@@ -21,11 +21,12 @@ var (
 	flagGoMaxProcs          = runtime.NumCPU()
 	flagMinMatchLen         = 25
 	flagMatchKmerSize       = 3
-	flagGappedWindowSize    = 25
+	flagGappedWindowSize    = 15
 	flagUngappedWindowSize  = 10
 	flagSeqIdThreshold      = 50
-	flagMatchSeqIdThreshold = 70
-	flagSeedSize            = 3
+	flagMatchSeqIdThreshold = 75
+	flagMatchExtend         = 10
+	flagSeedSize            = 6
 
 	flagCpuProfile = ""
 	flagMemProfile = ""
@@ -47,10 +48,14 @@ func init() {
 		flagUngappedWindowSize, "The size of the ungapped match window.")
 	flag.IntVar(&flagSeqIdThreshold, "seq-id-threshold", flagSeqIdThreshold,
 		"The sequence identity threshold of [un]gapped extension. "+
-		"(An integer in the inclusive range from 0 to 100.)")
+			"(An integer in the inclusive range from 0 to 100.)")
 	flag.IntVar(&flagMatchSeqIdThreshold, "match-seq-id-threshold",
 		flagMatchSeqIdThreshold,
 		"The sequence identity threshold of an entire match.")
+	flag.IntVar(&flagMatchExtend, "match-extend", flagMatchExtend,
+		"The maximum number of residues to blindly extend a \n"+
+			"match without regard to sequence identity. This is \n"+
+			"to avoid small sequences in the coarse database.")
 	flag.IntVar(&flagSeedSize, "seed-size", flagSeedSize,
 		"The size of a seed.")
 
@@ -81,6 +86,15 @@ func main() {
 		<-sigChan
 		println("\n\nStopping CPU profile...")
 		pprof.StopCPUProfile()
+
+		if len(flagMemProfile) > 0 {
+			println("\n\nWriting memory profile...")
+			writeMemProfile(fmt.Sprintf("%s.killed", flagMemProfile))
+		}
+		if len(flagMemStats) > 0 {
+			println("\n\nWriting memory stats...")
+			writeMemStats(fmt.Sprintf("%s.killed", flagMemStats))
+		}
 		os.Exit(0)
 	}()
 	signal.Notify(sigChan, os.Interrupt, os.Kill)
@@ -116,13 +130,15 @@ func main() {
 			}
 			orgSeqId++
 
-			if orgSeqId%1000 == 0 {
+			if orgSeqId%100 == 0 {
 				secElapsed := time.Since(start).Seconds()
 				seqsPerSec := float64(orgSeqId) / float64(secElapsed)
 
 				fmt.Printf("%d sequences compressed (%0.4f seqs/sec)\n",
 					orgSeqId, seqsPerSec)
+			}
 
+			if orgSeqId%1000 == 0 {
 				if len(flagMemProfile) > 0 {
 					writeMemProfile(fmt.Sprintf("%s.%d",
 						flagMemProfile, orgSeqId))

@@ -72,7 +72,7 @@ type Seeds struct {
 // Namely, the length of seeds is equivalent to 20^(K) where 20 is the number
 // of amino acids (size of alphabet) and K is equivalent to the length of
 // each K-mer.
-func NewSeeds(seedSize int) *Seeds {
+func NewSeeds(seedSize int) Seeds {
 	powers := make([]int, seedSize+1)
 	p := 1
 	for i := 0; i < len(powers); i++ {
@@ -82,7 +82,7 @@ func NewSeeds(seedSize int) *Seeds {
 
 	locs := make([]*SeedLoc, powers[seedSize])
 
-	return &Seeds{
+	return Seeds{
 		Locs:     locs,
 		SeedSize: seedSize,
 		lock:     &sync.RWMutex{},
@@ -90,13 +90,13 @@ func NewSeeds(seedSize int) *Seeds {
 	}
 }
 
-func (ss *Seeds) Size() (int, int) {
+func (ss Seeds) Size() (int, int) {
 	return 0, 0
 }
 
 // add will create seed locations for all K-mers in refSeq and add them to
 // the seeds table. Invalid K-mers are automatically skipped.
-func (ss *Seeds) Add(refSeqIndex int, refSeq *ReferenceSeq) {
+func (ss Seeds) Add(refSeqIndex int, refSeq *ReferenceSeq) {
 	ss.lock.Lock()
 
 	for i := 0; i < refSeq.Len()-ss.SeedSize; i++ {
@@ -123,7 +123,7 @@ func (ss *Seeds) Add(refSeqIndex int, refSeq *ReferenceSeq) {
 
 // lookup returns a list of all seed locations corresponding to a particular
 // K-mer.
-func (ss *Seeds) Lookup(kmer []byte) [][2]int {
+func (ss Seeds) Lookup(kmer []byte) [][2]int {
 	ss.lock.RLock()
 	seeds := ss.Locs[ss.hashKmer(kmer)]
 	if seeds == nil {
@@ -164,7 +164,7 @@ func aminoValue(letter byte) int {
 //
 // hashKmer satisfies this law:
 // Forall a, b in [A..Z]*, hashKmer(a) == hashKmer(b) IFF a == b.
-func (ss *Seeds) hashKmer(kmer []byte) int {
+func (ss Seeds) hashKmer(kmer []byte) int {
 	key := 0
 	for i, b := range kmer {
 		key += aminoValue(b) * ss.powers[i]

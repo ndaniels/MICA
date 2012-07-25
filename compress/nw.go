@@ -42,54 +42,78 @@ func abs(a int) int {
 	return a
 }
 
-func nwAlign(rseq, oseq, bufRef, bufOrg []byte, table [][]int) [2][]byte {
+type nwMemory struct {
+	table    []int
+	ref, org []byte
+}
+
+func newNwMemory() nwMemory {
+	return nwMemory{
+		table: make([]int, 5000*5000),
+		ref:   make([]byte, 10000),
+		org:   make([]byte, 10000),
+	}
+}
+
+func appendOne(slice []byte, b byte) []byte {
+	slice = slice[0 : len(slice)+1]
+	slice[len(slice)-1] = b
+	return slice
+}
+
+func nwAlign(rseq, oseq []byte, mem nwMemory) [2][]byte {
 	gap := len(aligner.Matrix) - 1
 	r, c := len(rseq)+1, len(oseq)+1
+	off := 0
 
-	if table == nil || len(table) != r {
-		table = make([][]int, r)
-		for j := range table {
-			table[j] = make([]int, c)
-		}
-	} else {
-		for i := range table {
-			table[i][i] = 0
+	for i := 0; i < r; i++ {
+		off = i * c
+		for j := 0; j < c; j++ {
+			mem.table[off+j] = 0
 		}
 	}
 
+	constrained := true
+	constraint := r / 4
+	if r <= 11 || c <= 11 {
+		constrained = false
+	}
+
 	var sdiag, sup, sleft, rVal, oVal int
+	var j int
 	valToCode := aligner.LookUp.ValueToCode
 	gapChar := aligner.GapChar
 	matrix := aligner.Matrix
 
-	half := r / 3
+	var i2, i3 int
 	for i := 1; i < r; i++ {
-		for j := 1; j < c; j++ {
-			if abs(i - j) > half {
+		i2 = (i - 1) * c
+		i3 = i * c
+		for j = 1; j < c; j++ {
+			if constrained && ((i-j) > constraint || (j-i) > constraint) {
 				continue
 			}
 			rVal, oVal = valToCode[rseq[i-1]], valToCode[oseq[j-1]]
 			if rVal < 0 || oVal < 0 {
 				continue
 			} else {
-				sdiag = table[i-1][j-1] + matrix[rVal][oVal]
-				sup = table[i-1][j] + matrix[rVal][gap]
-				sleft = table[i][j-1] + matrix[gap][oVal]
+				off = i2 + (j - 1)
+				sdiag = mem.table[off] + matrix[rVal][oVal]
+				sup = mem.table[off+1] + matrix[rVal][gap]
+				sleft = mem.table[off+c] + matrix[gap][oVal]
 				switch {
 				case sdiag > sup && sdiag > sleft:
-					table[i][j] = sdiag
+					mem.table[i3+j] = sdiag
 				case sup > sleft:
-					table[i][j] = sup
+					mem.table[i3+j] = sup
 				default:
-					table[i][j] = sleft
+					mem.table[i3+j] = sleft
 				}
 			}
 		}
 	}
 
-	// refAln := make([]byte, 0, len(rseq)+10) 
-	// orgAln := make([]byte, 0, len(oseq)+10) 
-	refAln, orgAln := bufRef[:0], bufOrg[:0]
+	refAln, orgAln := mem.ref[:0], mem.org[:0]
 
 	i, j := r-1, c-1
 	for i > 0 && j > 0 {
@@ -97,34 +121,34 @@ func nwAlign(rseq, oseq, bufRef, bufOrg []byte, table [][]int) [2][]byte {
 		if rVal < 0 || oVal < 0 {
 			continue
 		} else {
-			sdiag = table[i-1][j-1] + matrix[rVal][oVal]
-			sup = table[i-1][j] + matrix[gap][oVal]
-			sleft = table[i][j-1] + matrix[rVal][gap]
+			sdiag = mem.table[(i-1)*c+(j-1)] + matrix[rVal][oVal]
+			sup = mem.table[(i-1)*c+j] + matrix[gap][oVal]
+			sleft = mem.table[i*c+(j-1)] + matrix[rVal][gap]
 			switch {
 			case sdiag > sup && sdiag > sleft:
 				i--
 				j--
-				refAln = append(refAln, rseq[i])
-				orgAln = append(orgAln, oseq[j])
+				refAln = appendOne(refAln, rseq[i])
+				orgAln = appendOne(orgAln, oseq[j])
 			case sup > sleft:
 				i--
-				refAln = append(refAln, rseq[i])
-				orgAln = append(orgAln, gapChar)
+				refAln = appendOne(refAln, rseq[i])
+				orgAln = appendOne(orgAln, gapChar)
 			default:
 				j--
-				refAln = append(refAln, gapChar)
-				orgAln = append(orgAln, oseq[j])
+				refAln = appendOne(refAln, gapChar)
+				orgAln = appendOne(orgAln, oseq[j])
 			}
 		}
 	}
 
 	for ; i > 0; i-- {
-		refAln = append(refAln, rseq[i-1])
-		orgAln = append(orgAln, gapChar)
+		refAln = appendOne(refAln, rseq[i-1])
+		orgAln = appendOne(orgAln, gapChar)
 	}
 	for ; j > 0; j-- {
-		refAln = append(refAln, gapChar)
-		orgAln = append(orgAln, oseq[j-1])
+		refAln = appendOne(refAln, gapChar)
+		orgAln = appendOne(orgAln, oseq[j-1])
 	}
 
 	if len(refAln) == len(orgAln) {

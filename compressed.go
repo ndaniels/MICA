@@ -56,7 +56,7 @@ func (comdb *CompressedDB) writerPlain() {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 			os.Exit(1)
 		}
-		for link := cseq.Links; link != nil; link = link.Next {
+		for _, link := range cseq.Links {
 			_, err := fmt.Fprintf(comdb.File, "%s\n", link)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
@@ -98,7 +98,7 @@ func (comdb *CompressedDB) SavePlain(name string) error {
 		if err != nil {
 			return err
 		}
-		for link := cseq.Links; link != nil; link = link.Next {
+		for _, link := range cseq.Links {
 			_, err := fmt.Fprintf(bufWriter, "%s\n", link)
 			if err != nil {
 				return err
@@ -124,7 +124,7 @@ type CompressedSeq struct {
 	// Links is an ordered lists of links to portions of the reference
 	// database. When all links are followed, the concatenation of each
 	// sequence correspond to each link equals the entire original sequence.
-	Links *LinkToReference
+	Links []LinkToReference
 }
 
 // NewCompressedSeq creates a CompressedSeq value using the name provided.
@@ -133,18 +133,11 @@ func NewCompressedSeq(id int, name string) CompressedSeq {
 	return CompressedSeq{
 		Id:    id,
 		Name:  name,
-		Links: nil,
+		Links: make([]LinkToReference, 0, 10),
 	}
 }
 
 // Add will add a LinkToReference to the end of the CompressedSeq's Links list.
-func (cseq *CompressedSeq) Add(link *LinkToReference) {
-	if cseq.Links == nil {
-		cseq.Links = link
-	} else {
-		lk := cseq.Links
-		for ; lk.Next != nil; lk = lk.Next {
-		}
-		lk.Next = link
-	}
+func (cseq *CompressedSeq) Add(link LinkToReference) {
+	cseq.Links = append(cseq.Links, link)
 }
