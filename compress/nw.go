@@ -10,6 +10,8 @@ type.
 */
 
 import (
+	"fmt"
+
 	"github.com/BurntSushi/cablastp/blosum"
 
 	"code.google.com/p/biogo/align/nw"
@@ -29,6 +31,8 @@ var (
 		GapChar: '-',
 	}
 )
+
+var nwCount = 0;
 
 func init() {
 	m := make(map[int]int)
@@ -74,15 +78,8 @@ func nwAlign(rseq, oseq []byte, mem nwMemory) [2][]byte {
 	r, c := len(rseq)+1, len(oseq)+1
 	off := 0
 
-	var table []int
-	if r*c > dynamicTableSize {
-		table = make([]int, r*c)
-	} else {
-		table = mem.table[:r*c]
-		for i := range table {
-			table[i] = 0
-		}
-	}
+	nwCount++
+	fmt.Printf("%d\n", nwCount);
 
 	constrained := true
 	constraint := r / 4
@@ -90,8 +87,26 @@ func nwAlign(rseq, oseq []byte, mem nwMemory) [2][]byte {
 		constrained = false
 	}
 
-	var sdiag, sup, sleft, rVal, oVal int
+	var table []int
 	var j int
+	if r*c > dynamicTableSize {
+		table = make([]int, r*c)
+	} else {
+		table = mem.table[:r*c]
+		for i := range table {
+			table[i] = 0;
+		}
+		// for i := 1; i < r; i++ { 
+			// for j = 1; j < c; j++ { 
+				// if constrained && ((i-j) > constraint || (j-i) > constraint) { 
+					// continue 
+				// } 
+				// table[i] = 0 
+			// } 
+		// } 
+	}
+
+	var sdiag, sup, sleft, rVal, oVal int
 	valToCode := aligner.LookUp.ValueToCode
 	gapChar := aligner.GapChar
 	matrix := aligner.Matrix
