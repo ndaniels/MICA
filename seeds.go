@@ -61,7 +61,8 @@ func (loc SeedLoc) String() string {
 }
 
 type Seeds struct {
-	Locs     []*SeedLoc
+	// Locs     []*SeedLoc 
+	Locs     map[int]*SeedLoc
 	SeedSize int
 	lock     *sync.RWMutex
 	powers   []int
@@ -80,7 +81,8 @@ func NewSeeds(seedSize int) Seeds {
 		p *= SeedAlphaSize
 	}
 
-	locs := make([]*SeedLoc, powers[seedSize])
+	// locs := make([]*SeedLoc, powers[seedSize]) 
+	locs := make(map[int]*SeedLoc, 10000000)
 
 	return Seeds{
 		Locs:     locs,

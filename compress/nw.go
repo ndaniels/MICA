@@ -109,21 +109,20 @@ func nwAlign(rseq, oseq []byte, mem nwMemory) [2][]byte {
 				continue
 			}
 			rVal, oVal = valToCode[rseq[i-1]], valToCode[oseq[j-1]]
-			if rVal < 0 || oVal < 0 {
-				continue
-			} else {
-				off = i2 + (j - 1)
-				sdiag = table[off] + matrix[rVal][oVal]
-				sup = table[off+1] + matrix[rVal][gap]
-				sleft = table[off+c] + matrix[gap][oVal]
-				switch {
-				case sdiag > sup && sdiag > sleft:
-					table[i3+j] = sdiag
-				case sup > sleft:
-					table[i3+j] = sup
-				default:
-					table[i3+j] = sleft
-				}
+			// if rVal < 0 || oVal < 0 { 
+			// continue 
+			// } else { 
+			off = i2 + (j - 1)
+			sdiag = table[off] + matrix[rVal][oVal]
+			sup = table[off+1] + matrix[rVal][gap]
+			sleft = table[off+c] + matrix[gap][oVal]
+			switch {
+			case sdiag > sup && sdiag > sleft:
+				table[i3+j] = sdiag
+			case sup > sleft:
+				table[i3+j] = sup
+			default:
+				table[i3+j] = sleft
 			}
 		}
 	}
@@ -133,27 +132,26 @@ func nwAlign(rseq, oseq []byte, mem nwMemory) [2][]byte {
 	i, j := r-1, c-1
 	for i > 0 && j > 0 {
 		rVal, oVal = valToCode[rseq[i-1]], valToCode[oseq[j-1]]
-		if rVal < 0 || oVal < 0 {
-			continue
-		} else {
-			sdiag = table[(i-1)*c+(j-1)] + matrix[rVal][oVal]
-			sup = table[(i-1)*c+j] + matrix[gap][oVal]
-			sleft = table[i*c+(j-1)] + matrix[rVal][gap]
-			switch {
-			case sdiag > sup && sdiag > sleft:
-				i--
-				j--
-				refAln = appendOne(refAln, rseq[i])
-				orgAln = appendOne(orgAln, oseq[j])
-			case sup > sleft:
-				i--
-				refAln = appendOne(refAln, rseq[i])
-				orgAln = appendOne(orgAln, gapChar)
-			default:
-				j--
-				refAln = appendOne(refAln, gapChar)
-				orgAln = appendOne(orgAln, oseq[j])
-			}
+		// if rVal < 0 || oVal < 0 { 
+		// continue 
+		// } else { 
+		sdiag = table[(i-1)*c+(j-1)] + matrix[rVal][oVal]
+		sup = table[(i-1)*c+j] + matrix[gap][oVal]
+		sleft = table[i*c+(j-1)] + matrix[rVal][gap]
+		switch {
+		case sdiag > sup && sdiag > sleft:
+			i--
+			j--
+			refAln = appendOne(refAln, rseq[i])
+			orgAln = appendOne(orgAln, oseq[j])
+		case sup > sleft:
+			i--
+			refAln = appendOne(refAln, rseq[i])
+			orgAln = appendOne(orgAln, gapChar)
+		default:
+			j--
+			refAln = appendOne(refAln, gapChar)
+			orgAln = appendOne(orgAln, oseq[j])
 		}
 	}
 

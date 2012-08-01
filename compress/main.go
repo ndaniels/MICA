@@ -134,8 +134,10 @@ func main() {
 				secElapsed := time.Since(start).Seconds()
 				seqsPerSec := float64(orgSeqId) / float64(secElapsed)
 
-				fmt.Printf("%d sequences compressed (%0.4f seqs/sec)\n",
-					orgSeqId, seqsPerSec)
+				fmt.Printf(
+					"%d sequences compressed (%0.4f seqs/sec) "+
+						":: K-mer seeds: %d\n",
+					orgSeqId, seqsPerSec, len(DB.CoarseDB.Seeds.Locs))
 
 				if len(flagMemProfile) > 0 {
 					writeMemProfile(fmt.Sprintf("%s.%d",
