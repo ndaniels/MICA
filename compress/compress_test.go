@@ -240,6 +240,7 @@ func TestUngappedExtension(t *testing.T) {
 		{"ABCDEFGHIJKLMNOP", "ABCDEFGHIJKLMNOP", 15},
 		{"ABCDEF", "ABC", 3},
 		{"ABC", "ABCDEF", 3},
+		{"ABCDEFGHIKLMNPQR", "ABCDEFGHIKLMNPQR", 15},
 	}
 
 	for _, test := range tests {
