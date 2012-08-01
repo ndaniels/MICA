@@ -108,7 +108,7 @@ func main() {
 	// Create the compression workers.
 	wg := &sync.WaitGroup{}
 	jobs := make(chan compressJob, 200)
-	for i := 0; i < max(1, runtime.GOMAXPROCS(0)-1); i++ {
+	for i := 0; i < max(1, runtime.GOMAXPROCS(0)); i++ {
 		wg.Add(1)
 		go compressWorker(DB, jobs, wg)
 	}
