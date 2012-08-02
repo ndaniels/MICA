@@ -148,6 +148,8 @@ func main() {
 				if len(flagMemStats) > 0 {
 					writeMemStats(fmt.Sprintf("%s.%d", flagMemStats, orgSeqId))
 				}
+
+				start = time.Now()
 			}
 		}
 	}
