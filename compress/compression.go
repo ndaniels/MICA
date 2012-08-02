@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 
@@ -14,21 +15,23 @@ type compressJob struct {
 	orgSeq   *cablastp.OriginalSeq
 }
 
-func compressWorker(DB *cablastp.DB, jobs chan compressJob,
+func compressWorker(DB *cablastp.DB, extSeedSize int, jobs chan compressJob,
 	wg *sync.WaitGroup) {
 
 	mem := newNwMemory()
 
 	for job := range jobs {
-		comSeq := compress(DB.CoarseDB, job.orgSeqId, job.orgSeq, mem)
+		comSeq := compress(DB.CoarseDB, extSeedSize,
+			job.orgSeqId, job.orgSeq, mem)
 		DB.ComDB.Write(comSeq)
 	}
 	wg.Done()
 }
 
-func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
+func compress(coarsedb *cablastp.CoarseDB, extSeedSize int, orgSeqId int,
 	orgSeq *cablastp.OriginalSeq, mem nwMemory) cablastp.CompressedSeq {
 
+	var rseqExt, oseqExt []byte
 	tooSmall, tooDiff := 0, 0
 
 	cseq := cablastp.NewCompressedSeq(orgSeqId, orgSeq.Name)
@@ -41,7 +44,7 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 	lastMatch, current := 0, 0
 
 	// Iterate through the original sequence a 'kmer' at a time.
-	for current = 0; current < orgSeq.Len()-seedSize; current++ {
+	for current = 0; current < orgSeq.Len()-seedSize-extSeedSize; current++ {
 		kmer := orgSeq.Residues[current : current+seedSize]
 		if !cablastp.KmerAllUpperAlpha(kmer) {
 			continue
@@ -59,6 +62,16 @@ func compress(coarsedb *cablastp.CoarseDB, orgSeqId int,
 			refSeqId := seedLoc[0]
 			refResInd := seedLoc[1]
 			refSeq := coarsedb.RefSeqGet(refSeqId)
+
+			if refResInd + seedSize + extSeedSize > refSeq.Len() {
+				continue
+			}
+
+			rseqExt = refSeq.Residues[refResInd+seedSize:refResInd+seedSize+extSeedSize]
+			oseqExt = orgSeq.Residues[current+seedSize:current+seedSize+extSeedSize]
+			if !bytes.Equal(rseqExt, oseqExt) {
+				continue
+			}
 
 			// The "match" between reference and original sequence will
 			// occur somewhere between the the residue index of the seed and
