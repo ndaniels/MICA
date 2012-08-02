@@ -136,7 +136,7 @@ func main() {
 
 			if orgSeqId%1000 == 0 {
 				secElapsed := time.Since(start).Seconds()
-				seqsPerSec := float64(orgSeqId) / float64(secElapsed)
+				seqsPerSec := 1000.0 / float64(secElapsed)
 
 				fmt.Printf("%d sequences compressed (%0.4f seqs/sec)\n",
 					orgSeqId, seqsPerSec)
