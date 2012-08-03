@@ -63,12 +63,14 @@ func compress(coarsedb *cablastp.CoarseDB, extSeedSize int, orgSeqId int,
 			refResInd := seedLoc[1]
 			refSeq := coarsedb.RefSeqGet(refSeqId)
 
-			if refResInd + seedSize + extSeedSize > refSeq.Len() {
+			extRefStart := refResInd + seedSize
+			extOrgStart := current + seedSize
+			if extRefStart+extSeedSize > refSeq.Len() {
 				continue
 			}
 
-			rseqExt = refSeq.Residues[refResInd+seedSize:refResInd+seedSize+extSeedSize]
-			oseqExt = orgSeq.Residues[current+seedSize:current+seedSize+extSeedSize]
+			rseqExt = refSeq.Residues[extRefStart : extRefStart+extSeedSize]
+			oseqExt = orgSeq.Residues[extOrgStart : extOrgStart+extSeedSize]
 			if !bytes.Equal(rseqExt, oseqExt) {
 				continue
 			}
