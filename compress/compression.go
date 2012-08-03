@@ -31,8 +31,7 @@ func compressWorker(DB *cablastp.DB, extSeedSize int, jobs chan compressJob,
 func compress(coarsedb *cablastp.CoarseDB, extSeedSize int, orgSeqId int,
 	orgSeq *cablastp.OriginalSeq, mem nwMemory) cablastp.CompressedSeq {
 
-	var rseqExt, oseqExt []byte
-	tooSmall, tooDiff := 0, 0
+	var cseqExt, oseqExt []byte
 
 	cseq := cablastp.NewCompressedSeq(orgSeqId, orgSeq.Name)
 	seedSize := coarsedb.Seeds.SeedSize
@@ -59,19 +58,19 @@ func compress(coarsedb *cablastp.CoarseDB, extSeedSize int, orgSeqId int,
 		// used to attempt to extend a match.
 		// for seedLoc := seeds; seedLoc != nil; seedLoc = seedLoc.Next { 
 		for _, seedLoc := range seeds {
-			refSeqId := seedLoc[0]
-			refResInd := seedLoc[1]
-			refSeq := coarsedb.RefSeqGet(refSeqId)
+			corSeqId := seedLoc[0]
+			corResInd := seedLoc[1]
+			corSeq := coarsedb.CoarseSeqGet(corSeqId)
 
-			extRefStart := refResInd + seedSize
+			extCorStart := corResInd + seedSize
 			extOrgStart := current + seedSize
-			if extRefStart+extSeedSize > refSeq.Len() {
+			if extCorStart+extSeedSize > corSeq.Len() {
 				continue
 			}
 
-			rseqExt = refSeq.Residues[extRefStart : extRefStart+extSeedSize]
+			cseqExt = corSeq.Residues[extCorStart : extCorStart+extSeedSize]
 			oseqExt = orgSeq.Residues[extOrgStart : extOrgStart+extSeedSize]
-			if !bytes.Equal(rseqExt, oseqExt) {
+			if !bytes.Equal(cseqExt, oseqExt) {
 				continue
 			}
 
@@ -80,34 +79,20 @@ func compress(coarsedb *cablastp.CoarseDB, extSeedSize int, orgSeqId int,
 			// the end of the sequence for the reference sequence, and the 
 			// position of the "current" pointer and the end of the sequence
 			// for the original sequence.
-			refMatch, orgMatch := extendMatch(
-				refSeq.Residues[refResInd:], orgSeq.Residues[current:], mem)
+			corMatch, orgMatch := extendMatch(
+				corSeq.Residues[corResInd:], orgSeq.Residues[current:], mem)
 
 			// If the part of the original sequence does not exceed the
 			// minimum match length, then we don't accept the match and move
 			// on to the next one.
 			hasEnd := len(orgMatch)+flagMatchExtend >= orgSeq.Len()-current
 			if len(orgMatch) < flagMinMatchLen && !hasEnd {
-				tooSmall++
 				continue
 			}
 
-			alignment := nwAlign(refMatch, orgMatch, mem)
+			alignment := nwAlign(corMatch, orgMatch, mem)
 			id := cablastp.SeqIdentity(alignment[0], alignment[1])
 			if id < flagMatchSeqIdThreshold {
-				if tooDiff > 200000 {
-					fmt.Println("#########################################")
-					fmt.Println(orgSeqId)
-					fmt.Println(orgSeq.Name)
-					fmt.Println(string(refMatch))
-					fmt.Println(string(orgMatch))
-					fmt.Println("-----------------------------------------")
-					fmt.Println(id)
-					fmt.Println(string(alignment[0]))
-					fmt.Println(string(alignment[1]))
-					fmt.Println("#########################################")
-				}
-				tooDiff++
 				continue
 			}
 
@@ -129,13 +114,13 @@ func compress(coarsedb *cablastp.CoarseDB, extSeedSize int, orgSeqId int,
 
 			// If we've extended our match, we need another alignment.
 			if changed {
-				alignment = nwAlign(refMatch, orgMatch, mem)
+				alignment = nwAlign(corMatch, orgMatch, mem)
 			}
 
 			// Otherwise, we accept the first valid match and move on to the 
 			// next kmer after the match ends.
-			refStart := int(refResInd)
-			refEnd := refStart + len(refMatch)
+			corStart := int(corResInd)
+			corEnd := corStart + len(corMatch)
 			orgStart := current
 			orgEnd := orgStart + len(orgMatch)
 
@@ -150,9 +135,9 @@ func compress(coarsedb *cablastp.CoarseDB, extSeedSize int, orgSeqId int,
 				orgSubCpy := make([]byte, len(orgSub.Residues))
 				copy(orgSubCpy, orgSub.Residues)
 
-				nextRefSeqId := addWithoutMatch(coarsedb, orgSeqId, orgSubCpy)
-				cseq.Add(cablastp.NewLinkToReferenceNoDiff(
-					nextRefSeqId, 0, len(orgSubCpy)))
+				nextCorSeqId := addWithoutMatch(coarsedb, orgSeqId, orgSubCpy)
+				cseq.Add(cablastp.NewLinkToCoarseNoDiff(
+					nextCorSeqId, 0, len(orgSubCpy)))
 			}
 
 			// For the given match, add a LinkToReference to the portion of 
@@ -161,10 +146,10 @@ func compress(coarsedb *cablastp.CoarseDB, extSeedSize int, orgSeqId int,
 			// LinkToCompressed to the reference sequence matched. This 
 			// serves as a bridge to expand coarse sequences into their 
 			// original sequences.
-			cseq.Add(cablastp.NewLinkToReference(
-				refSeqId, refStart, refEnd, alignment))
-			refSeq.AddLink(cablastp.NewLinkToCompressed(
-				orgSeqId, refStart, refEnd))
+			cseq.Add(cablastp.NewLinkToCoarse(
+				corSeqId, corStart, corEnd, alignment))
+			corSeq.AddLink(cablastp.NewLinkToCompressed(
+				orgSeqId, corStart, corEnd))
 
 			// Skip the current pointer ahead to the end of this match.
 			// Update the lastMatch pointer to point at the end of this 
@@ -184,15 +169,10 @@ func compress(coarsedb *cablastp.CoarseDB, extSeedSize int, orgSeqId int,
 		orgSubCpy := make([]byte, len(orgSub.Residues))
 		copy(orgSubCpy, orgSub.Residues)
 
-		nextRefSeqId := addWithoutMatch(coarsedb, orgSeqId, orgSubCpy)
-		cseq.Add(cablastp.NewLinkToReferenceNoDiff(
-			nextRefSeqId, 0, len(orgSubCpy)))
+		nextCorSeqId := addWithoutMatch(coarsedb, orgSeqId, orgSubCpy)
+		cseq.Add(cablastp.NewLinkToCoarseNoDiff(
+			nextCorSeqId, 0, len(orgSubCpy)))
 	}
-
-	// if orgSeqId > 137000 { 
-	// fmt.Printf("id: %d, len: %d, too small: %d, too diff: %d\n", 
-	// orgSeqId, orgSeq.Len(), tooSmall, tooDiff) 
-	// } 
 
 	return cseq
 }
@@ -201,8 +181,8 @@ func compress(coarsedb *cablastp.CoarseDB, extSeedSize int, orgSeqId int,
 // quality candidates for compression.
 //
 // More details to come soon.
-func extendMatch(refRes, orgRes []byte,
-	mem nwMemory) (refMatchRes, orgMatchRes []byte) {
+func extendMatch(corRes, orgRes []byte,
+	mem nwMemory) (corMatchRes, orgMatchRes []byte) {
 
 	// Starting at seedLoc.resInd and current, refMatchLen and 
 	// orgMatchLen correspond to the length of the match each of
@@ -210,30 +190,30 @@ func extendMatch(refRes, orgRes []byte,
 	// At the end of the loop, the slices [seedLoc.resInd:refMatchLen]
 	// and [current:orgMatchLen] will correspond to the match.
 	//
-	// A LinkToReference is then created with the reference sequence
+	// A LinkToCoarse is then created with the reference sequence
 	// id (seedLoc.seqInd), the start and stop residues of the match
 	// in the reference sequence (seedLoc.resInd and
 	// (seedLoc.ResInd + refMatchLen)), and an edit script created
 	// by an alignment between the matched regions of the reference
-	// and original sequences. (A LinkToReference corresponds to a
+	// and original sequences. (A LinkToCoarse corresponds to a
 	// single component of a CompressedSeq.)
-	refMatchLen, orgMatchLen := 0, 0
+	corMatchLen, orgMatchLen := 0, 0
 	for {
 		// If the match has consumed either of the reference or original
 		// sequence, then we must quit with what we have.
-		if refMatchLen == len(refRes) || orgMatchLen == len(orgRes) {
+		if corMatchLen == len(corRes) || orgMatchLen == len(orgRes) {
 			break
 		}
 
 		// Ungapped extension returns an integer corresponding to the
 		// number of residues that the match was extended by.
 		matchLen := alignUngapped(
-			refRes[refMatchLen:], orgRes[orgMatchLen:])
+			corRes[corMatchLen:], orgRes[orgMatchLen:])
 
 		// Since ungapped extension increases the reference and
 		// original sequence match portions equivalently, add the
 		// match length to both.
-		refMatchLen += matchLen
+		corMatchLen += matchLen
 		orgMatchLen += matchLen
 
 		// Gapped extension returns an alignment corresponding to the
@@ -242,7 +222,7 @@ func extendMatch(refRes, orgRes []byte,
 		// length of each sequence.)
 		winSize := flagGappedWindowSize
 		alignment := nwAlign(
-			refRes[refMatchLen:min(len(refRes), refMatchLen+winSize)],
+			corRes[corMatchLen:min(len(corRes), corMatchLen+winSize)],
 			orgRes[orgMatchLen:min(len(orgRes), orgMatchLen+winSize)],
 			mem)
 
@@ -262,11 +242,11 @@ func extendMatch(refRes, orgRes []byte,
 		// of the reference and original sequence. Therefore, only
 		// increase each by the corresponding sizes from the
 		// alignment.
-		refMatchLen += alignLen(alignment[0])
+		corMatchLen += alignLen(alignment[0])
 		orgMatchLen += alignLen(alignment[1])
 	}
 
-	return refRes[:refMatchLen], orgRes[:orgMatchLen]
+	return corRes[:corMatchLen], orgRes[:orgMatchLen]
 }
 
 // addWithoutMatch adds a portion of an original sequence that could not be
@@ -278,9 +258,9 @@ func extendMatch(refRes, orgRes []byte,
 func addWithoutMatch(coarsedb *cablastp.CoarseDB, orgSeqId int,
 	oseq []byte) int {
 
-	refSeqId, refSeq := coarsedb.Add(oseq)
-	refSeq.AddLink(cablastp.NewLinkToCompressed(orgSeqId, 0, len(oseq)))
-	return refSeqId
+	corSeqId, corSeq := coarsedb.Add(oseq)
+	corSeq.AddLink(cablastp.NewLinkToCompressed(orgSeqId, 0, len(oseq)))
+	return corSeqId
 }
 
 func min(a, b int) int {

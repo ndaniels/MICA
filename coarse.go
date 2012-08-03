@@ -12,7 +12,7 @@ import (
 // database. Sequences in the ReferenceDB are use to re-create the original
 // sequences.
 type CoarseDB struct {
-	Seqs  []*ReferenceSeq
+	Seqs  []*CoarseSeq
 	Seeds Seeds
 	plain bool
 
@@ -30,7 +30,7 @@ func NewCoarseDB(fastaFile, seedsFile, linksFile *os.File,
 	seedSize int, plain bool) *CoarseDB {
 
 	coarsedb := &CoarseDB{
-		Seqs:      make([]*ReferenceSeq, 0, 10000000),
+		Seqs:      make([]*CoarseSeq, 0, 10000000),
 		Seeds:     NewSeeds(seedSize),
 		FileFasta: fastaFile,
 		FileSeeds: seedsFile,
@@ -45,19 +45,19 @@ func NewCoarseDB(fastaFile, seedsFile, linksFile *os.File,
 // adds it as a new reference sequence to the reference database. Seeds are
 // also generated for each K-mer in the sequence. The resulting reference
 // sequence is returned.
-func (coarsedb *CoarseDB) Add(oseq []byte) (int, *ReferenceSeq) {
+func (coarsedb *CoarseDB) Add(oseq []byte) (int, *CoarseSeq) {
 	coarsedb.seqLock.Lock()
 	id := len(coarsedb.Seqs)
-	refSeq := NewReferenceSeq(id, "", oseq)
-	coarsedb.Seqs = append(coarsedb.Seqs, refSeq)
+	corSeq := NewCoarseSeq(id, "", oseq)
+	coarsedb.Seqs = append(coarsedb.Seqs, corSeq)
 	coarsedb.seqLock.Unlock()
 
-	coarsedb.Seeds.Add(id, refSeq)
+	coarsedb.Seeds.Add(id, corSeq)
 
-	return id, refSeq
+	return id, corSeq
 }
 
-func (coarsedb *CoarseDB) RefSeqGet(i int) *ReferenceSeq {
+func (coarsedb *CoarseDB) CoarseSeqGet(i int) *CoarseSeq {
 	coarsedb.seqLock.RLock()
 	seq := coarsedb.Seqs[i]
 	coarsedb.seqLock.RUnlock()

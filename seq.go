@@ -97,32 +97,32 @@ func (seq *sequence) String() string {
 // referenceSeq embeds a sequence and serves as a typing mechanism to
 // distguish reference sequences in the compressed database with original
 // sequences from the input FASTA file.
-type ReferenceSeq struct {
+type CoarseSeq struct {
 	*sequence
 	Links    *LinkToCompressed
 	linkLock *sync.RWMutex
 }
 
-func NewReferenceSeq(id int, name string, residues []byte) *ReferenceSeq {
-	return &ReferenceSeq{
+func NewCoarseSeq(id int, name string, residues []byte) *CoarseSeq {
+	return &CoarseSeq{
 		sequence: newSeq(id, name, residues),
 		Links:    nil,
 		linkLock: &sync.RWMutex{},
 	}
 }
 
-func NewBiogoReferenceSeq(id int, seq *seq.Seq) *ReferenceSeq {
-	return NewReferenceSeq(id, seq.ID, seq.Seq)
+func NewBiogoCoarseSeq(id int, seq *seq.Seq) *CoarseSeq {
+	return NewCoarseSeq(id, seq.ID, seq.Seq)
 }
 
-func (rseq *ReferenceSeq) NewSubSequence(start, end int) *ReferenceSeq {
-	return &ReferenceSeq{
+func (rseq *CoarseSeq) NewSubSequence(start, end int) *CoarseSeq {
+	return &CoarseSeq{
 		sequence: rseq.sequence.newSubSequence(start, end),
 		Links:    nil,
 	}
 }
 
-func (rseq *ReferenceSeq) AddLink(link *LinkToCompressed) {
+func (rseq *CoarseSeq) AddLink(link *LinkToCompressed) {
 	rseq.linkLock.Lock()
 	if rseq.Links == nil {
 		rseq.Links = link

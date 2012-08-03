@@ -204,11 +204,11 @@ func TestExtendMatch(t *testing.T) {
 	sep := strings.Repeat("-", 45)
 	mem := newNwMemory()
 	for _, test := range tests {
-		refMatch, orgMatch := extendMatch(
+		corMatch, orgMatch := extendMatch(
 			[]byte(test.rseq), []byte(test.oseq), mem)
-		srefMatch, sorgMatch := string(refMatch), string(orgMatch)
+		scorMatch, sorgMatch := string(corMatch), string(orgMatch)
 
-		if srefMatch != test.rmseq || sorgMatch != test.omseq {
+		if scorMatch != test.rmseq || sorgMatch != test.omseq {
 			t.Fatalf(
 				`Extending a match for:
 %s
@@ -226,7 +226,7 @@ but should have been
 %s
 %s`,
 				sep, test.rseq, test.oseq, sep,
-				sep, srefMatch, sorgMatch, sep,
+				sep, scorMatch, sorgMatch, sep,
 				sep, test.rmseq, test.omseq, sep)
 		}
 	}

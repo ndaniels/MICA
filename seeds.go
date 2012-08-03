@@ -96,17 +96,17 @@ func (ss Seeds) Size() (int, int) {
 
 // add will create seed locations for all K-mers in refSeq and add them to
 // the seeds table. Invalid K-mers are automatically skipped.
-func (ss Seeds) Add(refSeqIndex int, refSeq *ReferenceSeq) {
+func (ss Seeds) Add(coarseSeqIndex int, corSeq *CoarseSeq) {
 	ss.lock.Lock()
 
-	for i := 0; i < refSeq.Len()-ss.SeedSize; i++ {
-		kmer := refSeq.Residues[i : i+ss.SeedSize]
+	for i := 0; i < corSeq.Len()-ss.SeedSize; i++ {
+		kmer := corSeq.Residues[i : i+ss.SeedSize]
 		if !KmerAllUpperAlpha(kmer) {
 			continue
 		}
 
 		kmerIndex := ss.hashKmer(kmer)
-		loc := NewSeedLoc(refSeqIndex, i)
+		loc := NewSeedLoc(coarseSeqIndex, i)
 
 		if ss.Locs[kmerIndex] == nil {
 			ss.Locs[kmerIndex] = loc

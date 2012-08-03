@@ -124,7 +124,7 @@ type CompressedSeq struct {
 	// Links is an ordered lists of links to portions of the reference
 	// database. When all links are followed, the concatenation of each
 	// sequence correspond to each link equals the entire original sequence.
-	Links []LinkToReference
+	Links []LinkToCoarse
 }
 
 // NewCompressedSeq creates a CompressedSeq value using the name provided.
@@ -133,11 +133,11 @@ func NewCompressedSeq(id int, name string) CompressedSeq {
 	return CompressedSeq{
 		Id:    id,
 		Name:  name,
-		Links: make([]LinkToReference, 0, 10),
+		Links: make([]LinkToCoarse, 0, 10),
 	}
 }
 
 // Add will add a LinkToReference to the end of the CompressedSeq's Links list.
-func (cseq *CompressedSeq) Add(link LinkToReference) {
+func (cseq *CompressedSeq) Add(link LinkToCoarse) {
 	cseq.Links = append(cseq.Links, link)
 }

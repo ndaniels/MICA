@@ -55,7 +55,7 @@ func ReadOriginalSeqs(fileName string,
 
 // ReadReferenceSeqs reads a FASTA formatted file and returns a slice of
 // reference sequences.
-func ReadReferenceSeqs(fileName string, f func(seq *ReferenceSeq)) error {
+func ReadReferenceSeqs(fileName string, f func(seq *CoarseSeq)) error {
 	reader, err := fasta.NewReaderName(fileName)
 	if err != nil {
 		return err
@@ -68,7 +68,7 @@ func ReadReferenceSeqs(fileName string, f func(seq *ReferenceSeq)) error {
 		if err != nil {
 			return err
 		}
-		f(NewBiogoReferenceSeq(i, seq))
+		f(NewBiogoCoarseSeq(i, seq))
 	}
 	return nil
 }
