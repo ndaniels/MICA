@@ -26,7 +26,8 @@ var (
 	flagSeqIdThreshold      = 50
 	flagMatchSeqIdThreshold = 75
 	flagMatchExtend         = 10
-	flagSeedSize            = 6
+	flagMapSeedSize         = 6
+	flagExtSeedSize         = 4
 
 	flagCpuProfile = ""
 	flagMemProfile = ""
@@ -56,8 +57,11 @@ func init() {
 		"The maximum number of residues to blindly extend a \n"+
 			"match without regard to sequence identity. This is \n"+
 			"to avoid small sequences in the coarse database.")
-	flag.IntVar(&flagSeedSize, "seed-size", flagSeedSize,
-		"The size of a seed.")
+	flag.IntVar(&flagMapSeedSize, "map-seed-size", flagMapSeedSize,
+		"The size of a seed in the K-mer map. This size combined with"+
+			"'ext-seed-size' forms the total seed size.")
+	flag.IntVar(&flagExtSeedSize, "ext-seed-size", flagExtSeedSize,
+		"The additional residues to require for each seed match.")
 
 	flag.StringVar(&flagCpuProfile, "cpuprofile", flagCpuProfile,
 		"When set, a CPU profile will be written to the file specified.")
@@ -100,7 +104,7 @@ func main() {
 	signal.Notify(sigChan, os.Interrupt, os.Kill)
 
 	orgSeqId := 0
-	DB, err := cablastp.NewDB(flag.Arg(0), flagSeedSize, false, true)
+	DB, err := cablastp.NewDB(flag.Arg(0), flagMapSeedSize, false, true)
 	if err != nil {
 		fatalf("%s\n", err)
 	}
@@ -110,7 +114,7 @@ func main() {
 	jobs := make(chan compressJob, 200)
 	for i := 0; i < max(1, runtime.GOMAXPROCS(0)); i++ {
 		wg.Add(1)
-		go compressWorker(DB, jobs, wg)
+		go compressWorker(DB, flagExtSeedSize, jobs, wg)
 	}
 
 	start := time.Now()
@@ -132,7 +136,7 @@ func main() {
 
 			if orgSeqId%1000 == 0 {
 				secElapsed := time.Since(start).Seconds()
-				seqsPerSec := float64(orgSeqId) / float64(secElapsed)
+				seqsPerSec := 1000.0 / float64(secElapsed)
 
 				fmt.Printf(
 					"%d sequences compressed (%0.4f seqs/sec) "+
@@ -146,6 +150,8 @@ func main() {
 				if len(flagMemStats) > 0 {
 					writeMemStats(fmt.Sprintf("%s.%d", flagMemStats, orgSeqId))
 				}
+
+				start = time.Now()
 			}
 		}
 	}
