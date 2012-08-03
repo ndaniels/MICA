@@ -1,9 +1,24 @@
 package cablastp
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 )
+
+func TestDBConfIO(t *testing.T) {
+	dbConf := DefaultDBConf
+	buf := new(bytes.Buffer)
+
+	dbConf.Write(buf)
+	dbConfTest, err := LoadDBConf(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dbConf != dbConfTest {
+		t.Fatalf("%v != %v", dbConf, dbConfTest)
+	}
+}
 
 func TestEditScripts(t *testing.T) {
 	type test struct {

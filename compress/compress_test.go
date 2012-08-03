@@ -169,13 +169,11 @@ but should have been
 	}
 }
 
-// flags: flagMatchKmerSize, flagUngappedWindowSize, flagSeqIdThreshold,
-// flagGappedWindowSize.
 func TestExtendMatch(t *testing.T) {
-	flagMatchKmerSize = 3
-	flagUngappedWindowSize = 10
-	flagSeqIdThreshold = 50
-	flagGappedWindowSize = 25
+	flagMatchKmerSize := 3
+	flagUngappedWindowSize := 10
+	flagExtSeqIdThreshold := 50
+	flagGappedWindowSize := 25
 
 	type test struct {
 		rseq, oseq   string
@@ -205,7 +203,10 @@ func TestExtendMatch(t *testing.T) {
 	mem := newNwMemory()
 	for _, test := range tests {
 		corMatch, orgMatch := extendMatch(
-			[]byte(test.rseq), []byte(test.oseq), mem)
+			[]byte(test.rseq), []byte(test.oseq),
+			flagGappedWindowSize, flagUngappedWindowSize,
+			flagMatchKmerSize, flagExtSeqIdThreshold,
+			mem)
 		scorMatch, sorgMatch := string(corMatch), string(orgMatch)
 
 		if scorMatch != test.rmseq || sorgMatch != test.omseq {
@@ -232,11 +233,10 @@ but should have been
 	}
 }
 
-// flags: flagMatchKmerSize, flagUngappedWindowSize, flagSeqIdThreshold
 func TestUngappedExtension(t *testing.T) {
-	flagMatchKmerSize = 3
-	flagUngappedWindowSize = 10
-	flagSeqIdThreshold = 50
+	flagMatchKmerSize := 3
+	flagUngappedWindowSize := 10
+	flagExtSeqIdThreshold := 50
 
 	type test struct {
 		rseq, oseq string
@@ -256,7 +256,9 @@ func TestUngappedExtension(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		tval := alignUngapped([]byte(test.rseq), []byte(test.oseq))
+		tval := alignUngapped(
+			[]byte(test.rseq), []byte(test.oseq),
+			flagUngappedWindowSize, flagMatchKmerSize, flagExtSeqIdThreshold)
 		if tval != test.answer {
 			t.Fatalf("Ungapped extension on '%s' and '%s' should yield a "+
 				"length of %d, but 'alignUngapped' returned %d.",

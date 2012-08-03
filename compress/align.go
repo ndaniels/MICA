@@ -26,12 +26,14 @@ func alignLen(seq []byte) (length int) {
 // If a K-mer match is found, the current value of length is set to the total
 // number of amino acid residues scanned, and a search for the next K-mer match
 // for the next N-mer window is started.
-func alignUngapped(rseq []byte, oseq []byte) int {
+func alignUngapped(rseq []byte, oseq []byte,
+	windowSize, kmerSize, idThreshold int) int {
+
 	length, scanned, successive := 0, 0, 0
 	tryNextWindow := true
 	for tryNextWindow {
 		tryNextWindow = false
-		for i := 0; i < flagUngappedWindowSize; i++ {
+		for i := 0; i < windowSize; i++ {
 			// If we've scanned all residues in one of the sub-sequences, then
 			// there is nothing left to do for ungapped extension. Therefore,
 			// quit and return the number of residues scanned up until the
@@ -47,20 +49,20 @@ func alignUngapped(rseq []byte, oseq []byte) int {
 			}
 
 			scanned++
-			if successive == flagMatchKmerSize {
+			if successive == kmerSize {
 				// Get the residues between matches: i.e., after the last
 				// match to the start of this match. But only if there is at
 				// least one residue in that range.
-				if (scanned-flagMatchKmerSize)-length > 0 {
-					refBetween := rseq[length : scanned-flagMatchKmerSize]
-					orgBetween := oseq[length : scanned-flagMatchKmerSize]
+				if (scanned-kmerSize)-length > 0 {
+					refBetween := rseq[length : scanned-kmerSize]
+					orgBetween := oseq[length : scanned-kmerSize]
 					id := cablastp.SeqIdentity(refBetween, orgBetween)
 
 					// If the identity is less than the threshold, then this
 					// K-mer match is no good. But keep trying until the window
 					// is closed. (We "keep trying" by decrementing successive
 					// matches by 1.)
-					if id < flagSeqIdThreshold {
+					if id < idThreshold {
 						successive--
 						continue
 					}

@@ -2,39 +2,69 @@ package main
 
 import (
 	"bytes"
-	"fmt"
+	"runtime"
 	"sync"
 
 	"github.com/BurntSushi/cablastp"
 )
 
-var _ = fmt.Println // gah
+type compressPool struct {
+	db   *cablastp.DB
+	jobs chan compressJob
+	wg   *sync.WaitGroup
+}
 
 type compressJob struct {
 	orgSeqId int
 	orgSeq   *cablastp.OriginalSeq
 }
 
-func compressWorker(DB *cablastp.DB, extSeedSize int, jobs chan compressJob,
-	wg *sync.WaitGroup) {
-
-	mem := newNwMemory()
-
-	for job := range jobs {
-		comSeq := compress(DB.CoarseDB, extSeedSize,
-			job.orgSeqId, job.orgSeq, mem)
-		DB.ComDB.Write(comSeq)
+func startCompressWorkers(db *cablastp.DB) compressPool {
+	wg := &sync.WaitGroup{}
+	jobs := make(chan compressJob, 200)
+	pool := compressPool{
+		db:   db,
+		jobs: jobs,
+		wg:   wg,
 	}
-	wg.Done()
+	for i := 0; i < max(1, runtime.GOMAXPROCS(0)); i++ {
+		wg.Add(1)
+		go pool.worker()
+	}
+	return pool
 }
 
-func compress(coarsedb *cablastp.CoarseDB, extSeedSize int, orgSeqId int,
+func (pool compressPool) compress(id int, seq *cablastp.OriginalSeq) int {
+	pool.jobs <- compressJob{
+		orgSeqId: id,
+		orgSeq:   seq,
+	}
+	return id + 1
+}
+
+func (pool compressPool) worker() {
+	mem := newNwMemory()
+	for job := range pool.jobs {
+		comSeq := compress(pool.db, job.orgSeqId, job.orgSeq, mem)
+		pool.db.ComDB.Write(comSeq)
+	}
+	pool.wg.Done()
+}
+
+func (pool compressPool) done() {
+	close(pool.jobs)
+	pool.wg.Wait()
+}
+
+func compress(db *cablastp.DB, orgSeqId int,
 	orgSeq *cablastp.OriginalSeq, mem nwMemory) cablastp.CompressedSeq {
 
 	var cseqExt, oseqExt []byte
 
+	coarsedb := db.CoarseDB
 	cseq := cablastp.NewCompressedSeq(orgSeqId, orgSeq.Name)
-	seedSize := coarsedb.Seeds.SeedSize
+	mapSeedSize := coarsedb.Seeds.SeedSize
+	extSeedSize := db.ExtSeedSize
 
 	// Keep track of two pointers. 'current' refers to the residue index in the
 	// original sequence that extension is currently originating from.
@@ -43,8 +73,8 @@ func compress(coarsedb *cablastp.CoarseDB, extSeedSize int, orgSeqId int,
 	lastMatch, current := 0, 0
 
 	// Iterate through the original sequence a 'kmer' at a time.
-	for current = 0; current < orgSeq.Len()-seedSize-extSeedSize; current++ {
-		kmer := orgSeq.Residues[current : current+seedSize]
+	for current = 0; current < orgSeq.Len()-mapSeedSize-extSeedSize; current++ {
+		kmer := orgSeq.Residues[current : current+mapSeedSize]
 		if !cablastp.KmerAllUpperAlpha(kmer) {
 			continue
 		}
@@ -62,8 +92,8 @@ func compress(coarsedb *cablastp.CoarseDB, extSeedSize int, orgSeqId int,
 			corResInd := seedLoc[1]
 			corSeq := coarsedb.CoarseSeqGet(corSeqId)
 
-			extCorStart := corResInd + seedSize
-			extOrgStart := current + seedSize
+			extCorStart := corResInd + mapSeedSize
+			extOrgStart := current + mapSeedSize
 			if extCorStart+extSeedSize > corSeq.Len() {
 				continue
 			}
@@ -80,19 +110,22 @@ func compress(coarsedb *cablastp.CoarseDB, extSeedSize int, orgSeqId int,
 			// position of the "current" pointer and the end of the sequence
 			// for the original sequence.
 			corMatch, orgMatch := extendMatch(
-				corSeq.Residues[corResInd:], orgSeq.Residues[current:], mem)
+				corSeq.Residues[corResInd:], orgSeq.Residues[current:],
+				db.GappedWindowSize, db.UngappedWindowSize,
+				db.MatchKmerSize, db.ExtSeqIdThreshold,
+				mem)
 
 			// If the part of the original sequence does not exceed the
 			// minimum match length, then we don't accept the match and move
 			// on to the next one.
-			hasEnd := len(orgMatch)+flagMatchExtend >= orgSeq.Len()-current
-			if len(orgMatch) < flagMinMatchLen && !hasEnd {
+			hasEnd := len(orgMatch)+db.MatchExtend >= orgSeq.Len()-current
+			if len(orgMatch) < db.MinMatchLen && !hasEnd {
 				continue
 			}
 
 			alignment := nwAlign(corMatch, orgMatch, mem)
 			id := cablastp.SeqIdentity(alignment[0], alignment[1])
-			if id < flagMatchSeqIdThreshold {
+			if id < db.MatchSeqIdThreshold {
 				continue
 			}
 
@@ -106,7 +139,7 @@ func compress(coarsedb *cablastp.CoarseDB, extSeedSize int, orgSeqId int,
 
 			// And if we're close to the end of the last match, extend this
 			// match backwards.
-			if current-lastMatch <= flagMatchExtend {
+			if current-lastMatch <= db.MatchExtend {
 				orgMatch = orgSeq.Residues[lastMatch : current+len(orgMatch)]
 				current = lastMatch
 				changed = true
@@ -182,6 +215,7 @@ func compress(coarsedb *cablastp.CoarseDB, extSeedSize int, orgSeqId int,
 //
 // More details to come soon.
 func extendMatch(corRes, orgRes []byte,
+	gappedWindowSize, ungappedWindowSize, kmerSize, idThreshold int,
 	mem nwMemory) (corMatchRes, orgMatchRes []byte) {
 
 	// Starting at seedLoc.resInd and current, refMatchLen and 
@@ -208,7 +242,8 @@ func extendMatch(corRes, orgRes []byte,
 		// Ungapped extension returns an integer corresponding to the
 		// number of residues that the match was extended by.
 		matchLen := alignUngapped(
-			corRes[corMatchLen:], orgRes[orgMatchLen:])
+			corRes[corMatchLen:], orgRes[orgMatchLen:],
+			ungappedWindowSize, kmerSize, idThreshold)
 
 		// Since ungapped extension increases the reference and
 		// original sequence match portions equivalently, add the
@@ -220,10 +255,9 @@ func extendMatch(corRes, orgRes []byte,
 		// window starting after the previous ungapped extension
 		// ended plus the gapped window size. (It is bounded by the
 		// length of each sequence.)
-		winSize := flagGappedWindowSize
 		alignment := nwAlign(
-			corRes[corMatchLen:min(len(corRes), corMatchLen+winSize)],
-			orgRes[orgMatchLen:min(len(orgRes), orgMatchLen+winSize)],
+			corRes[corMatchLen:min(len(corRes), corMatchLen+gappedWindowSize)],
+			orgRes[orgMatchLen:min(len(orgRes), orgMatchLen+gappedWindowSize)],
 			mem)
 
 		// If the alignment has a sequence identity below the
@@ -231,7 +265,7 @@ func extendMatch(corRes, orgRes []byte,
 		// quit and are forced to be satisfied with whatever
 		// refMatchLen and orgMatchLen are set to.
 		id := cablastp.SeqIdentity(alignment[0], alignment[1])
-		if id < flagSeqIdThreshold {
+		if id < idThreshold {
 			break
 		}
 

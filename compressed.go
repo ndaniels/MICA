@@ -14,7 +14,7 @@ type CompressedDB struct {
 	writerDone chan struct{}
 }
 
-func NewCompressedDB(file *os.File, index *os.File, plain bool) *CompressedDB {
+func NewCompressedDB(file *os.File, index *os.File) *CompressedDB {
 	cdb := &CompressedDB{
 		Seqs:       make([]CompressedSeq, 0, 100),
 		File:       file,
@@ -22,14 +22,13 @@ func NewCompressedDB(file *os.File, index *os.File, plain bool) *CompressedDB {
 		writerChan: make(chan CompressedSeq, 50),
 		writerDone: make(chan struct{}, 0),
 	}
-
-	if plain {
-		go cdb.writerPlain()
-	} else {
-		go cdb.writerBinary()
-	}
+	go cdb.writer()
 
 	return cdb
+}
+
+func LoadCompressedDB(file *os.File, index *os.File) (*CompressedDB, error) {
+	return nil, fmt.Errorf("Not implemented.")
 }
 
 func (comdb *CompressedDB) Close() {
@@ -49,7 +48,7 @@ func (comdb *CompressedDB) Len() int {
 	return len(comdb.Seqs)
 }
 
-func (comdb *CompressedDB) writerPlain() {
+func (comdb *CompressedDB) writer() {
 	for cseq := range comdb.writerChan {
 		_, err := fmt.Fprintf(comdb.File, "> %d; %s\n", cseq.Id, cseq.Name)
 		if err != nil {
@@ -66,10 +65,6 @@ func (comdb *CompressedDB) writerPlain() {
 	}
 	comdb.File.Close()
 	comdb.writerDone <- struct{}{}
-}
-
-func (comdb *CompressedDB) writerBinary() {
-	comdb.File.Close()
 }
 
 func (comdb *CompressedDB) Write(cseq CompressedSeq) {

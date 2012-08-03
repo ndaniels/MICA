@@ -14,7 +14,6 @@ import (
 type CoarseDB struct {
 	Seqs  []*CoarseSeq
 	Seeds Seeds
-	plain bool
 
 	FileFasta *os.File
 	FileSeeds *os.File
@@ -27,7 +26,7 @@ type CoarseDB struct {
 // sequence to the reference database unchanged. Seeds are also generated for
 // each K-mer in each original sequence.
 func NewCoarseDB(fastaFile, seedsFile, linksFile *os.File,
-	seedSize int, plain bool) *CoarseDB {
+	seedSize int) *CoarseDB {
 
 	coarsedb := &CoarseDB{
 		Seqs:      make([]*CoarseSeq, 0, 10000000),
@@ -35,10 +34,15 @@ func NewCoarseDB(fastaFile, seedsFile, linksFile *os.File,
 		FileFasta: fastaFile,
 		FileSeeds: seedsFile,
 		FileLinks: linksFile,
-		plain:     plain,
 		seqLock:   &sync.RWMutex{},
 	}
 	return coarsedb
+}
+
+func LoadCoarseDB(fastaFile, seedsFile, linksFile *os.File,
+	seedSize int) (*CoarseDB, error) {
+
+	return nil, fmt.Errorf("Not implemented.")
 }
 
 // Add takes an original sequence, converts it to a reference sequence, and
@@ -77,19 +81,12 @@ func (coarsedb *CoarseDB) Save() error {
 	coarsedb.seqLock.RLock()
 	defer coarsedb.seqLock.RUnlock()
 
-	if coarsedb.plain {
-		return coarsedb.savePlain()
-	}
-	return coarsedb.saveBinary()
-}
-
-func (coarsedb *CoarseDB) saveBinary() error {
-	return nil
+	return coarsedb.save()
 }
 
 // savePlain will save the reference database as a coarse FASTA file and a 
 // plain text encoding of all reference links.
-func (coarsedb *CoarseDB) savePlain() error {
+func (coarsedb *CoarseDB) save() error {
 	if err := coarsedb.saveFasta(); err != nil {
 		return err
 	}

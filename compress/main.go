@@ -9,73 +9,79 @@ import (
 	"path"
 	"runtime"
 	"runtime/pprof"
-	"sync"
 	"time"
 
 	"github.com/BurntSushi/cablastp"
 )
 
-var ignoredResidues = []byte{'J', 'O', 'U'}
+const interval = 10000
 
 var (
-	flagGoMaxProcs          = runtime.NumCPU()
-	flagMinMatchLen         = 25
-	flagMatchKmerSize       = 3
-	flagGappedWindowSize    = 15
-	flagUngappedWindowSize  = 10
-	flagSeqIdThreshold      = 50
-	flagMatchSeqIdThreshold = 75
-	flagMatchExtend         = 10
-	flagMapSeedSize         = 6
-	flagExtSeedSize         = 4
+	timer           time.Time
+	ignoredResidues = []byte{'J', 'O', 'U'}
+	dbConf          = cablastp.DefaultDBConf
 
-	flagCpuProfile = ""
-	flagMemProfile = ""
-	flagMemStats   = ""
+	flagGoMaxProcs  = runtime.NumCPU()
+	flagCpuProfile  = ""
+	flagMemProfile  = ""
+	flagMemStats    = ""
+	flagMemInterval = false
+	flagVerbose     = false
 )
 
 func init() {
 	log.SetFlags(0)
 
-	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
-		"The maximum number of CPUs that can be executing simultaneously.")
-	flag.IntVar(&flagMinMatchLen, "min-match-len", flagMinMatchLen,
+	flag.IntVar(&dbConf.MinMatchLen, "min-match-len",
+		dbConf.MinMatchLen,
 		"The minimum size of a match.")
-	flag.IntVar(&flagMatchKmerSize, "match-kmer-size", flagMatchKmerSize,
+	flag.IntVar(&dbConf.MatchKmerSize, "match-kmer-size",
+		dbConf.MatchKmerSize,
 		"The size of kmer fragments to match in ungapped extension.")
-	flag.IntVar(&flagGappedWindowSize, "gapped-window-size",
-		flagGappedWindowSize, "The size of the gapped match window.")
-	flag.IntVar(&flagUngappedWindowSize, "ungapped-window-size",
-		flagUngappedWindowSize, "The size of the ungapped match window.")
-	flag.IntVar(&flagSeqIdThreshold, "seq-id-threshold", flagSeqIdThreshold,
-		"The sequence identity threshold of [un]gapped extension. "+
-			"(An integer in the inclusive range from 0 to 100.)")
-	flag.IntVar(&flagMatchSeqIdThreshold, "match-seq-id-threshold",
-		flagMatchSeqIdThreshold,
+	flag.IntVar(&dbConf.GappedWindowSize, "gapped-window-size",
+		dbConf.GappedWindowSize,
+		"The size of the gapped match window.")
+	flag.IntVar(&dbConf.UngappedWindowSize, "ungapped-window-size",
+		dbConf.UngappedWindowSize,
+		"The size of the ungapped match window.")
+	flag.IntVar(&dbConf.ExtSeqIdThreshold, "ext-seq-id-threshold",
+		dbConf.ExtSeqIdThreshold,
+		"The sequence identity threshold of [un]gapped extension. \n"+
+			"\t(An integer in the inclusive range from 0 to 100.)")
+	flag.IntVar(&dbConf.MatchSeqIdThreshold, "match-seq-id-threshold",
+		dbConf.MatchSeqIdThreshold,
 		"The sequence identity threshold of an entire match.")
-	flag.IntVar(&flagMatchExtend, "match-extend", flagMatchExtend,
+	flag.IntVar(&dbConf.MatchExtend, "match-extend",
+		dbConf.MatchExtend,
 		"The maximum number of residues to blindly extend a \n"+
-			"match without regard to sequence identity. This is \n"+
-			"to avoid small sequences in the coarse database.")
-	flag.IntVar(&flagMapSeedSize, "map-seed-size", flagMapSeedSize,
-		"The size of a seed in the K-mer map. This size combined with"+
-			"'ext-seed-size' forms the total seed size.")
-	flag.IntVar(&flagExtSeedSize, "ext-seed-size", flagExtSeedSize,
+			"\tmatch without regard to sequence identity. This is \n"+
+			"\tto avoid small sequences in the coarse database.")
+	flag.IntVar(&dbConf.MapSeedSize, "map-seed-size",
+		dbConf.MapSeedSize,
+		"The size of a seed in the K-mer map. This size combined with\n"+
+			"\t'ext-seed-size' forms the total seed size.")
+	flag.IntVar(&dbConf.ExtSeedSize, "ext-seed-size",
+		dbConf.ExtSeedSize,
 		"The additional residues to require for each seed match.")
 
+	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
+		"The maximum number of CPUs that can be executing simultaneously.")
 	flag.StringVar(&flagCpuProfile, "cpuprofile", flagCpuProfile,
 		"When set, a CPU profile will be written to the file specified.")
 	flag.StringVar(&flagMemProfile, "memprofile", flagMemProfile,
 		"When set, a memory profile will be written to the file specified.")
 	flag.StringVar(&flagMemStats, "memstats", flagMemStats,
 		"When set, memory statistics will be written to the file specified.")
+	flag.BoolVar(&flagMemInterval, "mem-interval", flagMemInterval,
+		"When set, memory profile/stats will be written at some interval.")
+	flag.BoolVar(&flagVerbose, "verbose", flagVerbose,
+		"When set, extra output will be shown to indicate progress.")
 }
 
 func main() {
 	if flag.NArg() < 2 {
 		flag.Usage()
 	}
-
 	if len(flagCpuProfile) > 0 {
 		f, err := os.Create(flagCpuProfile)
 		if err != nil {
@@ -85,39 +91,15 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	sigChan := make(chan os.Signal, 2)
-	go func() {
-		<-sigChan
-		println("\n\nStopping CPU profile...")
-		pprof.StopCPUProfile()
-
-		if len(flagMemProfile) > 0 {
-			println("\n\nWriting memory profile...")
-			writeMemProfile(fmt.Sprintf("%s.killed", flagMemProfile))
-		}
-		if len(flagMemStats) > 0 {
-			println("\n\nWriting memory stats...")
-			writeMemStats(fmt.Sprintf("%s.killed", flagMemStats))
-		}
-		os.Exit(0)
-	}()
-	signal.Notify(sigChan, os.Interrupt, os.Kill)
-
-	orgSeqId := 0
-	DB, err := cablastp.NewDB(flag.Arg(0), flagMapSeedSize, false, true)
+	db, err := cablastp.NewDB(dbConf, flag.Arg(0))
 	if err != nil {
 		fatalf("%s\n", err)
 	}
 
-	// Create the compression workers.
-	wg := &sync.WaitGroup{}
-	jobs := make(chan compressJob, 200)
-	for i := 0; i < max(1, runtime.GOMAXPROCS(0)); i++ {
-		wg.Add(1)
-		go compressWorker(DB, flagExtSeedSize, jobs, wg)
-	}
-
-	start := time.Now()
+	attachSignalHandler(db)
+	pool := startCompressWorkers(db)
+	timer = time.Now()
+	orgSeqId := 0
 	for _, arg := range flag.Args()[1:] {
 		seqChan, err := cablastp.ReadOriginalSeqs(arg, ignoredResidues)
 		if err != nil {
@@ -127,49 +109,63 @@ func main() {
 			if readSeq.Err != nil {
 				log.Fatal(err)
 			}
+			orgSeqId = pool.compress(orgSeqId, readSeq.Seq)
+			verboseOutput(db, orgSeqId)
+		}
+	}
+	pool.done()
 
-			jobs <- compressJob{
-				orgSeqId: orgSeqId,
-				orgSeq:   readSeq.Seq,
+	cleanup(db)
+}
+
+func cleanup(db *cablastp.DB) {
+	if len(flagCpuProfile) > 0 {
+		pprof.StopCPUProfile()
+	}
+	if len(flagMemProfile) > 0 {
+		writeMemProfile(fmt.Sprintf("%s.last", flagMemProfile))
+	}
+	if len(flagMemStats) > 0 {
+		writeMemStats(fmt.Sprintf("%s.last", flagMemStats))
+	}
+	if err := db.Save(); err != nil {
+		fatalf("Could not save database: %s\n", err)
+	}
+	db.Close()
+}
+
+func attachSignalHandler(db *cablastp.DB) {
+	sigChan := make(chan os.Signal, 1)
+	go func() {
+		<-sigChan
+		cleanup(db)
+		os.Exit(0)
+	}()
+	signal.Notify(sigChan, os.Interrupt, os.Kill)
+}
+
+func verboseOutput(db *cablastp.DB, orgSeqId int) {
+	if orgSeqId%interval == 0 {
+		if flagVerbose {
+			secElapsed := time.Since(timer).Seconds()
+			seqsPerSec := float64(interval) / float64(secElapsed)
+
+			fmt.Printf(
+				"%d sequences compressed (%0.4f seqs/sec)\n",
+				orgSeqId, seqsPerSec)
+			timer = time.Now()
+		}
+		if flagMemInterval {
+			if len(flagMemProfile) > 0 {
+				writeMemProfile(
+					fmt.Sprintf("%s.%d", flagMemProfile, orgSeqId))
 			}
-			orgSeqId++
-
-			if orgSeqId%1000 == 0 {
-				secElapsed := time.Since(start).Seconds()
-				seqsPerSec := 1000.0 / float64(secElapsed)
-
-				fmt.Printf(
-					"%d sequences compressed (%0.4f seqs/sec) "+
-						":: K-mer seeds: %d\n",
-					orgSeqId, seqsPerSec, len(DB.CoarseDB.Seeds.Locs))
-
-				if len(flagMemProfile) > 0 {
-					writeMemProfile(fmt.Sprintf("%s.%d",
-						flagMemProfile, orgSeqId))
-				}
-				if len(flagMemStats) > 0 {
-					writeMemStats(fmt.Sprintf("%s.%d", flagMemStats, orgSeqId))
-				}
-
-				start = time.Now()
+			if len(flagMemStats) > 0 {
+				writeMemStats(
+					fmt.Sprintf("%s.%d", flagMemStats, orgSeqId))
 			}
 		}
 	}
-	close(jobs)
-	wg.Wait()
-
-	if len(flagMemProfile) > 0 {
-		writeMemProfile(fmt.Sprintf("%s.%d",
-			flagMemProfile, orgSeqId))
-	}
-
-	if err := DB.CoarseDB.Save(); err != nil {
-		fatalf("Could not save coarse database: %s\n", err)
-	}
-
-	DB.Close()
-
-	fmt.Println("")
 }
 
 func errorf(format string, v ...interface{}) {
@@ -206,11 +202,11 @@ func init() {
 
 func usage() {
 	fmt.Fprintf(os.Stderr,
-		"Usage: %s [flags] "+
+		"\nUsage: %s [flags] "+
 			"database-directory "+
 			"fasta-file [fasta-file ...]\n",
 		path.Base(os.Args[0]))
-	flag.PrintDefaults()
+	cablastp.PrintFlagDefaults()
 	os.Exit(1)
 }
 
@@ -222,7 +218,6 @@ func writeMemStats(name string) {
 
 	kb := uint64(1024)
 	mb := kb * 1024
-	// gb := mb * 1024 
 
 	ms := &runtime.MemStats{}
 	runtime.ReadMemStats(ms)
