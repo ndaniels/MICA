@@ -2,6 +2,9 @@ package cablastp
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/binary"
+	"encoding/csv"
 	"fmt"
 	"os"
 )
@@ -19,7 +22,7 @@ func NewCompressedDB(file *os.File, index *os.File) *CompressedDB {
 		Seqs:       make([]CompressedSeq, 0, 100),
 		File:       file,
 		Index:      index,
-		writerChan: make(chan CompressedSeq, 50),
+		writerChan: make(chan CompressedSeq, 500),
 		writerDone: make(chan struct{}, 0),
 	}
 	go cdb.writer()
@@ -49,19 +52,55 @@ func (comdb *CompressedDB) Len() int {
 }
 
 func (comdb *CompressedDB) writer() {
+	var record []string
+	var err error
+
+	byteOffset := int64(0)
+	buf := new(bytes.Buffer)
+	csvWriter := csv.NewWriter(buf)
+	csvWriter.Comma = ','
+	csvWriter.UseCRLF = false
+
 	for cseq := range comdb.writerChan {
-		_, err := fmt.Fprintf(comdb.File, "> %d; %s\n", cseq.Id, cseq.Name)
+		// Reset the buffer so it's empty. We want it to only contain
+		// the next record we're writing.
+		buf.Reset()
+
+		// Allocate memory for creating the next record.
+		// A record is a sequence name followed by four-tuples of links:
+		// (coarse-seq-id, coarse-start, coarse-end, diff).
+		record = make([]string, 0, 1+4*len(cseq.Links))
+		record = append(record, cseq.Name)
+		for _, link := range cseq.Links {
+			record = append(record,
+				fmt.Sprintf("%d", link.CoarseSeqId),
+				fmt.Sprintf("%d", link.CoarseStart),
+				fmt.Sprintf("%d", link.CoarseEnd),
+				link.Diff)
+		}
+
+		// Write the record to our *buffer* and flush it.
+		if err = csvWriter.Write(record); err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			os.Exit(1)
+		}
+		csvWriter.Flush()
+
+		// Pass the bytes on to the compressed file.
+		if _, err = comdb.File.Write(buf.Bytes()); err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			os.Exit(1)
+		}
+
+		// Now write the byte offset that points to the start of this record.
+		err = binary.Write(comdb.Index, binary.BigEndian, byteOffset)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 			os.Exit(1)
 		}
-		for _, link := range cseq.Links {
-			_, err := fmt.Fprintf(comdb.File, "%s\n", link)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s\n", err)
-				os.Exit(1)
-			}
-		}
+
+		// Increment the byte offset to be at the end of this record.
+		byteOffset += int64(buf.Len())
 	}
 	comdb.File.Close()
 	comdb.writerDone <- struct{}{}

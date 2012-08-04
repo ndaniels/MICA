@@ -14,7 +14,7 @@ import (
 	"github.com/BurntSushi/cablastp"
 )
 
-const interval = 10000
+const interval = 1000
 
 var (
 	timer           time.Time
@@ -22,11 +22,12 @@ var (
 	dbConf          = cablastp.DefaultDBConf
 
 	flagGoMaxProcs  = runtime.NumCPU()
+	flagOverwrite   = false
+	flagVerbose     = false
 	flagCpuProfile  = ""
 	flagMemProfile  = ""
 	flagMemStats    = ""
 	flagMemInterval = false
-	flagVerbose     = false
 )
 
 func init() {
@@ -66,6 +67,10 @@ func init() {
 
 	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
 		"The maximum number of CPUs that can be executing simultaneously.")
+	flag.BoolVar(&flagOverwrite, "overwrite", flagOverwrite,
+		"When set, any existing database will be destroyed.")
+	flag.BoolVar(&flagVerbose, "verbose", flagVerbose,
+		"When set, extra output will be shown to indicate progress.")
 	flag.StringVar(&flagCpuProfile, "cpuprofile", flagCpuProfile,
 		"When set, a CPU profile will be written to the file specified.")
 	flag.StringVar(&flagMemProfile, "memprofile", flagMemProfile,
@@ -74,8 +79,6 @@ func init() {
 		"When set, memory statistics will be written to the file specified.")
 	flag.BoolVar(&flagMemInterval, "mem-interval", flagMemInterval,
 		"When set, memory profile/stats will be written at some interval.")
-	flag.BoolVar(&flagVerbose, "verbose", flagVerbose,
-		"When set, extra output will be shown to indicate progress.")
 }
 
 func main() {
@@ -91,6 +94,12 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
+	if flagOverwrite {
+		if err := os.RemoveAll(flag.Arg(0)); err != nil {
+			fatalf("Could not remove existing database '%s': %s.",
+				flag.Arg(0), err)
+		}
+	}
 	db, err := cablastp.NewDB(dbConf, flag.Arg(0))
 	if err != nil {
 		fatalf("%s\n", err)
@@ -98,12 +107,14 @@ func main() {
 
 	attachSignalHandler(db)
 	pool := startCompressWorkers(db)
-	timer = time.Now()
 	orgSeqId := 0
 	for _, arg := range flag.Args()[1:] {
 		seqChan, err := cablastp.ReadOriginalSeqs(arg, ignoredResidues)
 		if err != nil {
 			log.Fatal(err)
+		}
+		if orgSeqId == 0 {
+			timer = time.Now()
 		}
 		for readSeq := range seqChan {
 			if readSeq.Err != nil {
