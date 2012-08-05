@@ -8,6 +8,12 @@ import (
 	"sync"
 )
 
+const (
+	FileCoarseFasta = "coarse.fasta"
+	FileCoarseLinks = "coarse.links"
+	FileCoarseSeeds = "coarse.seeds"
+)
+
 // CoarseDB represents a set of unique sequences that comprise the "coarse"
 // database. Sequences in the ReferenceDB are use to re-create the original
 // sequences.
@@ -25,29 +31,19 @@ type CoarseDB struct {
 // NewCoarseDB takes a list of initial original sequences, and adds each
 // sequence to the reference database unchanged. Seeds are also generated for
 // each K-mer in each original sequence.
-func NewCoarseDB(fastaFile, seedsFile, linksFile *os.File,
-	seedSize int) *CoarseDB {
-
+func NewWriteCoarseDB(appnd bool, db *DB) (*CoarseDB, error) {
 	coarsedb := &CoarseDB{
 		Seqs:      make([]*CoarseSeq, 0, 10000000),
-		Seeds:     NewSeeds(seedSize),
-		FileFasta: fastaFile,
-		FileSeeds: seedsFile,
-		FileLinks: linksFile,
+		Seeds:     NewSeeds(db.MapSeedSize),
+		FileFasta: nil,
+		FileSeeds: nil,
+		FileLinks: nil,
 		seqLock:   &sync.RWMutex{},
 	}
-	return coarsedb
+	return coarsedb, nil
 }
 
-func NewAppendCoarseDB(fastaFile, seedsFile, linksFile *os.File,
-	seedSize int) *CoarseDB {
-
-	panic("not implemented")
-}
-
-func LoadCoarseDB(fastaFile, linksFile *os.File,
-	seedSize int) (*CoarseDB, error) {
-
+func NewReadCoarseDB(db *DB) (*CoarseDB, error) {
 	return nil, fmt.Errorf("Not implemented.")
 }
 

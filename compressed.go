@@ -6,47 +6,134 @@ import (
 	"encoding/csv"
 	"fmt"
 	"os"
+	"strconv"
+)
+
+const (
+	FileCompressed = "compressed.cbp"
+	FileIndex      = "index"
 )
 
 type CompressedDB struct {
-	SeqCache   map[int]CompressedSeq
+	seqCache   map[int]OriginalSeq
 	File       *os.File
 	Index      *os.File
 	writerChan chan CompressedSeq
 	writerDone chan struct{}
+	csvReader  *csv.Reader
 }
 
-func NewCompressedDB(file *os.File, index *os.File) *CompressedDB {
+func NewWriteCompressedDB(appnd bool, db *DB) (*CompressedDB, error) {
+	var err error
+
 	cdb := &CompressedDB{
-		SeqCache:   nil,
-		File:       file,
-		Index:      index,
+		seqCache:   nil,
+		File:       nil,
+		Index:      nil,
 		writerChan: make(chan CompressedSeq, 500),
 		writerDone: make(chan struct{}, 0),
 	}
+	cdb.File, err = db.openWriteFile(appnd, FileCompressed)
+	if err != nil {
+		return nil, err
+	}
+	cdb.Index, err = db.openWriteFile(appnd, FileIndex)
+	if err != nil {
+		return nil, err
+	}
+
 	go cdb.writer()
 
-	return cdb
+	return cdb, nil
 }
 
-func NewAppendCompressedDB(file *os.File, index *os.File) *CompressedDB {
-	return NewCompressedDB(file, index)
-}
+func NewReadCompressedDB(db *DB) (*CompressedDB, error) {
+	var err error
 
-func LoadCompressedDB(file *os.File, index *os.File) (*CompressedDB, error) {
 	cdb := &CompressedDB{
-		SeqCache:   make(map[int]CompressedSeq, 100),
-		File:       file,
-		Index:      index,
+		seqCache:   make(map[int]OriginalSeq, 100),
+		File:       nil,
+		Index:      nil,
 		writerChan: nil,
 		writerDone: nil,
+		csvReader:  nil,
 	}
+	cdb.File, err = db.openReadFile(FileCompressed)
+	if err != nil {
+		return nil, err
+	}
+	cdb.Index, err = db.openReadFile(FileIndex)
+	if err != nil {
+		return nil, err
+	}
+	cdb.csvReader = csv.NewReader(cdb.File)
 	return cdb, nil
 }
 
 func (comdb *CompressedDB) ReadClose() {
 	comdb.File.Close()
 	comdb.Index.Close()
+}
+
+func (comdb *CompressedDB) SeqGet(
+	coarsedb *CoarseDB, orgSeqId int) (OriginalSeq, error) {
+
+	var err error
+
+	if comdb.writerChan != nil {
+		panic(fmt.Sprintf("A compressed database cannot be read while it is " +
+			"also being modified."))
+	}
+	if _, ok := comdb.seqCache[orgSeqId]; !ok {
+		comdb.seqCache[orgSeqId], err = comdb.readSeq(coarsedb, orgSeqId)
+		if err != nil {
+			return OriginalSeq{}, err
+		}
+	}
+	return comdb.seqCache[orgSeqId], nil
+}
+
+func (comdb *CompressedDB) readSeq(
+	coarsedb *CoarseDB, orgSeqId int) (OriginalSeq, error) {
+
+	off, err := comdb.orgSeqOffset(orgSeqId)
+	if err != nil {
+		return OriginalSeq{}, err
+	}
+
+	newOff, err := comdb.File.Seek(off, 0)
+	if err != nil {
+		return OriginalSeq{}, err
+	} else if newOff != off {
+		return OriginalSeq{},
+			fmt.Errorf("Tried to seek to offset %d in the compressed "+
+				"database, but seeked to %d instead.", off, newOff)
+	}
+
+	record, err := comdb.csvReader.Read()
+	if err != nil {
+		return OriginalSeq{}, err
+	}
+
+	cseq, err := readCompressedSeq(orgSeqId, record)
+	if err != nil {
+		return OriginalSeq{}, err
+	}
+	return cseq.Decompress(coarsedb)
+}
+
+func (comdb *CompressedDB) orgSeqOffset(id int) (seqOff int64, err error) {
+	tryOff := int64(id) * 8
+	realOff, err := comdb.Index.Seek(tryOff, 0)
+	if err != nil {
+		return 0, err
+	} else if tryOff != realOff {
+		return 0,
+			fmt.Errorf("Tried to seek to offset %d in the compressed index, "+
+				"but seeked to %d instead.", tryOff, realOff)
+	}
+	err = binary.Read(comdb.Index, binary.BigEndian, &seqOff)
+	return
 }
 
 func (comdb *CompressedDB) WriteClose() {
@@ -56,14 +143,6 @@ func (comdb *CompressedDB) WriteClose() {
 	<-comdb.writerDone
 
 	comdb.Index.Close()
-}
-
-func (comdb *CompressedDB) LoadSeq(orgSeqId int) *CompressedSeq {
-	if comdb.writerChan != nil {
-		panic(fmt.Sprintf("A compressed database cannot be read while it is " +
-			"also being modified."))
-	}
-	return nil
 }
 
 func (comdb *CompressedDB) Write(cseq CompressedSeq) {
@@ -148,7 +227,58 @@ func NewCompressedSeq(id int, name string) CompressedSeq {
 	}
 }
 
+func readCompressedSeq(id int, record []string) (CompressedSeq, error) {
+	cseq := CompressedSeq{
+		Id:    id,
+		Name:  string([]byte(record[0])),
+		Links: make([]LinkToCoarse, (len(record)-1)/4),
+	}
+
+	for i := 1; i < len(record); i += 4 {
+		coarseSeqId64, err := strconv.Atoi(record[i+0])
+		if err != nil {
+			return CompressedSeq{}, nil
+		}
+		coarseStart64, err := strconv.Atoi(record[i+1])
+		if err != nil {
+			return CompressedSeq{}, nil
+		}
+		coarseEnd64, err := strconv.Atoi(record[i+2])
+		if err != nil {
+			return CompressedSeq{}, nil
+		}
+		lk := NewLinkToCoarseNoDiff(
+			int(coarseSeqId64), int(coarseStart64), int(coarseEnd64))
+		lk.Diff = string([]byte(record[i+3]))
+
+		cseq.Add(lk)
+	}
+	return cseq, nil
+}
+
 // Add will add a LinkToReference to the end of the CompressedSeq's Links list.
 func (cseq *CompressedSeq) Add(link LinkToCoarse) {
 	cseq.Links = append(cseq.Links, link)
+}
+
+func (cseq CompressedSeq) Decompress(coarsedb *CoarseDB) (OriginalSeq, error) {
+	var corres, subCorres []byte
+	residues := make([]byte, 0, 20)
+	for _, lk := range cseq.Links {
+		if lk.CoarseSeqId < 0 || lk.CoarseSeqId >= len(coarsedb.Seqs) {
+			return OriginalSeq{},
+				fmt.Errorf("Cannot decompress compressed sequence (id: %d), "+
+					"because a link refers to an invalid coarse sequence "+
+					"id: %d.", cseq.Id, lk.CoarseSeqId)
+		}
+		editScript, err := NewEditScriptParse(lk.Diff)
+		if err != nil {
+			return OriginalSeq{}, err
+		}
+
+		corres = coarsedb.Seqs[lk.CoarseSeqId].Residues
+		subCorres = corres[lk.CoarseStart:lk.CoarseEnd]
+		residues = append(residues, editScript.Apply(subCorres)...)
+	}
+	return *NewOriginalSeq(cseq.Id, cseq.Name, residues), nil
 }
