@@ -1,7 +1,6 @@
 package cablastp
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"encoding/csv"
@@ -10,7 +9,7 @@ import (
 )
 
 type CompressedDB struct {
-	Seqs       []CompressedSeq
+	SeqCache   map[int]CompressedSeq
 	File       *os.File
 	Index      *os.File
 	writerChan chan CompressedSeq
@@ -19,7 +18,7 @@ type CompressedDB struct {
 
 func NewCompressedDB(file *os.File, index *os.File) *CompressedDB {
 	cdb := &CompressedDB{
-		Seqs:       make([]CompressedSeq, 0, 100),
+		SeqCache:   nil,
 		File:       file,
 		Index:      index,
 		writerChan: make(chan CompressedSeq, 500),
@@ -30,11 +29,27 @@ func NewCompressedDB(file *os.File, index *os.File) *CompressedDB {
 	return cdb
 }
 
-func LoadCompressedDB(file *os.File, index *os.File) (*CompressedDB, error) {
-	return nil, fmt.Errorf("Not implemented.")
+func NewAppendCompressedDB(file *os.File, index *os.File) *CompressedDB {
+	return NewCompressedDB(file, index)
 }
 
-func (comdb *CompressedDB) Close() {
+func LoadCompressedDB(file *os.File, index *os.File) (*CompressedDB, error) {
+	cdb := &CompressedDB{
+		SeqCache:   make(map[int]CompressedSeq, 100),
+		File:       file,
+		Index:      index,
+		writerChan: nil,
+		writerDone: nil,
+	}
+	return cdb, nil
+}
+
+func (comdb *CompressedDB) ReadClose() {
+	comdb.File.Close()
+	comdb.Index.Close()
+}
+
+func (comdb *CompressedDB) WriteClose() {
 	close(comdb.writerChan) // will close comdb.File
 
 	// Wait for the writer goroutine to finish.
@@ -43,12 +58,16 @@ func (comdb *CompressedDB) Close() {
 	comdb.Index.Close()
 }
 
-func (comdb *CompressedDB) Add(comSeq CompressedSeq) {
-	comdb.Seqs = append(comdb.Seqs, comSeq)
+func (comdb *CompressedDB) LoadSeq(orgSeqId int) *CompressedSeq {
+	if comdb.writerChan != nil {
+		panic(fmt.Sprintf("A compressed database cannot be read while it is " +
+			"also being modified."))
+	}
+	return nil
 }
 
-func (comdb *CompressedDB) Len() int {
-	return len(comdb.Seqs)
+func (comdb *CompressedDB) Write(cseq CompressedSeq) {
+	comdb.writerChan <- cseq
 }
 
 func (comdb *CompressedDB) writer() {
@@ -104,48 +123,6 @@ func (comdb *CompressedDB) writer() {
 	}
 	comdb.File.Close()
 	comdb.writerDone <- struct{}{}
-}
-
-func (comdb *CompressedDB) Write(cseq CompressedSeq) {
-	comdb.writerChan <- cseq
-}
-
-// Save will save the compressed database as a binary encoding of all
-// compressed sequences. (A compressed sequence is simply an ordered list of
-// links into the reference database.)
-func (comdb *CompressedDB) Save(name string) error {
-	return nil
-}
-
-// SavePlain will save the compressed database as a plain text encoding of all
-// compressed sequences. (A compressed sequence is simply an ordered list of
-// links into the reference database.)
-func (comdb *CompressedDB) SavePlain(name string) error {
-	f, err := os.Create(name)
-	if err != nil {
-		return err
-	}
-
-	bufWriter := bufio.NewWriter(f)
-	for i, cseq := range comdb.Seqs {
-		_, err = fmt.Fprintf(bufWriter, "> %d; %s\n", i, cseq.Name)
-		if err != nil {
-			return err
-		}
-		for _, link := range cseq.Links {
-			_, err := fmt.Fprintf(bufWriter, "%s\n", link)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	if err := bufWriter.Flush(); err != nil {
-		return err
-	}
-	if err := f.Close(); err != nil {
-		return err
-	}
-	return nil
 }
 
 // CompressedSeq corresponds to the components of a compressed sequence.

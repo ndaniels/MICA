@@ -39,7 +39,13 @@ func NewCoarseDB(fastaFile, seedsFile, linksFile *os.File,
 	return coarsedb
 }
 
-func LoadCoarseDB(fastaFile, seedsFile, linksFile *os.File,
+func NewAppendCoarseDB(fastaFile, seedsFile, linksFile *os.File,
+	seedSize int) *CoarseDB {
+
+	panic("not implemented")
+}
+
+func LoadCoarseDB(fastaFile, linksFile *os.File,
 	seedSize int) (*CoarseDB, error) {
 
 	return nil, fmt.Errorf("Not implemented.")
@@ -69,7 +75,12 @@ func (coarsedb *CoarseDB) CoarseSeqGet(i int) *CoarseSeq {
 	return seq
 }
 
-func (coarsedb *CoarseDB) Close() {
+func (coarsedb *CoarseDB) ReadClose() {
+	coarsedb.FileFasta.Close()
+	coarsedb.FileLinks.Close()
+}
+
+func (coarsedb *CoarseDB) WriteClose() {
 	coarsedb.FileFasta.Close()
 	coarsedb.FileSeeds.Close()
 	coarsedb.FileLinks.Close()

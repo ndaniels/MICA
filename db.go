@@ -200,7 +200,7 @@ func NewDB(conf DBConf, dir string) (*DB, error) {
 	return db, nil
 }
 
-func LoadDB(conf DBConf, dir string) (*DB, error) {
+func NewAppendDB(conf DBConf, dir string) (*DB, error) {
 	_, err := os.Open(dir)
 	if err != nil {
 		return nil, fmt.Errorf("Could not open '%s' for appending "+
@@ -225,13 +225,69 @@ func LoadDB(conf DBConf, dir string) (*DB, error) {
 		return nil, err
 	}
 
+	db.ComDB = NewAppendCompressedDB(db.compressed, db.index)
+	db.CoarseDB = NewAppendCoarseDB(
+		db.coarseFasta, db.coarseSeeds, db.coarseLinks, db.MapSeedSize)
+
+	return db, nil
+}
+
+func LoadDB(dir string) (*DB, error) {
+	_, err := os.Open(dir)
+	if err != nil {
+		return nil, fmt.Errorf("Could not open '%s' for reading "+
+			"because: %s.", dir, err)
+	}
+
+	db := &DB{
+		Name:        path.Base(dir),
+		coarseSeeds: nil,
+	}
+
+	open := func(name string) (*os.File, error) {
+		f, err := os.Open(path.Join(dir, name))
+		if err != nil {
+			return nil, err
+		}
+		return f, nil
+	}
+
+	db.coarseFasta, err = open(FileCoarseFasta)
+	if err != nil {
+		return nil, err
+	}
+	db.coarseLinks, err = open(FileCoarseLinks)
+	if err != nil {
+		return nil, err
+	}
+	db.compressed, err = open(FileCompressed)
+	if err != nil {
+		return nil, err
+	}
+	db.index, err = open(FileIndex)
+	if err != nil {
+		return nil, err
+	}
+	db.params, err = open(FileParams)
+	if err != nil {
+		return nil, err
+	}
+
+	// Now try to load the configuration parameters from the 'params' file.
+	// We always prefer options from 'params' except when it has been
+	// overridden via the command line.
+	db.DBConf, err = LoadDBConf(db.params)
+	if err != nil {
+		return nil, err
+	}
+
 	db.ComDB, err = LoadCompressedDB(db.compressed, db.index)
 	if err != nil {
 		return nil, err
 	}
 
 	db.CoarseDB, err = LoadCoarseDB(
-		db.coarseFasta, db.coarseSeeds, db.coarseLinks, db.MapSeedSize)
+		db.coarseFasta, db.coarseLinks, db.MapSeedSize)
 	if err != nil {
 		return nil, err
 	}
@@ -246,9 +302,14 @@ func (db *DB) Save() error {
 	return nil
 }
 
-func (db *DB) Close() {
-	db.CoarseDB.Close()
-	db.ComDB.Close()
+func (db *DB) ReadClose() {
+	db.CoarseDB.ReadClose()
+	db.ComDB.ReadClose()
+}
+
+func (db *DB) WriteClose() {
+	db.CoarseDB.WriteClose()
+	db.ComDB.WriteClose()
 }
 
 func (db *DB) openDbFiles(dir string, add bool) error {
@@ -305,7 +366,7 @@ func openDbFile(add bool, dir, name string) (*os.File, error) {
 		return f, nil
 	}
 
-	f, err := os.OpenFile(path.Join(dir, name), os.O_RDWR, 0666)
+	f, err := os.OpenFile(path.Join(dir, name), os.O_RDWR|os.O_APPEND, 0666)
 	if err != nil {
 		return nil, err
 	}
