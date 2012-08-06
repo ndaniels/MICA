@@ -6,6 +6,31 @@ import (
 	"testing"
 )
 
+func TestSeedHashing(t *testing.T) {
+	seedSize := 4
+	type test struct {
+		kmer string
+		hash int
+	}
+	tests := []test{
+		{"ABCD", 578},
+		{"AAAA", 0},
+	}
+	seeds := NewSeeds(seedSize)
+	for _, test := range tests {
+		thash := seeds.hashKmer([]byte(test.kmer))
+		tkmer := seeds.unhashKmer(test.hash)
+		if thash != test.hash {
+			t.Fatalf("The kmer '%s' hashed to %d but should have hashed to %d.",
+				test.kmer, thash, test.hash)
+		}
+		if string(tkmer) != test.kmer {
+			t.Fatalf("The hash %d unhashed to '%s' but should have "+
+				"unhashed to '%s'.", test.hash, string(tkmer), test.kmer)
+		}
+	}
+}
+
 func TestDBConfIO(t *testing.T) {
 	dbConf := DefaultDBConf
 	buf := new(bytes.Buffer)

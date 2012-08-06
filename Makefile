@@ -7,8 +7,8 @@ blosum/blosum.go:
 	scripts/mkBlosum | gofmt > blosum/blosum.go
 
 gofmt:
-	gofmt -w *.go compress/*.go
-	scripts/colcheck *.go compress/*.go
+	gofmt -w *.go cmd/*/*.go
+	scripts/colcheck *.go cmd/*/*.go
 
 tags:
 	find ./ \( \
@@ -29,5 +29,3 @@ pushl:
 	git push tufts linkedlist
 	git push github linkedlist
 
-par:
-	time GOMAXPROCS=8 ./compress/compress par-coarse.fasta par-coarse.links par-compressed.cbp data/medium.fasta

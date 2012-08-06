@@ -3,42 +3,35 @@ package cablastp
 import (
 	"fmt"
 	"log"
+	"strings"
 	"sync"
-)
 
-// SeedAlphaSize is the number of letters in the K-mer alphabet.
-const SeedAlphaSize = 23
+	"github.com/BurntSushi/cablastp/blosum"
+)
 
 // SeedAlphaNums is a map to assign *valid* amino acid resiudes contiunous 
 // values so that base-26 arithmetic can be performed on them.
 // Invalid amino acid resiudes map to -1 and will produce a panic.
-var SeedAlphaNums = []int{
-	0,  // 'A'
-	1,  // 'B'
-	2,  // 'C'
-	3,  // 'D'
-	4,  // 'E'
-	5,  // 'F'
-	6,  // 'G'
-	7,  // 'H'
-	8,  // 'I'
-	-1, // 'J'
-	9,  // 'K'
-	10, // 'L'
-	11, // 'M'
-	12, // 'N'
-	-1, // 'O'
-	13, // 'P'
-	14, // 'Q'
-	15, // 'R'
-	16, // 'S'
-	17, // 'T'
-	-1, // 'U'
-	18, // 'V'
-	19, // 'W'
-	20, // 'X'
-	21, // 'Y'
-	22, // 'Z'
+var (
+	SeedAlphaSize        = len(blosum.Alphabet62)
+	SeedAlphaNums        = make([]int, 26)
+	ReverseSeedAlphaNums = make([]byte, 26)
+)
+
+func init() {
+	var amino byte
+
+	aminoVal := 0
+	for i := byte(0); i < 26; i++ {
+		amino = 'A' + i
+		if strings.ContainsRune(blosum.Alphabet62, rune(amino)) {
+			SeedAlphaNums[i] = aminoVal
+			ReverseSeedAlphaNums[aminoVal] = amino
+			aminoVal += 1
+		} else {
+			SeedAlphaNums[i] = -1
+		}
+	}
 }
 
 // SeedLoc represents the information required to translate a seed to a slice
@@ -165,11 +158,28 @@ func aminoValue(letter byte) int {
 // hashKmer satisfies this law:
 // Forall a, b in [A..Z]*, hashKmer(a) == hashKmer(b) IFF a == b.
 func (ss Seeds) hashKmer(kmer []byte) int {
-	key := 0
+	hash := 0
+	lastPow := len(kmer) - 1
 	for i, b := range kmer {
-		key += aminoValue(b) * ss.powers[i]
+		hash += aminoValue(b) * ss.powers[lastPow-i]
 	}
-	return key
+	return hash
+}
+
+// unhashKmer reverses hashKmer.
+func (ss Seeds) unhashKmer(hash int) []byte {
+	residues := make([]byte, 0)
+	base := SeedAlphaSize
+	for i := 0; i < ss.SeedSize; i++ {
+		onesZeroed := (hash / base) * base
+		digit := hash - onesZeroed
+		residues = append(residues, ReverseSeedAlphaNums[digit])
+		hash /= base
+	}
+	for i, j := 0, len(residues)-1; i < j; i, j = i+1, j-1 {
+		residues[i], residues[j] = residues[j], residues[i]
+	}
+	return residues
 }
 
 // KmerAllUpperAlpha returns true if all values in the 'kmer' slice correspond 

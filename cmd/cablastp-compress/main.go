@@ -64,6 +64,11 @@ func init() {
 	flag.IntVar(&dbConf.ExtSeedSize, "ext-seed-size",
 		dbConf.ExtSeedSize,
 		"The additional residues to require for each seed match.")
+	flag.BoolVar(&dbConf.SavePlain, "plain",
+		dbConf.SavePlain,
+		"When set, additional plain-text versions of files that are \n"+
+			"\tnormally encoded in binary are saved with a '.plain' \n"+
+			"\textension. Note that the original binary files are also saved.")
 
 	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
 		"The maximum number of CPUs that can be executing simultaneously.")
@@ -100,7 +105,7 @@ func main() {
 				flag.Arg(0), err)
 		}
 	}
-	db, err := cablastp.NewDB(dbConf, flag.Arg(0))
+	db, err := cablastp.NewWriteDB(false, dbConf, flag.Arg(0))
 	if err != nil {
 		fatalf("%s\n", err)
 	}
@@ -142,7 +147,7 @@ func cleanup(db *cablastp.DB) {
 	if err := db.Save(); err != nil {
 		fatalf("Could not save database: %s\n", err)
 	}
-	db.Close()
+	db.WriteClose()
 }
 
 func attachSignalHandler(db *cablastp.DB) {

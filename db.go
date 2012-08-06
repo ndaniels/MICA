@@ -58,11 +58,11 @@ func NewWriteDB(appnd bool, conf DBConf, dir string) (*DB, error) {
 	// overridden via the command line.
 	// We only need to do this when appending, otherwise a 'params' file
 	// does not exist yet.
+	db.params, err = db.openWriteFile(appnd, FileParams)
+	if err != nil {
+		return nil, err
+	}
 	if appnd {
-		db.params, err = db.openWriteFile(appnd, FileParams)
-		if err != nil {
-			return nil, err
-		}
 		paramConf, err := LoadDBConf(db.params)
 		if err != nil {
 			return nil, err
@@ -151,15 +151,20 @@ func (db *DB) Save() error {
 	if err := db.CoarseDB.Save(); err != nil {
 		return err
 	}
+	if err := db.DBConf.Write(db.params); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (db *DB) ReadClose() {
+	db.params.Close()
 	db.CoarseDB.ReadClose()
 	db.ComDB.ReadClose()
 }
 
 func (db *DB) WriteClose() {
+	db.params.Close()
 	db.CoarseDB.WriteClose()
 	db.ComDB.WriteClose()
 }

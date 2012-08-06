@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 )
 
 type DBConf struct {
@@ -18,6 +19,7 @@ type DBConf struct {
 	MatchExtend         int
 	MapSeedSize         int
 	ExtSeedSize         int
+	SavePlain           bool
 }
 
 var DefaultDBConf = DBConf{
@@ -30,6 +32,7 @@ var DefaultDBConf = DBConf{
 	MatchExtend:         30,
 	MapSeedSize:         6,
 	ExtSeedSize:         4,
+	SavePlain:           false,
 }
 
 func LoadDBConf(r io.Reader) (conf DBConf, err error) {
@@ -79,6 +82,12 @@ func LoadDBConf(r io.Reader) (conf DBConf, err error) {
 			conf.MapSeedSize = atoi()
 		case "ExtSeedSize":
 			conf.ExtSeedSize = atoi()
+		case "SavePlain":
+			if strings.TrimSpace(line[1]) == "1" {
+				conf.SavePlain = true
+			} else {
+				conf.SavePlain = false
+			}
 		default:
 			return conf, fmt.Errorf("Invalid DBConf flag: %s", line[0])
 		}
@@ -120,6 +129,9 @@ func (flagConf DBConf) FlagMerge(fileConf DBConf) (DBConf, error) {
 	if !only["ext-seed-size"] {
 		flagConf.ExtSeedSize = fileConf.ExtSeedSize
 	}
+	if !only["plain"] {
+		flagConf.SavePlain = fileConf.SavePlain
+	}
 	return flagConf, nil
 }
 
@@ -131,6 +143,12 @@ func (dbConf DBConf) Write(w io.Writer) error {
 	s := func(i int) string {
 		return fmt.Sprintf("%d", i)
 	}
+	bs := func(b bool) string {
+		if b {
+			return "1"
+		}
+		return "0"
+	}
 	records := [][]string{
 		{"MinMatchLen", s(dbConf.MinMatchLen)},
 		{"MatchKmerSize", s(dbConf.MatchKmerSize)},
@@ -141,6 +159,7 @@ func (dbConf DBConf) Write(w io.Writer) error {
 		{"MatchExtend", s(dbConf.MatchExtend)},
 		{"MapSeedSize", s(dbConf.MapSeedSize)},
 		{"ExtSeedSize", s(dbConf.ExtSeedSize)},
+		{"SavePlain", bs(dbConf.SavePlain)},
 	}
 	if err := csvWriter.WriteAll(records); err != nil {
 		return err
