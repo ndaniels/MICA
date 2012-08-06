@@ -20,6 +20,7 @@ type DBConf struct {
 	MapSeedSize         int
 	ExtSeedSize         int
 	SavePlain           bool
+	ReadOnly            bool
 }
 
 var DefaultDBConf = DBConf{
@@ -33,6 +34,7 @@ var DefaultDBConf = DBConf{
 	MapSeedSize:         6,
 	ExtSeedSize:         4,
 	SavePlain:           false,
+	ReadOnly:            false,
 }
 
 func LoadDBConf(r io.Reader) (conf DBConf, err error) {
@@ -88,6 +90,12 @@ func LoadDBConf(r io.Reader) (conf DBConf, err error) {
 			} else {
 				conf.SavePlain = false
 			}
+		case "ReadOnly":
+			if strings.TrimSpace(line[1]) == "1" {
+				conf.ReadOnly = true
+			} else {
+				conf.ReadOnly = false
+			}
 		default:
 			return conf, fmt.Errorf("Invalid DBConf flag: %s", line[0])
 		}
@@ -132,6 +140,9 @@ func (flagConf DBConf) FlagMerge(fileConf DBConf) (DBConf, error) {
 	if !only["plain"] {
 		flagConf.SavePlain = fileConf.SavePlain
 	}
+	if !only["read-only"] {
+		flagConf.ReadOnly = fileConf.ReadOnly
+	}
 	return flagConf, nil
 }
 
@@ -160,6 +171,7 @@ func (dbConf DBConf) Write(w io.Writer) error {
 		{"MapSeedSize", s(dbConf.MapSeedSize)},
 		{"ExtSeedSize", s(dbConf.ExtSeedSize)},
 		{"SavePlain", bs(dbConf.SavePlain)},
+		{"ReadOnly", bs(dbConf.ReadOnly)},
 	}
 	if err := csvWriter.WriteAll(records); err != nil {
 		return err

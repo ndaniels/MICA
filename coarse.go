@@ -31,6 +31,7 @@ type CoarseDB struct {
 
 	seqLock *sync.RWMutex
 
+	readOnly   bool
 	plain      bool
 	plainLinks *os.File
 	plainSeeds *os.File
@@ -49,6 +50,7 @@ func NewWriteCoarseDB(appnd bool, db *DB) (*CoarseDB, error) {
 		FileSeeds:  nil,
 		FileLinks:  nil,
 		seqLock:    &sync.RWMutex{},
+		readOnly:   db.ReadOnly,
 		plain:      db.SavePlain,
 		plainSeeds: nil,
 	}
@@ -88,6 +90,7 @@ func NewReadCoarseDB(db *DB) (*CoarseDB, error) {
 		FileSeeds: nil,
 		FileLinks: nil,
 		seqLock:   nil,
+		readOnly:  false,
 		plain:     db.SavePlain,
 	}
 	coarsedb.FileFasta, err = db.openReadFile(FileCoarseFasta)
@@ -152,15 +155,19 @@ func (coarsedb *CoarseDB) Save() error {
 	if err := coarsedb.saveLinks(); err != nil {
 		return err
 	}
-	if err := coarsedb.saveSeeds(); err != nil {
-		return err
+	if !coarsedb.readOnly {
+		if err := coarsedb.saveSeeds(); err != nil {
+			return err
+		}
 	}
 	if coarsedb.plain {
 		if err := coarsedb.saveLinksPlain(); err != nil {
 			return err
 		}
-		if err := coarsedb.saveSeedsPlain(); err != nil {
-			return err
+		if !coarsedb.readOnly {
+			if err := coarsedb.saveSeedsPlain(); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

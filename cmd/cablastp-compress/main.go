@@ -69,6 +69,10 @@ func init() {
 		"When set, additional plain-text versions of files that are \n"+
 			"\tnormally encoded in binary are saved with a '.plain' \n"+
 			"\textension. Note that the original binary files are also saved.")
+	flag.BoolVar(&dbConf.ReadOnly, "read-only",
+		dbConf.ReadOnly,
+		"When set, the database created will be read-only (i.e., it \n"+
+			"\tcannot be appended to), but it will be smaller.")
 
 	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
 		"The maximum number of CPUs that can be executing simultaneously.")
