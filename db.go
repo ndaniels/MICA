@@ -71,6 +71,12 @@ func NewWriteDB(appnd bool, conf DBConf, dir string) (*DB, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		// If it's a read only database, we can't append!
+		if db.ReadOnly {
+			return nil, fmt.Errorf("Appending to a read-only database is " +
+				"not possible.")
+		}
 	}
 
 	db.ComDB, err = NewWriteCompressedDB(appnd, db)

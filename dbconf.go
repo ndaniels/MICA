@@ -112,6 +112,10 @@ func (flagConf DBConf) FlagMerge(fileConf DBConf) (DBConf, error) {
 		return flagConf, fmt.Errorf("The map seed size cannot be changed for " +
 			"an existing database.")
 	}
+	if only["read-only"] {
+		return flagConf, fmt.Errorf("The read-only setting cannot be changed " +
+			"for an existing database.")
+	}
 
 	if !only["min-match-len"] {
 		flagConf.MinMatchLen = fileConf.MinMatchLen
