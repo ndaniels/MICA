@@ -13,12 +13,12 @@ type LinkToCompressed struct {
 }
 
 func NewLinkToCompressed(
-	orgSeqId int, coarseStart, coarseEnd int) *LinkToCompressed {
+	orgSeqId int, coarseStart, coarseEnd int16) *LinkToCompressed {
 
 	return &LinkToCompressed{
 		OrgSeqId:    orgSeqId,
-		CoarseStart: int16(coarseStart),
-		CoarseEnd:   int16(coarseEnd),
+		CoarseStart: coarseStart,
+		CoarseEnd:   coarseEnd,
 		Next:        nil,
 	}
 }

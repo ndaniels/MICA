@@ -45,8 +45,8 @@ type SeedLoc struct {
 	Next   *SeedLoc
 }
 
-func NewSeedLoc(seqInd, resInd int) *SeedLoc {
-	return &SeedLoc{seqInd, int16(resInd), nil}
+func NewSeedLoc(seqInd int, resInd int16) *SeedLoc {
+	return &SeedLoc{seqInd, resInd, nil}
 }
 
 func (loc SeedLoc) String() string {
@@ -99,7 +99,7 @@ func (ss Seeds) Add(coarseSeqIndex int, corSeq *CoarseSeq) {
 		}
 
 		kmerIndex := ss.hashKmer(kmer)
-		loc := NewSeedLoc(coarseSeqIndex, i)
+		loc := NewSeedLoc(coarseSeqIndex, int16(i))
 
 		if ss.Locs[kmerIndex] == nil {
 			ss.Locs[kmerIndex] = loc

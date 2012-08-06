@@ -124,6 +124,11 @@ func (rseq *CoarseSeq) NewSubSequence(start, end int) *CoarseSeq {
 
 func (rseq *CoarseSeq) AddLink(link *LinkToCompressed) {
 	rseq.linkLock.Lock()
+	rseq.addLink(link)
+	rseq.linkLock.Unlock()
+}
+
+func (rseq *CoarseSeq) addLink(link *LinkToCompressed) {
 	if rseq.Links == nil {
 		rseq.Links = link
 	} else {
@@ -132,7 +137,6 @@ func (rseq *CoarseSeq) AddLink(link *LinkToCompressed) {
 		}
 		lk.Next = link
 	}
-	rseq.linkLock.Unlock()
 }
 
 // OriginalSeq embeds a sequence and serves as a typing mechanism to

@@ -1,12 +1,9 @@
 package cablastp
 
 import (
-	"bytes"
-	"encoding/binary"
 	"encoding/csv"
 	"fmt"
 	"os"
-	"strconv"
 )
 
 const (
@@ -18,6 +15,7 @@ type CompressedDB struct {
 	seqCache   map[int]OriginalSeq
 	File       *os.File
 	Index      *os.File
+	indexSize  int64
 	writerChan chan CompressedSeq
 	writerDone chan struct{}
 	csvReader  *csv.Reader
@@ -41,6 +39,12 @@ func NewWriteCompressedDB(appnd bool, db *DB) (*CompressedDB, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	info, err := cdb.Index.Stat()
+	if err != nil {
+		return nil, err
+	}
+	cdb.indexSize = info.Size()
 
 	go cdb.writer()
 
@@ -85,7 +89,7 @@ func (comdb *CompressedDB) SeqGet(
 			"also being modified."))
 	}
 	if _, ok := comdb.seqCache[orgSeqId]; !ok {
-		comdb.seqCache[orgSeqId], err = comdb.readSeq(coarsedb, orgSeqId)
+		comdb.seqCache[orgSeqId], err = comdb.ReadSeq(coarsedb, orgSeqId)
 		if err != nil {
 			return OriginalSeq{}, err
 		}
@@ -93,47 +97,8 @@ func (comdb *CompressedDB) SeqGet(
 	return comdb.seqCache[orgSeqId], nil
 }
 
-func (comdb *CompressedDB) readSeq(
-	coarsedb *CoarseDB, orgSeqId int) (OriginalSeq, error) {
-
-	off, err := comdb.orgSeqOffset(orgSeqId)
-	if err != nil {
-		return OriginalSeq{}, err
-	}
-
-	newOff, err := comdb.File.Seek(off, 0)
-	if err != nil {
-		return OriginalSeq{}, err
-	} else if newOff != off {
-		return OriginalSeq{},
-			fmt.Errorf("Tried to seek to offset %d in the compressed "+
-				"database, but seeked to %d instead.", off, newOff)
-	}
-
-	record, err := comdb.csvReader.Read()
-	if err != nil {
-		return OriginalSeq{}, err
-	}
-
-	cseq, err := readCompressedSeq(orgSeqId, record)
-	if err != nil {
-		return OriginalSeq{}, err
-	}
-	return cseq.Decompress(coarsedb)
-}
-
-func (comdb *CompressedDB) orgSeqOffset(id int) (seqOff int64, err error) {
-	tryOff := int64(id) * 8
-	realOff, err := comdb.Index.Seek(tryOff, 0)
-	if err != nil {
-		return 0, err
-	} else if tryOff != realOff {
-		return 0,
-			fmt.Errorf("Tried to seek to offset %d in the compressed index, "+
-				"but seeked to %d instead.", tryOff, realOff)
-	}
-	err = binary.Read(comdb.Index, binary.BigEndian, &seqOff)
-	return
+func (comdb *CompressedDB) NumSequences() int {
+	return int(comdb.indexSize / 8)
 }
 
 func (comdb *CompressedDB) WriteClose() {
@@ -147,61 +112,6 @@ func (comdb *CompressedDB) WriteClose() {
 
 func (comdb *CompressedDB) Write(cseq CompressedSeq) {
 	comdb.writerChan <- cseq
-}
-
-func (comdb *CompressedDB) writer() {
-	var record []string
-	var err error
-
-	byteOffset := int64(0)
-	buf := new(bytes.Buffer)
-	csvWriter := csv.NewWriter(buf)
-	csvWriter.Comma = ','
-	csvWriter.UseCRLF = false
-
-	for cseq := range comdb.writerChan {
-		// Reset the buffer so it's empty. We want it to only contain
-		// the next record we're writing.
-		buf.Reset()
-
-		// Allocate memory for creating the next record.
-		// A record is a sequence name followed by four-tuples of links:
-		// (coarse-seq-id, coarse-start, coarse-end, diff).
-		record = make([]string, 0, 1+4*len(cseq.Links))
-		record = append(record, cseq.Name)
-		for _, link := range cseq.Links {
-			record = append(record,
-				fmt.Sprintf("%d", link.CoarseSeqId),
-				fmt.Sprintf("%d", link.CoarseStart),
-				fmt.Sprintf("%d", link.CoarseEnd),
-				link.Diff)
-		}
-
-		// Write the record to our *buffer* and flush it.
-		if err = csvWriter.Write(record); err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			os.Exit(1)
-		}
-		csvWriter.Flush()
-
-		// Pass the bytes on to the compressed file.
-		if _, err = comdb.File.Write(buf.Bytes()); err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			os.Exit(1)
-		}
-
-		// Now write the byte offset that points to the start of this record.
-		err = binary.Write(comdb.Index, binary.BigEndian, byteOffset)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			os.Exit(1)
-		}
-
-		// Increment the byte offset to be at the end of this record.
-		byteOffset += int64(buf.Len())
-	}
-	comdb.File.Close()
-	comdb.writerDone <- struct{}{}
 }
 
 // CompressedSeq corresponds to the components of a compressed sequence.
@@ -225,35 +135,6 @@ func NewCompressedSeq(id int, name string) CompressedSeq {
 		Name:  name,
 		Links: make([]LinkToCoarse, 0, 10),
 	}
-}
-
-func readCompressedSeq(id int, record []string) (CompressedSeq, error) {
-	cseq := CompressedSeq{
-		Id:    id,
-		Name:  string([]byte(record[0])),
-		Links: make([]LinkToCoarse, (len(record)-1)/4),
-	}
-
-	for i := 1; i < len(record); i += 4 {
-		coarseSeqId64, err := strconv.Atoi(record[i+0])
-		if err != nil {
-			return CompressedSeq{}, nil
-		}
-		coarseStart64, err := strconv.Atoi(record[i+1])
-		if err != nil {
-			return CompressedSeq{}, nil
-		}
-		coarseEnd64, err := strconv.Atoi(record[i+2])
-		if err != nil {
-			return CompressedSeq{}, nil
-		}
-		lk := NewLinkToCoarseNoDiff(
-			int(coarseSeqId64), int(coarseStart64), int(coarseEnd64))
-		lk.Diff = string([]byte(record[i+3]))
-
-		cseq.Add(lk)
-	}
-	return cseq, nil
 }
 
 // Add will add a LinkToReference to the end of the CompressedSeq's Links list.
