@@ -78,7 +78,7 @@ func NewWriteCoarseDB(appnd bool, db *DB) (*CoarseDB, error) {
 	}
 
 	if appnd {
-		if err := coarsedb.load(); err != nil {
+		if err = coarsedb.load(); err != nil {
 			return nil, err
 		}
 	}
@@ -158,16 +158,53 @@ func (coarsedb *CoarseDB) WriteClose() {
 	}
 }
 
-func (coarsedb *CoarseDB) load() error {
-	if err := coarsedb.readFasta(); err != nil {
-		return err
+func (coarsedb *CoarseDB) load() (err error) {
+	if err = coarsedb.readFasta(); err != nil {
+		return
 	}
-	if err := coarsedb.readSeeds(); err != nil {
-		return err
+	if err = coarsedb.readSeeds(); err != nil {
+		return
 	}
-	if err := coarsedb.readLinks(); err != nil {
-		return err
+	if err = coarsedb.readLinks(); err != nil {
+		return
 	}
+
+	// After we've loaded the coarse database, the file offset should be
+	// at the end of each file. For the coarse fasta file, this is
+	// exactly what we want. But for the links and seeds files, we need
+	// to clear the file and start over (since it is not amenable to
+	// appending like the coarse fasta file is).
+	// Do the same for plain files.
+	if err = coarsedb.FileSeeds.Truncate(0); err != nil {
+		return
+	}
+	if _, err = coarsedb.FileSeeds.Seek(0, os.SEEK_SET); err != nil {
+		return
+	}
+
+	if err = coarsedb.FileLinks.Truncate(0); err != nil {
+		return
+	}
+	if _, err = coarsedb.FileLinks.Seek(0, os.SEEK_SET); err != nil {
+		return
+	}
+
+	if coarsedb.plain {
+		if err = coarsedb.plainSeeds.Truncate(0); err != nil {
+			return
+		}
+		if _, err = coarsedb.plainSeeds.Seek(0, os.SEEK_SET); err != nil {
+			return
+		}
+
+		if err = coarsedb.plainLinks.Truncate(0); err != nil {
+			return
+		}
+		if _, err = coarsedb.plainLinks.Seek(0, os.SEEK_SET); err != nil {
+			return
+		}
+	}
+
 	return nil
 }
 

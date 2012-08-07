@@ -16,7 +16,7 @@ import (
 )
 
 func (coarsedb *CoarseDB) readFasta() error {
-	Vprintf("Reading %s...\n", FileCoarseFasta)
+	Vprintf("\t\tReading %s...\n", FileCoarseFasta)
 	timer := time.Now()
 
 	fastaReader := fasta.NewReader(coarsedb.FileFasta)
@@ -30,8 +30,9 @@ func (coarsedb *CoarseDB) readFasta() error {
 		}
 		coarsedb.Seqs = append(coarsedb.Seqs, NewBiogoCoarseSeq(i, seq))
 	}
+	coarsedb.seqsRead = len(coarsedb.Seqs)
 
-	Vprintf("Done reading %s (%s).\n", FileCoarseFasta, time.Since(timer))
+	Vprintf("\t\tDone reading %s (%s).\n", FileCoarseFasta, time.Since(timer))
 	return nil
 }
 
@@ -56,7 +57,7 @@ func (coarsedb *CoarseDB) saveFasta() error {
 }
 
 func (coarsedb *CoarseDB) readSeeds() error {
-	Vprintf("Reading %s...\n", FileCoarseSeeds)
+	Vprintf("\t\tReading %s...\n", FileCoarseSeeds)
 	timer := time.Now()
 
 	gr, err := gzip.NewReader(coarsedb.FileSeeds)
@@ -96,7 +97,7 @@ func (coarsedb *CoarseDB) readSeeds() error {
 		return err
 	}
 
-	Vprintf("Done reading %s (%s).\n", FileCoarseSeeds, time.Since(timer))
+	Vprintf("\t\tDone reading %s (%s).\n", FileCoarseSeeds, time.Since(timer))
 	return nil
 }
 
@@ -174,7 +175,7 @@ func (coarsedb *CoarseDB) saveSeedsPlain() error {
 }
 
 func (coarsedb *CoarseDB) readLinks() error {
-	Vprintf("Reading %s...\n", FileCoarseLinks)
+	Vprintf("\t\tReading %s...\n", FileCoarseLinks)
 	timer := time.Now()
 
 	gr, err := gzip.NewReader(coarsedb.FileLinks)
@@ -210,7 +211,7 @@ func (coarsedb *CoarseDB) readLinks() error {
 		return err
 	}
 
-	Vprintf("Done reading %s (%s).\n", FileCoarseLinks, time.Since(timer))
+	Vprintf("\t\tDone reading %s (%s).\n", FileCoarseLinks, time.Since(timer))
 	return nil
 }
 
@@ -285,7 +286,7 @@ func (comdb *CompressedDB) ReadSeq(
 		return OriginalSeq{}, err
 	}
 
-	newOff, err := comdb.File.Seek(off, 0)
+	newOff, err := comdb.File.Seek(off, os.SEEK_SET)
 	if err != nil {
 		return OriginalSeq{}, err
 	} else if newOff != off {
@@ -308,7 +309,7 @@ func (comdb *CompressedDB) ReadSeq(
 
 func (comdb *CompressedDB) orgSeqOffset(id int) (seqOff int64, err error) {
 	tryOff := int64(id) * 8
-	realOff, err := comdb.Index.Seek(tryOff, 0)
+	realOff, err := comdb.Index.Seek(tryOff, os.SEEK_SET)
 	if err != nil {
 		return 0, err
 	} else if tryOff != realOff {
@@ -358,6 +359,17 @@ func (comdb *CompressedDB) writer() {
 	csvWriter := csv.NewWriter(buf)
 	csvWriter.Comma = ','
 	csvWriter.UseCRLF = false
+
+	// If we're appending to the index, set the byteOffset to be at the end
+	// of the current compressed database.
+	if comdb.indexSize > 0 {
+		info, err := comdb.File.Stat()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			os.Exit(1)
+		}
+		byteOffset = info.Size()
+	}
 
 	for cseq := range comdb.writerChan {
 		// Reset the buffer so it's empty. We want it to only contain

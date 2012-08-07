@@ -33,11 +33,16 @@ func NewWriteCompressedDB(appnd bool, db *DB) (*CompressedDB, error) {
 		writerChan: make(chan CompressedSeq, 500),
 		writerDone: make(chan struct{}, 0),
 	}
-	cdb.File, err = db.openWriteFile(appnd, FileCompressed)
+
+	fileFlags := os.O_RDWR | os.O_CREATE | os.O_TRUNC
+	if appnd {
+		fileFlags = os.O_RDWR | os.O_APPEND
+	}
+	cdb.File, err = os.OpenFile(db.filePath(FileCompressed), fileFlags, 0666)
 	if err != nil {
 		return nil, err
 	}
-	cdb.Index, err = db.openWriteFile(appnd, FileIndex)
+	cdb.Index, err = os.OpenFile(db.filePath(FileIndex), fileFlags, 0666)
 	if err != nil {
 		return nil, err
 	}

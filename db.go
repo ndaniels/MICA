@@ -12,10 +12,11 @@ const (
 
 type DB struct {
 	DBConf
-	Name     string
-	Path     string
-	ComDB    *CompressedDB
-	CoarseDB *CoarseDB
+	Name      string
+	Path      string
+	ComDB     *CompressedDB
+	CoarseDB  *CoarseDB
+	appending bool
 
 	coarseFasta, coarseSeeds, coarseLinks, compressed, index, params *os.File
 }
@@ -48,10 +49,11 @@ func NewWriteDB(appnd bool, conf DBConf, dir string) (*DB, error) {
 	}
 
 	db := &DB{
-		DBConf: conf,
-		Name:   path.Base(dir),
-		Path:   dir,
-		params: nil,
+		DBConf:    conf,
+		Name:      path.Base(dir),
+		Path:      dir,
+		params:    nil,
+		appending: appnd,
 	}
 
 	// Now try to load the configuration parameters from the 'params' file.
@@ -91,6 +93,10 @@ func NewWriteDB(appnd bool, conf DBConf, dir string) (*DB, error) {
 
 	Vprintf("Done opening database in %s.\n", dir)
 	return db, nil
+}
+
+func (db *DB) filePath(name string) string {
+	return path.Join(db.Path, name)
 }
 
 func (db *DB) openWriteFile(appnd bool, name string) (*os.File, error) {
@@ -155,12 +161,27 @@ func (db *DB) openReadFile(name string) (*os.File, error) {
 	return f, nil
 }
 
-func (db *DB) Save() error {
-	if err := db.CoarseDB.Save(); err != nil {
-		return err
+func (db *DB) Save() (err error) {
+	// Only write the params file when the database is first created.
+	if !db.appending {
+		// Make sure the params file is truncated so that we overwrite any
+		// previous configuration.
+		if err = db.params.Truncate(0); err != nil {
+			return
+		}
+		if _, err = db.params.Seek(0, os.SEEK_SET); err != nil {
+			return
+		}
+		if err = db.DBConf.Write(db.params); err != nil {
+			return
+		}
 	}
-	if err := db.DBConf.Write(db.params); err != nil {
-		return err
+
+	// Write the coarse database to disk.
+	// We don't need to explicitly save the compressed database, since its
+	// data is written as it is generated (including the index).
+	if err = db.CoarseDB.Save(); err != nil {
+		return
 	}
 	return nil
 }
