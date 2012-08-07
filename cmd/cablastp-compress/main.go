@@ -135,7 +135,7 @@ func main() {
 
 	attachSignalHandler(db)
 	pool := startCompressWorkers(db)
-	orgSeqId := 0
+	orgSeqId := db.ComDB.NumSequences()
 	for _, arg := range flag.Args()[1:] {
 		seqChan, err := cablastp.ReadOriginalSeqs(arg, ignoredResidues)
 		if err != nil {
