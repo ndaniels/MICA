@@ -22,6 +22,7 @@ var (
 	dbConf          = cablastp.DefaultDBConf
 
 	flagGoMaxProcs  = runtime.NumCPU()
+	flagAppend      = false
 	flagOverwrite   = false
 	flagVerbose     = false
 	flagCpuProfile  = ""
@@ -76,6 +77,8 @@ func init() {
 
 	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
 		"The maximum number of CPUs that can be executing simultaneously.")
+	flag.BoolVar(&flagAppend, "append", flagAppend,
+		"When set, compressed sequences will be added to existing database.")
 	flag.BoolVar(&flagOverwrite, "overwrite", flagOverwrite,
 		"When set, any existing database will be destroyed.")
 	flag.BoolVar(&flagVerbose, "verbose", flagVerbose,
@@ -88,6 +91,11 @@ func init() {
 		"When set, memory statistics will be written to the file specified.")
 	flag.BoolVar(&flagMemInterval, "mem-interval", flagMemInterval,
 		"When set, memory profile/stats will be written at some interval.")
+
+	flag.Usage = usage
+	flag.Parse()
+
+	runtime.GOMAXPROCS(flagGoMaxProcs)
 }
 
 func main() {
@@ -103,16 +111,27 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
+	// If both 'append' and 'overwrite' flags are set, quit because the
+	// combination doesn't make sense.
+	if flagAppend && flagOverwrite {
+		fatalf("Both the 'append' and 'overwrite' flags are set. It does " +
+			"not make sense to set both of these flags.")
+	}
+
+	if flagVerbose {
+		cablastp.Verbose = true
+	}
 	if flagOverwrite {
 		if err := os.RemoveAll(flag.Arg(0)); err != nil {
 			fatalf("Could not remove existing database '%s': %s.",
 				flag.Arg(0), err)
 		}
 	}
-	db, err := cablastp.NewWriteDB(false, dbConf, flag.Arg(0))
+	db, err := cablastp.NewWriteDB(flagAppend, dbConf, flag.Arg(0))
 	if err != nil {
 		fatalf("%s\n", err)
 	}
+	cablastp.Vprintln("")
 
 	attachSignalHandler(db)
 	pool := startCompressWorkers(db)
@@ -135,6 +154,9 @@ func main() {
 	}
 	pool.done()
 
+	cablastp.Vprintln("\n")
+	cablastp.Vprintf("Wrote %s.\n", cablastp.FileCompressed)
+	cablastp.Vprintf("Wrote %s.\n", cablastp.FileIndex)
 	cleanup(db)
 }
 
@@ -171,7 +193,7 @@ func verboseOutput(db *cablastp.DB, orgSeqId int) {
 			seqsPerSec := float64(interval) / float64(secElapsed)
 
 			fmt.Printf(
-				"%d sequences compressed (%0.4f seqs/sec)\n",
+				"\r%d sequences compressed (%0.4f seqs/sec)",
 				orgSeqId, seqsPerSec)
 			timer = time.Now()
 		}
@@ -211,13 +233,6 @@ func max(a, b int) int {
 		return a
 	}
 	return b
-}
-
-func init() {
-	flag.Usage = usage
-	flag.Parse()
-
-	runtime.GOMAXPROCS(flagGoMaxProcs)
 }
 
 func usage() {

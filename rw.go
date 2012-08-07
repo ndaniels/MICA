@@ -10,11 +10,15 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"time"
 
 	"code.google.com/p/biogo/io/seqio/fasta"
 )
 
 func (coarsedb *CoarseDB) readFasta() error {
+	Vprintf("Reading %s...\n", FileCoarseFasta)
+	timer := time.Now()
+
 	fastaReader := fasta.NewReader(coarsedb.FileFasta)
 	for i := 0; true; i++ {
 		seq, err := fastaReader.Read()
@@ -26,10 +30,15 @@ func (coarsedb *CoarseDB) readFasta() error {
 		}
 		coarsedb.Seqs = append(coarsedb.Seqs, NewBiogoCoarseSeq(i, seq))
 	}
+
+	Vprintf("Done reading %s (%s).\n", FileCoarseFasta, time.Since(timer))
 	return nil
 }
 
 func (coarsedb *CoarseDB) saveFasta() error {
+	Vprintf("Writing %s...\n", FileCoarseFasta)
+	timer := time.Now()
+
 	bufWriter := bufio.NewWriter(coarsedb.FileFasta)
 	for i := coarsedb.seqsRead; i < len(coarsedb.Seqs); i++ {
 		_, err := fmt.Fprintf(bufWriter,
@@ -41,46 +50,35 @@ func (coarsedb *CoarseDB) saveFasta() error {
 	if err := bufWriter.Flush(); err != nil {
 		return err
 	}
+
+	Vprintf("Done writing %s (%s).\n", FileCoarseFasta, time.Since(timer))
 	return nil
 }
 
 func (coarsedb *CoarseDB) readSeeds() error {
-	var err, err2 error
+	Vprintf("Reading %s...\n", FileCoarseSeeds)
+	timer := time.Now()
 
-	gzipReader, err := gzip.NewReader(coarsedb.FileSeeds)
+	gr, err := gzip.NewReader(coarsedb.FileSeeds)
 	if err != nil {
 		return err
 	}
-	bufReader := bufio.NewReader(gzipReader)
 
-	var byteReader *bytes.Reader
-	var hash, seqInd int
+	var hash, cnt, seqInd int32
 	var resInd int16
 	for {
-		line, err := bufReader.ReadBytes('\n')
-		if err == io.EOF {
+		if err = binary.Read(gr, binary.BigEndian, &hash); err != nil {
 			break
 		}
-		if err != nil {
+		if err = binary.Read(gr, binary.BigEndian, &cnt); err != nil {
 			return err
 		}
-
-		byteReader = bytes.NewReader(line[:len(line)-1])
-		err = binary.Read(byteReader, binary.BigEndian, &hash)
-		if err != nil {
-			return err
-		}
-		for {
-			err = binary.Read(byteReader, binary.BigEndian, &seqInd)
-			err2 = binary.Read(byteReader, binary.BigEndian, &resInd)
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
+		for i := int32(0); i < cnt; i++ {
+			if err = binary.Read(gr, binary.BigEndian, &seqInd); err != nil {
 				return err
 			}
-			if err2 != nil {
-				return err2
+			if err = binary.Read(gr, binary.BigEndian, &resInd); err != nil {
+				return err
 			}
 
 			sl := NewSeedLoc(seqInd, resInd)
@@ -94,14 +92,19 @@ func (coarsedb *CoarseDB) readSeeds() error {
 			}
 		}
 	}
-	if err := gzipReader.Close(); err != nil {
+	if err := gr.Close(); err != nil {
 		return err
 	}
+
+	Vprintf("Done reading %s (%s).\n", FileCoarseSeeds, time.Since(timer))
 	return nil
 }
 
 func (coarsedb *CoarseDB) saveSeeds() error {
 	var i int32
+
+	Vprintf("Writing %s...\n", FileCoarseSeeds)
+	timer := time.Now()
 
 	gzipWriter, err := gzip.NewWriterLevel(coarsedb.FileSeeds, gzip.BestSpeed)
 	if err != nil {
@@ -112,22 +115,40 @@ func (coarsedb *CoarseDB) saveSeeds() error {
 			continue
 		}
 
-		binary.Write(gzipWriter, binary.BigEndian, i)
-		for loc := coarsedb.Seeds.Locs[i]; loc != nil; loc = loc.Next {
-			binary.Write(gzipWriter, binary.BigEndian, loc.SeqInd)
-			binary.Write(gzipWriter, binary.BigEndian, loc.ResInd)
-		}
-		if _, err := gzipWriter.Write([]byte{'\n'}); err != nil {
+		if err := binary.Write(gzipWriter, binary.BigEndian, i); err != nil {
 			return err
+		}
+
+		cnt := int32(0)
+		for loc := coarsedb.Seeds.Locs[i]; loc != nil; loc = loc.Next {
+			cnt++
+		}
+		if err := binary.Write(gzipWriter, binary.BigEndian, cnt); err != nil {
+			return err
+		}
+		for loc := coarsedb.Seeds.Locs[i]; loc != nil; loc = loc.Next {
+			err = binary.Write(gzipWriter, binary.BigEndian, loc.SeqInd)
+			if err != nil {
+				return err
+			}
+			err = binary.Write(gzipWriter, binary.BigEndian, loc.ResInd)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	if err := gzipWriter.Close(); err != nil {
 		return err
 	}
+
+	Vprintf("Done writing %s (%s).\n", FileCoarseSeeds, time.Since(timer))
 	return nil
 }
 
 func (coarsedb *CoarseDB) saveSeedsPlain() error {
+	Vprintf("Writing %s...\n", FileCoarsePlainSeeds)
+	timer := time.Now()
+
 	csvWriter := csv.NewWriter(coarsedb.plainSeeds)
 	record := make([]string, 0, 10)
 	for i := 0; i < coarsedb.Seeds.powers[coarsedb.Seeds.SeedSize]; i++ {
@@ -147,80 +168,95 @@ func (coarsedb *CoarseDB) saveSeedsPlain() error {
 		}
 	}
 	csvWriter.Flush()
+
+	Vprintf("Done writing %s (%s).\n", FileCoarsePlainSeeds, time.Since(timer))
 	return nil
 }
 
 func (coarsedb *CoarseDB) readLinks() error {
-	var err, err2, err3 error
-	gzipReader, err := gzip.NewReader(coarsedb.FileLinks)
+	Vprintf("Reading %s...\n", FileCoarseLinks)
+	timer := time.Now()
+
+	gr, err := gzip.NewReader(coarsedb.FileLinks)
 	if err != nil {
 		return err
 	}
-	bufReader := bufio.NewReader(gzipReader)
+	br := func(data interface{}) error {
+		return binary.Read(gr, binary.BigEndian, data)
+	}
 
-	var byteReader *bytes.Reader
-	var orgSeqId int
+	var cnt, orgSeqId int32
 	var coarseStart, coarseEnd int16
 
 	for coarseSeqId := 0; true; coarseSeqId++ {
-		line, err := bufReader.ReadBytes('\n')
-		if err == io.EOF {
+		if err = br(&cnt); err != nil {
 			break
 		}
-		if err != nil {
-			return err
-		}
-
-		byteReader = bytes.NewReader(line[:len(line)-1])
-		for {
-			err = binary.Read(byteReader, binary.BigEndian, &orgSeqId)
-			err2 = binary.Read(byteReader, binary.BigEndian, &coarseStart)
-			err3 = binary.Read(byteReader, binary.BigEndian, &coarseEnd)
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
+		for i := int32(0); i < cnt; i++ {
+			if err = br(&orgSeqId); err != nil {
 				return err
 			}
-			if err2 != nil {
-				return err2
+			if err = br(&coarseStart); err != nil {
+				return err
 			}
-			if err3 != nil {
-				return err3
+			if err = br(&coarseEnd); err != nil {
+				return err
 			}
-
 			newLink := NewLinkToCompressed(orgSeqId, coarseStart, coarseEnd)
 			coarsedb.Seqs[coarseSeqId].addLink(newLink)
 		}
 	}
-	if err := gzipReader.Close(); err != nil {
+	if err := gr.Close(); err != nil {
 		return err
 	}
+
+	Vprintf("Done reading %s (%s).\n", FileCoarseLinks, time.Since(timer))
 	return nil
 }
 
 func (coarsedb *CoarseDB) saveLinks() error {
-	gzipWriter, err := gzip.NewWriterLevel(coarsedb.FileLinks, gzip.BestSpeed)
+	Vprintf("Writing %s...\n", FileCoarseLinks)
+	timer := time.Now()
+
+	gw, err := gzip.NewWriterLevel(coarsedb.FileLinks, gzip.BestSpeed)
 	if err != nil {
 		return err
 	}
+	bw := func(data interface{}) error {
+		return binary.Write(gw, binary.BigEndian, data)
+	}
 	for _, seq := range coarsedb.Seqs {
+		cnt := int32(0)
 		for link := seq.Links; link != nil; link = link.Next {
-			binary.Write(gzipWriter, binary.BigEndian, link.OrgSeqId)
-			binary.Write(gzipWriter, binary.BigEndian, link.CoarseStart)
-			binary.Write(gzipWriter, binary.BigEndian, link.CoarseEnd)
+			cnt++
 		}
-		if _, err := gzipWriter.Write([]byte{'\n'}); err != nil {
+		if err = bw(cnt); err != nil {
 			return err
 		}
+		for link := seq.Links; link != nil; link = link.Next {
+			if err = bw(link.OrgSeqId); err != nil {
+				return err
+			}
+			if err = bw(link.CoarseStart); err != nil {
+				return err
+			}
+			if err = bw(link.CoarseEnd); err != nil {
+				return err
+			}
+		}
 	}
-	if err := gzipWriter.Close(); err != nil {
+	if err := gw.Close(); err != nil {
 		return nil
 	}
+
+	Vprintf("Done writing %s (%s).\n", FileCoarseLinks, time.Since(timer))
 	return nil
 }
 
 func (coarsedb *CoarseDB) saveLinksPlain() error {
+	Vprintf("Writing %s...\n", FileCoarsePlainLinks)
+	timer := time.Now()
+
 	csvWriter := csv.NewWriter(coarsedb.plainLinks)
 	record := make([]string, 0, 10)
 	for _, seq := range coarsedb.Seqs {
@@ -236,6 +272,8 @@ func (coarsedb *CoarseDB) saveLinksPlain() error {
 		}
 	}
 	csvWriter.Flush()
+
+	Vprintf("Done writing %s (%s).\n", FileCoarsePlainLinks, time.Since(timer))
 	return nil
 }
 

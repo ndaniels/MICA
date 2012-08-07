@@ -182,7 +182,7 @@ func compress(db *cablastp.DB, orgSeqId int,
 			cseq.Add(cablastp.NewLinkToCoarse(
 				corSeqId, corStart, corEnd, alignment))
 			corSeq.AddLink(cablastp.NewLinkToCompressed(
-				orgSeqId, int16(corStart), int16(corEnd)))
+				int32(orgSeqId), int16(corStart), int16(corEnd)))
 
 			// Skip the current pointer ahead to the end of this match.
 			// Update the lastMatch pointer to point at the end of this 
@@ -293,7 +293,8 @@ func addWithoutMatch(coarsedb *cablastp.CoarseDB, orgSeqId int,
 	oseq []byte) int {
 
 	corSeqId, corSeq := coarsedb.Add(oseq)
-	corSeq.AddLink(cablastp.NewLinkToCompressed(orgSeqId, 0, int16(len(oseq))))
+	corSeq.AddLink(
+		cablastp.NewLinkToCompressed(int32(orgSeqId), 0, int16(len(oseq))))
 	return corSeqId
 }
 

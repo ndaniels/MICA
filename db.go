@@ -21,6 +21,7 @@ type DB struct {
 }
 
 func NewWriteDB(appnd bool, conf DBConf, dir string) (*DB, error) {
+	Vprintf("Opening database in %s...\n", dir)
 	_, err := os.Open(dir)
 	if appnd {
 		if err != nil {
@@ -88,6 +89,7 @@ func NewWriteDB(appnd bool, conf DBConf, dir string) (*DB, error) {
 		return nil, err
 	}
 
+	Vprintf("Done opening database in %s.\n", dir)
 	return db, nil
 }
 
@@ -97,7 +99,7 @@ func (db *DB) openWriteFile(appnd bool, name string) (*os.File, error) {
 
 	if appnd {
 		f, err = os.OpenFile(
-			path.Join(db.Path, name), os.O_RDWR|os.O_APPEND, 0666)
+			path.Join(db.Path, name), os.O_RDWR, 0666)
 		if err != nil {
 			return nil, err
 		}

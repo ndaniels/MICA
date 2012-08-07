@@ -7,13 +7,13 @@ import "fmt"
 // the coarse database to the corresponding original sequence that is
 // redundant to the specified residue range in the reference sequence.
 type LinkToCompressed struct {
-	OrgSeqId               int
+	OrgSeqId               int32
 	CoarseStart, CoarseEnd int16
 	Next                   *LinkToCompressed
 }
 
 func NewLinkToCompressed(
-	orgSeqId int, coarseStart, coarseEnd int16) *LinkToCompressed {
+	orgSeqId int32, coarseStart, coarseEnd int16) *LinkToCompressed {
 
 	return &LinkToCompressed{
 		OrgSeqId:    orgSeqId,

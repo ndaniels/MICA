@@ -24,6 +24,8 @@ type CompressedDB struct {
 func NewWriteCompressedDB(appnd bool, db *DB) (*CompressedDB, error) {
 	var err error
 
+	Vprintln("\tOpening compressed database...")
+
 	cdb := &CompressedDB{
 		seqCache:   nil,
 		File:       nil,
@@ -48,11 +50,14 @@ func NewWriteCompressedDB(appnd bool, db *DB) (*CompressedDB, error) {
 
 	go cdb.writer()
 
+	Vprintln("\tDone opening compressed database.")
 	return cdb, nil
 }
 
 func NewReadCompressedDB(db *DB) (*CompressedDB, error) {
 	var err error
+
+	Vprintln("\tOpening compressed database...")
 
 	cdb := &CompressedDB{
 		seqCache:   make(map[int]OriginalSeq, 100),
@@ -71,6 +76,8 @@ func NewReadCompressedDB(db *DB) (*CompressedDB, error) {
 		return nil, err
 	}
 	cdb.csvReader = csv.NewReader(cdb.File)
+
+	Vprintln("\tDone opening compressed database.")
 	return cdb, nil
 }
 

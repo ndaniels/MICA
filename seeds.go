@@ -40,12 +40,12 @@ func init() {
 // in that sequence. The length of the seed is a constant set at
 // run-time: flagSeedSize.
 type SeedLoc struct {
-	SeqInd int
+	SeqInd int32
 	ResInd int16
 	Next   *SeedLoc
 }
 
-func NewSeedLoc(seqInd int, resInd int16) *SeedLoc {
+func NewSeedLoc(seqInd int32, resInd int16) *SeedLoc {
 	return &SeedLoc{seqInd, resInd, nil}
 }
 
@@ -99,7 +99,7 @@ func (ss Seeds) Add(coarseSeqIndex int, corSeq *CoarseSeq) {
 		}
 
 		kmerIndex := ss.hashKmer(kmer)
-		loc := NewSeedLoc(coarseSeqIndex, int16(i))
+		loc := NewSeedLoc(int32(coarseSeqIndex), int16(i))
 
 		if ss.Locs[kmerIndex] == nil {
 			ss.Locs[kmerIndex] = loc
@@ -125,7 +125,7 @@ func (ss Seeds) Lookup(kmer []byte) [][2]int {
 	}
 	cpy := make([][2]int, 0, 10)
 	for seedLoc := seeds; seedLoc != nil; seedLoc = seedLoc.Next {
-		cpy = append(cpy, [2]int{seedLoc.SeqInd, int(seedLoc.ResInd)})
+		cpy = append(cpy, [2]int{int(seedLoc.SeqInd), int(seedLoc.ResInd)})
 	}
 	ss.lock.RUnlock()
 

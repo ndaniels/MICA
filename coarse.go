@@ -39,6 +39,8 @@ type CoarseDB struct {
 func NewWriteCoarseDB(appnd bool, db *DB) (*CoarseDB, error) {
 	var err error
 
+	Vprintln("\tOpening coarse database...")
+
 	coarsedb := &CoarseDB{
 		Seqs:       make([]*CoarseSeq, 0, 10000000),
 		seqsRead:   0,
@@ -55,21 +57,21 @@ func NewWriteCoarseDB(appnd bool, db *DB) (*CoarseDB, error) {
 	if err != nil {
 		return nil, err
 	}
-	coarsedb.FileSeeds, err = db.openWriteFile(false, FileCoarseSeeds)
+	coarsedb.FileSeeds, err = db.openWriteFile(appnd, FileCoarseSeeds)
 	if err != nil {
 		return nil, err
 	}
-	coarsedb.FileLinks, err = db.openWriteFile(false, FileCoarseLinks)
+	coarsedb.FileLinks, err = db.openWriteFile(appnd, FileCoarseLinks)
 	if err != nil {
 		return nil, err
 	}
 
 	if coarsedb.plain {
-		coarsedb.plainLinks, err = db.openWriteFile(false, FileCoarsePlainLinks)
+		coarsedb.plainLinks, err = db.openWriteFile(appnd, FileCoarsePlainLinks)
 		if err != nil {
 			return nil, err
 		}
-		coarsedb.plainSeeds, err = db.openWriteFile(false, FileCoarsePlainSeeds)
+		coarsedb.plainSeeds, err = db.openWriteFile(appnd, FileCoarsePlainSeeds)
 		if err != nil {
 			return nil, err
 		}
@@ -80,11 +82,15 @@ func NewWriteCoarseDB(appnd bool, db *DB) (*CoarseDB, error) {
 			return nil, err
 		}
 	}
+
+	Vprintln("\tDone opening coarse database.")
 	return coarsedb, nil
 }
 
 func NewReadCoarseDB(db *DB) (*CoarseDB, error) {
 	var err error
+
+	Vprintln("\tOpening coarse database...")
 
 	coarsedb := &CoarseDB{
 		Seqs:      make([]*CoarseSeq, 0, 10000000),
@@ -108,6 +114,8 @@ func NewReadCoarseDB(db *DB) (*CoarseDB, error) {
 	if err := coarsedb.load(); err != nil {
 		return nil, err
 	}
+
+	Vprintln("\tDone opening coarse database.")
 	return coarsedb, nil
 }
 
@@ -169,26 +177,58 @@ func (coarsedb *CoarseDB) Save() error {
 	coarsedb.seqLock.RLock()
 	defer coarsedb.seqLock.RUnlock()
 
-	if err := coarsedb.saveFasta(); err != nil {
-		return err
-	}
-	if err := coarsedb.saveLinks(); err != nil {
-		return err
-	}
-	if !coarsedb.readOnly {
-		if err := coarsedb.saveSeeds(); err != nil {
-			return err
+	errc := make(chan error, 20)
+	wg := &sync.WaitGroup{}
+
+	wg.Add(1)
+	go func() {
+		if err := coarsedb.saveFasta(); err != nil {
+			errc <- err
 		}
+		wg.Done()
+	}()
+
+	wg.Add(1)
+	go func() {
+		if err := coarsedb.saveLinks(); err != nil {
+			errc <- err
+		}
+		wg.Done()
+	}()
+
+	if !coarsedb.readOnly {
+		wg.Add(1)
+		go func() {
+			if err := coarsedb.saveSeeds(); err != nil {
+				errc <- err
+			}
+			wg.Done()
+		}()
 	}
 	if coarsedb.plain {
-		if err := coarsedb.saveLinksPlain(); err != nil {
-			return err
-		}
-		if !coarsedb.readOnly {
-			if err := coarsedb.saveSeedsPlain(); err != nil {
-				return err
+		wg.Add(1)
+		go func() {
+			if err := coarsedb.saveLinksPlain(); err != nil {
+				errc <- err
 			}
+			wg.Done()
+		}()
+		if !coarsedb.readOnly {
+			wg.Add(1)
+			go func() {
+				if err := coarsedb.saveSeedsPlain(); err != nil {
+					errc <- err
+				}
+				wg.Done()
+			}()
 		}
+	}
+	wg.Wait()
+
+	// If there's something in the error channel, pop off the first
+	// error and return that.
+	if len(errc) > 0 {
+		return <-errc
 	}
 	return nil
 }
