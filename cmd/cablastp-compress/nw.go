@@ -10,19 +10,10 @@ type.
 */
 
 import (
-	"fmt"
-
 	"github.com/BurntSushi/cablastp/blosum"
 
 	"code.google.com/p/biogo/align/nw"
 	"code.google.com/p/biogo/util"
-)
-
-var _ = fmt.Printf
-
-const (
-	memSeqSize       = 10000
-	dynamicTableSize = memSeqSize * memSeqSize
 )
 
 var (
@@ -51,19 +42,6 @@ func abs(a int) int {
 	return a
 }
 
-type nwMemory struct {
-	table    []int
-	ref, org []byte
-}
-
-func newNwMemory() nwMemory {
-	return nwMemory{
-		table: make([]int, memSeqSize*memSeqSize),
-		ref:   make([]byte, memSeqSize),
-		org:   make([]byte, memSeqSize),
-	}
-}
-
 func appendOne(slice []byte, b byte) []byte {
 	if len(slice) == cap(slice) {
 		return append(slice, b)
@@ -73,7 +51,7 @@ func appendOne(slice []byte, b byte) []byte {
 	return slice
 }
 
-func nwAlign(rseq, oseq []byte, mem nwMemory) [2][]byte {
+func nwAlign(rseq, oseq []byte, mem *memory) [2][]byte {
 	gap := len(aligner.Matrix) - 1
 	r, c := len(rseq)+1, len(oseq)+1
 	off := 0

@@ -94,9 +94,6 @@ func (ss Seeds) Add(coarseSeqIndex int, corSeq *CoarseSeq) {
 
 	for i := 0; i < corSeq.Len()-ss.SeedSize; i++ {
 		kmer := corSeq.Residues[i : i+ss.SeedSize]
-		if !KmerAllUpperAlpha(kmer) {
-			continue
-		}
 
 		kmerIndex := ss.hashKmer(kmer)
 		loc := NewSeedLoc(int32(coarseSeqIndex), int16(i))
@@ -116,20 +113,21 @@ func (ss Seeds) Add(coarseSeqIndex int, corSeq *CoarseSeq) {
 
 // lookup returns a list of all seed locations corresponding to a particular
 // K-mer.
-func (ss Seeds) Lookup(kmer []byte) [][2]int {
+func (ss Seeds) Lookup(kmer []byte, mem *[][2]int) [][2]int {
 	ss.lock.RLock()
 	seeds := ss.Locs[ss.hashKmer(kmer)]
 	if seeds == nil {
 		ss.lock.RUnlock()
 		return nil
 	}
-	cpy := make([][2]int, 0, 10)
+	*mem = (*mem)[:0]
 	for seedLoc := seeds; seedLoc != nil; seedLoc = seedLoc.Next {
-		cpy = append(cpy, [2]int{int(seedLoc.SeqInd), int(seedLoc.ResInd)})
+		*mem = append(*mem,
+			[2]int{int(seedLoc.SeqInd), int(seedLoc.ResInd)})
 	}
 	ss.lock.RUnlock()
 
-	return cpy
+	return *mem
 }
 
 func (seedLoc *SeedLoc) Copy() *SeedLoc {
@@ -161,7 +159,7 @@ func (ss Seeds) hashKmer(kmer []byte) int {
 	hash := 0
 	lastPow := len(kmer) - 1
 	for i, b := range kmer {
-		hash += aminoValue(b) * ss.powers[lastPow-i]
+		hash += SeedAlphaNums[b-'A'] * ss.powers[lastPow-i]
 	}
 	return hash
 }

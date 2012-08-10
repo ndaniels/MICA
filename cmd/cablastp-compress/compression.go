@@ -43,7 +43,7 @@ func (pool compressPool) compress(id int, seq *cablastp.OriginalSeq) int {
 }
 
 func (pool compressPool) worker() {
-	mem := newNwMemory()
+	mem := newMemory()
 	for job := range pool.jobs {
 		comSeq := compress(pool.db, job.orgSeqId, job.orgSeq, mem)
 		pool.db.ComDB.Write(comSeq)
@@ -57,7 +57,7 @@ func (pool compressPool) done() {
 }
 
 func compress(db *cablastp.DB, orgSeqId int,
-	orgSeq *cablastp.OriginalSeq, mem nwMemory) cablastp.CompressedSeq {
+	orgSeq *cablastp.OriginalSeq, mem *memory) cablastp.CompressedSeq {
 
 	var cseqExt, oseqExt []byte
 
@@ -75,11 +75,7 @@ func compress(db *cablastp.DB, orgSeqId int,
 	// Iterate through the original sequence a 'kmer' at a time.
 	for current = 0; current < orgSeq.Len()-mapSeedSize-extSeedSize; current++ {
 		kmer := orgSeq.Residues[current : current+mapSeedSize]
-		if !cablastp.KmerAllUpperAlpha(kmer) {
-			continue
-		}
-
-		seeds := coarsedb.Seeds.Lookup(kmer)
+		seeds := coarsedb.Seeds.Lookup(kmer, &mem.seeds)
 		if seeds == nil {
 			continue
 		}
@@ -216,7 +212,7 @@ func compress(db *cablastp.DB, orgSeqId int,
 // More details to come soon.
 func extendMatch(corRes, orgRes []byte,
 	gappedWindowSize, ungappedWindowSize, kmerSize, idThreshold int,
-	mem nwMemory) (corMatchRes, orgMatchRes []byte) {
+	mem *memory) (corMatchRes, orgMatchRes []byte) {
 
 	// Starting at seedLoc.resInd and current, refMatchLen and 
 	// orgMatchLen correspond to the length of the match each of

@@ -24,7 +24,7 @@ var (
 	flagGoMaxProcs  = runtime.NumCPU()
 	flagAppend      = false
 	flagOverwrite   = false
-	flagVerbose     = false
+	flagQuiet       = false
 	flagCpuProfile  = ""
 	flagMemProfile  = ""
 	flagMemStats    = ""
@@ -81,8 +81,8 @@ func init() {
 		"When set, compressed sequences will be added to existing database.")
 	flag.BoolVar(&flagOverwrite, "overwrite", flagOverwrite,
 		"When set, any existing database will be destroyed.")
-	flag.BoolVar(&flagVerbose, "verbose", flagVerbose,
-		"When set, extra output will be shown to indicate progress.")
+	flag.BoolVar(&flagQuiet, "quiet", flagQuiet,
+		"When set, the only outputs will be errors echoed to stderr.")
 	flag.StringVar(&flagCpuProfile, "cpuprofile", flagCpuProfile,
 		"When set, a CPU profile will be written to the file specified.")
 	flag.StringVar(&flagMemProfile, "memprofile", flagMemProfile,
@@ -118,7 +118,7 @@ func main() {
 			"not make sense to set both of these flags.")
 	}
 
-	if flagVerbose {
+	if !flagQuiet {
 		cablastp.Verbose = true
 	}
 	if flagOverwrite {
@@ -188,7 +188,7 @@ func attachSignalHandler(db *cablastp.DB) {
 
 func verboseOutput(db *cablastp.DB, orgSeqId int) {
 	if orgSeqId%interval == 0 {
-		if flagVerbose {
+		if !flagQuiet {
 			secElapsed := time.Since(timer).Seconds()
 			seqsPerSec := float64(interval) / float64(secElapsed)
 
