@@ -1,0 +1,46 @@
+#!/usr/bin/env python2.7
+'''
+gen-random-seqs takes a FASTA file as input and outputs a random sample of
+that FASTA file in FASTA format.
+
+It is not as memory conscious as it could be, but if the entire input
+FASTA file can fit into RAM (with some elbow room), you should be OK.
+'''
+
+import argparse
+import random
+import sys
+
+from Bio import SeqIO
+
+parser = argparse.ArgumentParser(
+    description='Generate N random sequences from a FASTA file.')
+aa = parser.add_argument
+aa(dest='infasta', metavar='INPUT_FASTA_FILE')
+aa(dest='outfasta', metavar='OUTPUT_FASTA_FILE')
+aa('-n', '--num-sequences', dest='num_sequences', type=int, default=1000000,
+    help='The number of sequences to randomly select from the FASTA file.')
+args = parser.parse_args()
+
+infasta = open(args.infasta)
+outfasta = open(args.outfasta, 'w')
+
+print >> sys.stderr, 'Reading %s...' % args.infasta
+
+seqs = []
+for seq in SeqIO.parse(infasta, "fasta"):
+    # Only store the fasta formatted data to cut down on memory usage.
+    seqs.append(seq.format("fasta").strip())
+
+# Find a random set of N indices into 'seqs'.
+print >> sys.stderr, 'Generating random sample...'
+rand_inds = random.sample(xrange(len(seqs)), args.num_sequences)
+
+# Output the random sample.
+print >> sys.stderr, 'Writing %s...' % args.outfasta
+for i in rand_inds:
+    print >> outfasta, seqs[i]
+
+infasta.close()
+outfasta.close()
+
