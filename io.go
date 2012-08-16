@@ -62,7 +62,7 @@ func (coarsedb *CoarseDB) readSeeds() error {
 
 	gr, err := gzip.NewReader(coarsedb.FileSeeds)
 	if err != nil {
-		return err
+		return fmt.Errorf("Could not create gzip reader: %s", err)
 	}
 
 	var hash, cnt, seqInd int32
@@ -72,14 +72,14 @@ func (coarsedb *CoarseDB) readSeeds() error {
 			break
 		}
 		if err = binary.Read(gr, binary.BigEndian, &cnt); err != nil {
-			return err
+			return fmt.Errorf("Could not read seed count: %s", err)
 		}
 		for i := int32(0); i < cnt; i++ {
 			if err = binary.Read(gr, binary.BigEndian, &seqInd); err != nil {
-				return err
+				return fmt.Errorf("Could not read seed sequence index: %s", err)
 			}
 			if err = binary.Read(gr, binary.BigEndian, &resInd); err != nil {
-				return err
+				return fmt.Errorf("Could not read seed residue index: %s", err)
 			}
 
 			sl := NewSeedLoc(seqInd, resInd)
@@ -94,7 +94,7 @@ func (coarsedb *CoarseDB) readSeeds() error {
 		}
 	}
 	if err := gr.Close(); err != nil {
-		return err
+		return fmt.Errorf("Could not close gzip reader: %s", err)
 	}
 
 	Vprintf("\t\tDone reading %s (%s).\n", FileCoarseSeeds, time.Since(timer))

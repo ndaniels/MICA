@@ -81,7 +81,16 @@ func NewReadCompressedDB(db *DB) (*CompressedDB, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	info, err := cdb.Index.Stat()
+	if err != nil {
+		return nil, err
+	}
+	cdb.indexSize = info.Size()
+
 	cdb.csvReader = csv.NewReader(cdb.File)
+	cdb.csvReader.Comma = ','
+	cdb.csvReader.FieldsPerRecord = -1
 
 	Vprintln("\tDone opening compressed database.")
 	return cdb, nil

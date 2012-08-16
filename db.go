@@ -119,6 +119,8 @@ func (db *DB) openWriteFile(appnd bool, name string) (*os.File, error) {
 }
 
 func NewReadDB(dir string) (*DB, error) {
+	Vprintf("Opening database in %s...\n", dir)
+
 	_, err := os.Open(dir)
 	if err != nil {
 		return nil, fmt.Errorf("Could not open '%s' for reading "+
@@ -127,8 +129,10 @@ func NewReadDB(dir string) (*DB, error) {
 
 	db := &DB{
 		Name:        path.Base(dir),
+		Path:        dir,
 		coarseSeeds: nil,
 		params:      nil,
+		appending:   false,
 	}
 
 	db.params, err = db.openReadFile(FileParams)
@@ -150,6 +154,7 @@ func NewReadDB(dir string) (*DB, error) {
 		return nil, err
 	}
 
+	Vprintf("Done opening database in %s.\n", dir)
 	return db, nil
 }
 

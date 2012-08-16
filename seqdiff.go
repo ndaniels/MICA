@@ -35,7 +35,11 @@ func NewEditScriptParse(editScript string) (*EditScript, error) {
 			fallthrough
 		case 'd':
 			if mod != nil {
-				mod.End = mod.Start + len(mod.Residues)
+				// if mod.Kind == ModInsertion { 
+				// mod.End = mod.Start 
+				// } else { 
+				// mod.End = mod.Start + len(mod.Residues) 
+				// } 
 				mods = append(mods, mod)
 			}
 			newMod := NewMod(byteToModKind(b))
@@ -70,6 +74,7 @@ func NewEditScriptParse(editScript string) (*EditScript, error) {
 				newMod.Start += mod.Start
 			}
 			mod = newMod
+			mod.End = mod.Start
 		default:
 			if b >= '0' && b <= '9' {
 				return nil, fmt.Errorf("Expected a residue at column %d in "+
@@ -80,19 +85,21 @@ func NewEditScriptParse(editScript string) (*EditScript, error) {
 					"at column %d in '%s'.", b, i, editScript)
 			}
 
-			mod.Residues = append(mod.Residues, b)
+			mod.AddResidue(b)
 		}
 	}
 
 	// One last modification?
 	if mod != nil {
-		mod.End = mod.Start + len(mod.Residues)
+		// if mod.Kind == ModInsertion { 
+		// mod.End = mod.Start 
+		// } else { 
+		// mod.End = mod.Start + len(mod.Residues) 
+		// } 
 		mods = append(mods, mod)
 	}
 
-	return &EditScript{
-		Mods: mods,
-	}, nil
+	return &EditScript{Mods: mods}, nil
 }
 
 func newEditScript(fromSeq, toSeq []byte) *EditScript {
@@ -137,7 +144,7 @@ func newEditScript(fromSeq, toSeq []byte) *EditScript {
 			if mod.Kind == newModKind {
 				mod.AddResidue(to)
 			} else {
-				mod.End = fromIndex
+				// mod.End = fromIndex 
 				mods = append(mods, mod)
 
 				if newModKind == -1 {
@@ -160,10 +167,12 @@ func newEditScript(fromSeq, toSeq []byte) *EditScript {
 			fromIndex++
 		}
 	}
-
-	return &EditScript{
-		Mods: mods,
+	if mod != nil {
+		// mod.End = fromIndex 
+		mods = append(mods, mod)
 	}
+
+	return &EditScript{Mods: mods}
 }
 
 func (diff *EditScript) Apply(fromSeq []byte) []byte {
@@ -173,7 +182,12 @@ func (diff *EditScript) Apply(fromSeq []byte) []byte {
 		toSeq = append(toSeq, fromSeq[lastEnd:mod.Start]...)
 		toSeq = append(toSeq, mod.Residues...)
 		lastEnd = mod.End
+		// fmt.Println(mod) 
 	}
+	// fmt.Println(diff) 
+	// fmt.Printf("%s\n", fromSeq) 
+	// fmt.Println(lastEnd, len(fromSeq)) 
+	// fmt.Println("----------------------------") 
 	toSeq = append(toSeq, fromSeq[lastEnd:len(fromSeq)]...)
 	return toSeq
 }
@@ -229,6 +243,9 @@ func NewMod(kind int) *Mod {
 func (m *Mod) AddResidue(residue byte) {
 	if m.Kind != ModDeletion {
 		m.Residues = append(m.Residues, residue)
+	}
+	if m.Kind != ModInsertion {
+		m.End++
 	}
 }
 

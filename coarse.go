@@ -90,6 +90,39 @@ func NewWriteCoarseDB(appnd bool, db *DB) (*CoarseDB, error) {
 		if err = coarsedb.load(); err != nil {
 			return nil, err
 		}
+
+		// After we've loaded the coarse database, the file offset should be
+		// at the end of each file. For the coarse fasta file, this is
+		// exactly what we want. But for the links and seeds files, we need
+		// to clear the file and start over (since they are not amenable to
+		// appending like the coarse fasta file is).
+		// Do the same for plain files.
+		trunc := func(f *os.File) (err error) {
+			if err = f.Truncate(0); err != nil {
+				return
+			}
+			if _, err = f.Seek(0, os.SEEK_SET); err != nil {
+				return
+			}
+			return nil
+		}
+		if err = trunc(coarsedb.FileSeeds); err != nil {
+			return nil, err
+		}
+		if err = trunc(coarsedb.FileLinks); err != nil {
+			return nil, err
+		}
+		if err = trunc(coarsedb.FileLinksIndex); err != nil {
+			return nil, err
+		}
+		if coarsedb.plain {
+			if err = trunc(coarsedb.plainSeeds); err != nil {
+				return nil, err
+			}
+			if err = trunc(coarsedb.plainLinks); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	Vprintln("\tDone opening coarse database.")
@@ -251,46 +284,14 @@ func (coarsedb *CoarseDB) load() (err error) {
 	if err = coarsedb.readFasta(); err != nil {
 		return
 	}
-	if err = coarsedb.readSeeds(); err != nil {
-		return
-	}
 	if err = coarsedb.readLinks(); err != nil {
 		return
 	}
-
-	// After we've loaded the coarse database, the file offset should be
-	// at the end of each file. For the coarse fasta file, this is
-	// exactly what we want. But for the links and seeds files, we need
-	// to clear the file and start over (since they are not amenable to
-	// appending like the coarse fasta file is).
-	// Do the same for plain files.
-	trunc := func(f *os.File) (err error) {
-		if err = f.Truncate(0); err != nil {
-			return
-		}
-		if _, err = f.Seek(0, os.SEEK_SET); err != nil {
-			return
-		}
-		return nil
-	}
-	if err = trunc(coarsedb.FileSeeds); err != nil {
-		return
-	}
-	if err = trunc(coarsedb.FileLinks); err != nil {
-		return
-	}
-	if err = trunc(coarsedb.FileLinksIndex); err != nil {
-		return
-	}
-	if coarsedb.plain {
-		if err = trunc(coarsedb.plainSeeds); err != nil {
-			return
-		}
-		if err = trunc(coarsedb.plainLinks); err != nil {
+	if coarsedb.FileSeeds != nil {
+		if err = coarsedb.readSeeds(); err != nil {
 			return
 		}
 	}
-
 	return nil
 }
 

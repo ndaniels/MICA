@@ -1,7 +1,8 @@
 .*.swp
-cablastp
+cmd/cablastp-compress/cablastp-compress
+cmd/cablastp-decompress/cablastp-decompress
 mit
 TAGS
-compress/compress
 *.prof*
 *.stats*
+nr-rand-*
