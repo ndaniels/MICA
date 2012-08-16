@@ -1,0 +1,15 @@
+#!/bin/sh
+
+if [ $# != 2 ]; then
+  echo "Usage: `basename $0`: database-dir input-fasta-file" >&2
+  exit 1
+fi
+
+dbdir=$1
+input=$2
+
+compressed_size=$(grep -v '>' $dbdir/coarse.fasta | wc -c)
+original_size=$(grep -v '>' $input | wc -c)
+
+echo "scale = 4; 100.0 * ($compressed_size / $original_size)" | bc -l
+
