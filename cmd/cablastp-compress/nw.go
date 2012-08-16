@@ -1,14 +1,5 @@
 package main
 
-/*
-This is adapted from Dan Kortschak's Needleman-Wunsch algorithm from the biogo
-package: code.google.com/p/biogo.
-
-It's mostly copied from its original form, but it is optimized specifically
-for cablastp to limit allocations and to absolve the need for the biogo/seq.Seq
-type.
-*/
-
 import (
 	"github.com/BurntSushi/cablastp/blosum"
 
@@ -25,6 +16,8 @@ var (
 	}
 )
 
+// Initialize the alignment lookup table. (i.e., translate ASCII residue
+// characters to BLOSUM62 matrix indices.)
 func init() {
 	m := make(map[int]int)
 	for i, v := range blosum.Alphabet62 {
@@ -35,13 +28,8 @@ func init() {
 	aligner.LookUp = nwLookUpP
 }
 
-func abs(a int) int {
-	if a < 0 {
-		return -a
-	}
-	return a
-}
-
+// appendOne appends a single byte to a byte slice and only allocates if it
+// absolutely has to.
 func appendOne(slice []byte, b byte) []byte {
 	if len(slice) == cap(slice) {
 		return append(slice, b)
@@ -51,13 +39,26 @@ func appendOne(slice []byte, b byte) []byte {
 	return slice
 }
 
+// nwAlign performs Needleman-Wunsch sequence alignment.
+//
+// This is adapted from Dan Kortschak's Needleman-Wunsch algorithm from the 
+// biogo package: code.google.com/p/biogo. 
+//  
+// It's mostly copied from its original form, but it is optimized specifically 
+// for cablastp to limit allocations and to absolve the need for the 
+// biogo/seq.Seq type. There are several additional optimizations to limit
+// functional calls and pointer deferences.
+//
+// Perhaps the biggest optimization; however, is constraining dynamic
+// programming to only allow a limited number of gaps proportion to the
+// length of the large of rseq and oseq.
 func nwAlign(rseq, oseq []byte, mem *memory) [2][]byte {
 	gap := len(aligner.Matrix) - 1
 	r, c := len(rseq)+1, len(oseq)+1
 	off := 0
 
 	constrained := true
-	constraint := r / 4
+	constraint := max(r, c) / 4
 	if r <= 11 || c <= 11 {
 		constrained = false
 	}

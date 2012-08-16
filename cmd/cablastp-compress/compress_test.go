@@ -62,7 +62,7 @@ func TestNeedlemanWunsch(t *testing.T) {
 		// }, 
 	}
 	sep := strings.Repeat("-", 45)
-	mem := newNwMemory()
+	mem := newMemory()
 	for _, test := range tests {
 		alignment := nwAlign([]byte(test.seq1), []byte(test.seq2), mem)
 		sout1, sout2 := string(alignment[0]), string(alignment[1])
@@ -200,7 +200,7 @@ func TestExtendMatch(t *testing.T) {
 		},
 	}
 	sep := strings.Repeat("-", 45)
-	mem := newNwMemory()
+	mem := newMemory()
 	for _, test := range tests {
 		corMatch, orgMatch := extendMatch(
 			[]byte(test.rseq), []byte(test.oseq),

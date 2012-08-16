@@ -6,13 +6,15 @@ import (
 	"code.google.com/p/biogo/io/seqio/fasta"
 )
 
+// ReadOriginalSeq is the value sent over `chan ReadOriginalSeq` when a new
+// sequence is read from a fasta file.
 type ReadOriginalSeq struct {
 	Seq *OriginalSeq
 	Err error
 }
 
-// ReadOriginalSeqs reads a FASTA formatted file and returns a slice of
-// original sequences.
+// ReadOriginalSeqs reads a FASTA formatted file and returns a channel that
+// each new sequence is sent to.
 func ReadOriginalSeqs(fileName string,
 	ignore []byte) (chan ReadOriginalSeq, error) {
 
@@ -51,24 +53,4 @@ func ReadOriginalSeqs(fileName string,
 		}
 	}()
 	return seqChan, nil
-}
-
-// ReadReferenceSeqs reads a FASTA formatted file and returns a slice of
-// reference sequences.
-func ReadReferenceSeqs(fileName string, f func(seq *CoarseSeq)) error {
-	reader, err := fasta.NewReaderName(fileName)
-	if err != nil {
-		return err
-	}
-	for i := 0; true; i++ {
-		seq, err := reader.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		f(NewBiogoCoarseSeq(i, seq))
-	}
-	return nil
 }

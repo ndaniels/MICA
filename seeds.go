@@ -1,7 +1,6 @@
 package cablastp
 
 import (
-	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -10,7 +9,8 @@ import (
 )
 
 // SeedAlphaNums is a map to assign *valid* amino acid resiudes contiunous 
-// values so that base-26 arithmetic can be performed on them.
+// values so that base-N arithmetic can be performed on them. (Where
+// N = SeedAlphaSize.)
 // Invalid amino acid resiudes map to -1 and will produce a panic.
 var (
 	SeedAlphaSize        = len(blosum.Alphabet62)
@@ -18,6 +18,8 @@ var (
 	ReverseSeedAlphaNums = make([]byte, 26)
 )
 
+// Populate SeedAlphaNums and ReverseSeedAlphaNums using the BLOSUM62
+// alphabet data.
 func init() {
 	var amino byte
 
@@ -35,37 +37,54 @@ func init() {
 }
 
 // SeedLoc represents the information required to translate a seed to a slice
-// of residues from the reference database. Namely, the index of the sequence
-// in the reference database and the index of the residue where the seed starts
-// in that sequence. The length of the seed is a constant set at
-// run-time: flagSeedSize.
+// of residues from the coarse database. Namely, the index of the sequence
+// in the coarse database and the index of the residue where the seed starts
+// in that sequence.
+//
+// Every SeedLoc also contains a pointer to the next seed location. This
+// design was chosen so that each SeedLoc is independently allocated (as
+// opposed to using a slice, which incurs a lot of allocation overhead
+// when expanding the slice, and has the potential for pinning memory).
 type SeedLoc struct {
+	// Index into the coarse database sequence slice.
 	SeqInd int32
+
+	// Index into the coarse sequence corresponding to `SeqInd`.
 	ResInd int16
-	Next   *SeedLoc
+
+	Next *SeedLoc
 }
 
 func NewSeedLoc(seqInd int32, resInd int16) *SeedLoc {
 	return &SeedLoc{seqInd, resInd, nil}
 }
 
-func (loc SeedLoc) String() string {
-	return fmt.Sprintf("(%d, %d)", loc.SeqInd, loc.ResInd)
-}
-
+// Seeds is a list of lists of seed locations. The index into the seeds table
+// corresponds to a hash of particular K-mer. The list found at each
+// row in the seed table corresponds to all locations in the coarse database
+// in which the K-mer occurs.
 type Seeds struct {
-	Locs     []*SeedLoc
-	SeedSize int
-	lock     *sync.RWMutex
-	powers   []int
+	// Table of lists of seed locations. Its length is always equivalent
+	// to (SeedAlphaSize)^(SeedSize).
+	Locs []*SeedLoc
+
+	SeedSize            int
+	lowComplexityWindow int // The low complexity region window size.
+
+	// Lock is used to make Seeds.Add and Seeds.Lookup thread safe.
+	lock *sync.RWMutex
+
+	// Cache
+	// (SeedAlphaSize)^0, (SeedAlphaSize)^1 ... (SeedAlphaSize)^(SeedAlphaSize).
+	powers []int
 }
 
-// newSeeds creates a new table of seed location lists. The table is
+// NewSeeds creates a new table of seed location lists. The table is
 // initialized with enough memory to hold lists for all possible K-mers.
 // Namely, the length of seeds is equivalent to 20^(K) where 20 is the number
 // of amino acids (size of alphabet) and K is equivalent to the length of
 // each K-mer.
-func NewSeeds(seedSize int) Seeds {
+func NewSeeds(seedSize, lowComplexityWindow int) Seeds {
 	powers := make([]int, seedSize+1)
 	p := 1
 	for i := 0; i < len(powers); i++ {
@@ -76,23 +95,25 @@ func NewSeeds(seedSize int) Seeds {
 	locs := make([]*SeedLoc, powers[seedSize])
 
 	return Seeds{
-		Locs:     locs,
-		SeedSize: seedSize,
-		lock:     &sync.RWMutex{},
-		powers:   powers,
+		Locs:                locs,
+		SeedSize:            seedSize,
+		lowComplexityWindow: lowComplexityWindow,
+		lock:                &sync.RWMutex{},
+		powers:              powers,
 	}
 }
 
-func (ss Seeds) Size() (int, int) {
-	return 0, 0
-}
-
-// add will create seed locations for all K-mers in refSeq and add them to
-// the seeds table. Invalid K-mers are automatically skipped.
+// Add will create seed locations for all K-mers in corSeq and add them to
+// the seeds table.
 func (ss Seeds) Add(coarseSeqIndex int, corSeq *CoarseSeq) {
 	ss.lock.Lock()
+	// Don't use defer. It comes with a performance penalty in hot spots.
 
 	for i := 0; i < corSeq.Len()-ss.SeedSize; i++ {
+		if IsLowComplexity(corSeq.Residues, i, ss.lowComplexityWindow) {
+			continue
+		}
+
 		kmer := corSeq.Residues[i : i+ss.SeedSize]
 
 		kmerIndex := ss.hashKmer(kmer)
@@ -111,10 +132,16 @@ func (ss Seeds) Add(coarseSeqIndex int, corSeq *CoarseSeq) {
 	ss.lock.Unlock()
 }
 
-// lookup returns a list of all seed locations corresponding to a particular
+// Lookup returns a list of all seed locations corresponding to a particular
 // K-mer.
+//
+// `mem` is a pointer to a slice of seed locations, where a seed location is
+// a tuple of (sequence index, residue index). `mem` is used to prevent
+// unnecessary allocation. A pointer to thise slice is returned.
 func (ss Seeds) Lookup(kmer []byte, mem *[][2]int) [][2]int {
 	ss.lock.RLock()
+	// Don't use defer. It comes with a performance penalty in hot spots.
+
 	seeds := ss.Locs[ss.hashKmer(kmer)]
 	if seeds == nil {
 		ss.lock.RUnlock()
@@ -130,17 +157,12 @@ func (ss Seeds) Lookup(kmer []byte, mem *[][2]int) [][2]int {
 	return *mem
 }
 
-func (seedLoc *SeedLoc) Copy() *SeedLoc {
-	if seedLoc.Next == nil {
-		return &SeedLoc{seedLoc.SeqInd, seedLoc.ResInd, nil}
-	}
-	return &SeedLoc{seedLoc.SeqInd, seedLoc.ResInd, seedLoc.Next.Copy()}
-}
-
 // aminoValue gets the base-20 index of a particular resiude.
 // aminoValue assumes that letter is a valid ASCII character in the
 // inclusive range 'A' ... 'Z'.
 // If the value returned by the SeedAlphaNums map is -1, aminoValue panics.
+// (A value of -1 in this case corresponds to a residue that isn't in
+// BLOSUM62.)
 func aminoValue(letter byte) int {
 	val := SeedAlphaNums[letter-'A']
 	if val == -1 {
@@ -150,8 +172,8 @@ func aminoValue(letter byte) int {
 }
 
 // hashKmer returns a unique hash of any 'kmer'. hashKmer assumes that 'kmer'
-// satisfies 'KmerAllUpperAlpha'. hashKmer panics if there are any invalid amino
-// acid residues (i.e., 'J').
+// contains only valid upper case residue characters.
+// hashKmer panics if there are any invalid amino acid residues.
 //
 // hashKmer satisfies this law:
 // Forall a, b in [A..Z]*, hashKmer(a) == hashKmer(b) IFF a == b.
@@ -164,7 +186,7 @@ func (ss Seeds) hashKmer(kmer []byte) int {
 	return hash
 }
 
-// unhashKmer reverses hashKmer.
+// unhashKmer reverses hashKmer. (This is used in decompression.)
 func (ss Seeds) unhashKmer(hash int) []byte {
 	residues := make([]byte, 0)
 	base := SeedAlphaSize
@@ -180,14 +202,16 @@ func (ss Seeds) unhashKmer(hash int) []byte {
 	return residues
 }
 
-// KmerAllUpperAlpha returns true if all values in the 'kmer' slice correspond 
-// to values in the inclusive ASCII range 'A' ... 'Z'.
-func KmerAllUpperAlpha(kmer []byte) bool {
-	for _, b := range kmer {
-		i := int(b - 'A')
-		if i < 0 || i >= len(SeedAlphaNums) {
-			return false
-		}
+func max(a, b int) int {
+	if a > b {
+		return a
 	}
-	return true
+	return b
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

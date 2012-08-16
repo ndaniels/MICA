@@ -32,6 +32,41 @@ func SeqIdentity(seq1, seq2 []byte) int {
 	return (same * 100) / len(seq1)
 }
 
+// IsLowComplexity detects whether the residue at the given offset is in
+// a region of low complexity, where low complexity is defined as a window
+// size where every residue is the same (no variation in composition).
+func IsLowComplexity(residues []byte, offset, window int) bool {
+	repeats := 0
+	last := byte(0)
+	start := max(0, offset-window)
+	end := min(len(residues), offset+window)
+	for i := start; i < end; i++ {
+		if residues[i] == last {
+			repeats++
+			if repeats >= window {
+				return true
+			}
+			continue
+		}
+		last = residues[i]
+	}
+	return false
+}
+
+// repetitive returns true if every byte in `bs` is the same.
+func repetitive(bs []byte) bool {
+	if len(bs) <= 1 {
+		return false
+	}
+	b1 := bs[0]
+	for _, b2 := range bs[1:] {
+		if b1 != b2 {
+			return false
+		}
+	}
+	return true
+}
+
 // sequence is the underlying (i.e., embedded) type of reference and original 
 // sequences used in cablast.
 type sequence struct {

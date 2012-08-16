@@ -6,6 +6,9 @@ const (
 	numSeeds         = 100
 )
 
+// memory is a goroutine-specific memory arena, specifically used in each
+// compression worker goroutine. Its purpose is to reduce the amount of
+// memory allocation in hot-spots: sequence alignment and seed lookup.
 type memory struct {
 	table    []int
 	ref, org []byte

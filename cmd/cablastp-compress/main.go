@@ -17,10 +17,18 @@ import (
 const interval = 1000
 
 var (
-	timer           time.Time
-	ignoredResidues = []byte{'J', 'O', 'U'}
-	dbConf          = cablastp.DefaultDBConf
+	// Used to compute the number of sequences compressed per second.
+	timer time.Time
 
+	// Any residue in `ignoredResidues` will be replaced with an X.
+	// These should correspond to the residues NOT in blosum.Alphabet62.
+	ignoredResidues = []byte{'J', 'O', 'U'}
+
+	// A default configuration.
+	dbConf = cablastp.DefaultDBConf
+
+	// Flags that affect the higher level operation of compression.
+	// Flags that control algorithmic parameters are stored in `dbConf`.
 	flagGoMaxProcs  = runtime.NumCPU()
 	flagAppend      = false
 	flagOverwrite   = false
@@ -65,6 +73,11 @@ func init() {
 	flag.IntVar(&dbConf.ExtSeedSize, "ext-seed-size",
 		dbConf.ExtSeedSize,
 		"The additional residues to require for each seed match.")
+	flag.IntVar(&dbConf.LowComplexityWindow, "low-complexity-window",
+		dbConf.LowComplexityWindow,
+		"The window size used to detect regions of low complexity.\n"+
+			"\tLow complexity regions are repetitions of a single amino\n"+
+			"\tacid residue. They are not included in the seeds table.")
 	flag.BoolVar(&dbConf.SavePlain, "plain",
 		dbConf.SavePlain,
 		"When set, additional plain-text versions of files that are \n"+
@@ -78,7 +91,10 @@ func init() {
 	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
 		"The maximum number of CPUs that can be executing simultaneously.")
 	flag.BoolVar(&flagAppend, "append", flagAppend,
-		"When set, compressed sequences will be added to existing database.")
+		"When set, compressed sequences will be added to existing database.\n"+
+			"\tThe parameters used to create the initial database are\n"+
+			"\tautomatically used by default. They can still be overriden\n"+
+			"\ton the command line.")
 	flag.BoolVar(&flagOverwrite, "overwrite", flagOverwrite,
 		"When set, any existing database will be destroyed.")
 	flag.BoolVar(&flagQuiet, "quiet", flagQuiet,
@@ -102,14 +118,6 @@ func main() {
 	if flag.NArg() < 2 {
 		flag.Usage()
 	}
-	if len(flagCpuProfile) > 0 {
-		f, err := os.Create(flagCpuProfile)
-		if err != nil {
-			fatalf("%s\n", err)
-		}
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
-	}
 
 	// If both 'append' and 'overwrite' flags are set, quit because the
 	// combination doesn't make sense.
@@ -118,24 +126,44 @@ func main() {
 			"not make sense to set both of these flags.")
 	}
 
+	// If the quiet flag isn't set, enable verbose output.
 	if !flagQuiet {
 		cablastp.Verbose = true
 	}
+
+	// If the overwrite flag is set, remove whatever directory that may
+	// already be there.
 	if flagOverwrite {
 		if err := os.RemoveAll(flag.Arg(0)); err != nil {
 			fatalf("Could not remove existing database '%s': %s.",
 				flag.Arg(0), err)
 		}
 	}
+
+	// Create a new database for writing. If we're appending, we load
+	// the coarse database into memory, and setup the database for writing.
 	db, err := cablastp.NewWriteDB(flagAppend, dbConf, flag.Arg(0))
 	if err != nil {
 		fatalf("%s\n", err)
 	}
 	cablastp.Vprintln("")
 
-	attachSignalHandler(db)
 	pool := startCompressWorkers(db)
 	orgSeqId := db.ComDB.NumSequences()
+	mainQuit := make(chan struct{}, 0)
+
+	// If the process is killed, try to clean up elegantly.
+	// The idea is to preserve the integrity of the database.
+	attachSignalHandler(db, mainQuit, &pool)
+
+	// Start the CPU profile after all of the data has been read.
+	if len(flagCpuProfile) > 0 {
+		f, err := os.Create(flagCpuProfile)
+		if err != nil {
+			fatalf("%s\n", err)
+		}
+		pprof.StartCPUProfile(f)
+	}
 	for _, arg := range flag.Args()[1:] {
 		seqChan, err := cablastp.ReadOriginalSeqs(arg, ignoredResidues)
 		if err != nil {
@@ -145,6 +173,14 @@ func main() {
 			timer = time.Now()
 		}
 		for readSeq := range seqChan {
+			// Do a non-blocking receive to see if main needs to quit.
+			select {
+			case <-mainQuit:
+				<-mainQuit // wait for cleanup to finish before exiting main.
+				return
+			default:
+			}
+
 			if readSeq.Err != nil {
 				log.Fatal(err)
 			}
@@ -152,15 +188,17 @@ func main() {
 			verboseOutput(db, orgSeqId)
 		}
 	}
-	pool.done()
-
 	cablastp.Vprintln("\n")
 	cablastp.Vprintf("Wrote %s.\n", cablastp.FileCompressed)
 	cablastp.Vprintf("Wrote %s.\n", cablastp.FileIndex)
-	cleanup(db)
+	cleanup(db, &pool)
 }
 
-func cleanup(db *cablastp.DB) {
+// When the program ends (either by SIGTERM or when all of the input sequences
+// are compressed), 'cleanup' is executed. It writes all CPU/memory profiles
+// if they're enabled, waits for the compression workers to finish, saves
+// the database to disk and closes all file handles.
+func cleanup(db *cablastp.DB, pool *compressPool) {
 	if len(flagCpuProfile) > 0 {
 		pprof.StopCPUProfile()
 	}
@@ -170,22 +208,30 @@ func cleanup(db *cablastp.DB) {
 	if len(flagMemStats) > 0 {
 		writeMemStats(fmt.Sprintf("%s.last", flagMemStats))
 	}
+	pool.done()
 	if err := db.Save(); err != nil {
 		fatalf("Could not save database: %s\n", err)
 	}
 	db.WriteClose()
 }
 
-func attachSignalHandler(db *cablastp.DB) {
+// Runs a goroutine to listen for SIGTERM and SIGKILL.
+func attachSignalHandler(db *cablastp.DB, mainQuit chan struct{},
+	pool *compressPool) {
+
 	sigChan := make(chan os.Signal, 1)
 	go func() {
 		<-sigChan
-		cleanup(db)
+		mainQuit <- struct{}{}
+		cleanup(db, pool)
+		mainQuit <- struct{}{}
 		os.Exit(0)
 	}()
 	signal.Notify(sigChan, os.Interrupt, os.Kill)
 }
 
+// The output generated after each sequence is compressed (or more precisely,
+// after some interval of sequences has been compressed).
 func verboseOutput(db *cablastp.DB, orgSeqId int) {
 	if orgSeqId%interval == 0 {
 		if !flagQuiet {
@@ -210,12 +256,8 @@ func verboseOutput(db *cablastp.DB, orgSeqId int) {
 	}
 }
 
-func errorf(format string, v ...interface{}) {
-	fmt.Fprintf(os.Stderr, format, v...)
-}
-
 func fatalf(format string, v ...interface{}) {
-	errorf(format, v...)
+	fmt.Fprintf(os.Stderr, format, v...)
 	os.Exit(1)
 }
 
@@ -228,13 +270,6 @@ func writeMemProfile(name string) {
 	f.Close()
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 func usage() {
 	fmt.Fprintf(os.Stderr,
 		"\nUsage: %s [flags] "+
@@ -245,6 +280,8 @@ func usage() {
 	os.Exit(1)
 }
 
+// A nasty function to format the runtime.MemStats struct for human
+// consumption.
 func writeMemStats(name string) {
 	f, err := os.Create(name)
 	if err != nil {

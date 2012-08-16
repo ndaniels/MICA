@@ -15,10 +15,9 @@ func alignLen(seq []byte) (length int) {
 	return
 }
 
-// alignUngapped takes a reference and an original sub-sequence
-// and a starting offset for each sequence. A length
-// corresponding to the number of amino acids scanned by greedily consuming
-// successive K-mer matches in N-mer windows.
+// alignUngapped takes a coarse and an original sub-sequence and returns a
+// length corresponding to the number of amino acids scanned by greedily 
+// consuming successive K-mer matches in N-mer windows.
 //
 // The algorithm works by attempting to find *exact* K-mer matches between the
 // sequences in N-mer windows. If N residues are scanned and no K-mer match
@@ -54,9 +53,9 @@ func alignUngapped(rseq []byte, oseq []byte,
 				// match to the start of this match. But only if there is at
 				// least one residue in that range.
 				if (scanned-kmerSize)-length > 0 {
-					refBetween := rseq[length : scanned-kmerSize]
-					orgBetween := oseq[length : scanned-kmerSize]
-					id := cablastp.SeqIdentity(refBetween, orgBetween)
+					id := cablastp.SeqIdentity(
+						rseq[length:scanned-kmerSize],
+						oseq[length:scanned-kmerSize])
 
 					// If the identity is less than the threshold, then this
 					// K-mer match is no good. But keep trying until the window

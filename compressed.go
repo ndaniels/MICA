@@ -4,11 +4,12 @@ import (
 	"encoding/csv"
 	"fmt"
 	"os"
+	"strings"
 )
 
 const (
-	FileCompressed = "compressed.cbp"
-	FileIndex      = "index"
+	FileCompressed = "compressed"
+	FileIndex      = "compressed.index"
 )
 
 type CompressedDB struct {
@@ -147,6 +148,15 @@ func NewCompressedSeq(id int, name string) CompressedSeq {
 		Name:  name,
 		Links: make([]LinkToCoarse, 0, 10),
 	}
+}
+
+func (cseq CompressedSeq) String() string {
+	lines := make([]string, len(cseq.Links))
+	for i, link := range cseq.Links {
+		lines[i] = fmt.Sprintf("coarse id: %d, start: %d, end: %d\n%s",
+			link.CoarseSeqId, link.CoarseStart, link.CoarseEnd, link.Diff)
+	}
+	return strings.Join(lines, "\n")
 }
 
 // Add will add a LinkToReference to the end of the CompressedSeq's Links list.

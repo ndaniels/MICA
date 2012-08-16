@@ -19,6 +19,7 @@ type DBConf struct {
 	MatchExtend         int
 	MapSeedSize         int
 	ExtSeedSize         int
+	LowComplexityWindow int
 	SavePlain           bool
 	ReadOnly            bool
 }
@@ -33,6 +34,7 @@ var DefaultDBConf = DBConf{
 	MatchExtend:         30,
 	MapSeedSize:         6,
 	ExtSeedSize:         4,
+	LowComplexityWindow: 6,
 	SavePlain:           false,
 	ReadOnly:            false,
 }
@@ -84,6 +86,8 @@ func LoadDBConf(r io.Reader) (conf DBConf, err error) {
 			conf.MapSeedSize = atoi()
 		case "ExtSeedSize":
 			conf.ExtSeedSize = atoi()
+		case "LowComplexityWindow":
+			conf.LowComplexityWindow = atoi()
 		case "SavePlain":
 			if strings.TrimSpace(line[1]) == "1" {
 				conf.SavePlain = true
@@ -141,6 +145,9 @@ func (flagConf DBConf) FlagMerge(fileConf DBConf) (DBConf, error) {
 	if !only["ext-seed-size"] {
 		flagConf.ExtSeedSize = fileConf.ExtSeedSize
 	}
+	if !only["low-complexity-window"] {
+		flagConf.LowComplexityWindow = fileConf.LowComplexityWindow
+	}
 	if !only["plain"] {
 		flagConf.SavePlain = fileConf.SavePlain
 	}
@@ -174,6 +181,7 @@ func (dbConf DBConf) Write(w io.Writer) error {
 		{"MatchExtend", s(dbConf.MatchExtend)},
 		{"MapSeedSize", s(dbConf.MapSeedSize)},
 		{"ExtSeedSize", s(dbConf.ExtSeedSize)},
+		{"LowComplexityWindow", s(dbConf.LowComplexityWindow)},
 		{"SavePlain", bs(dbConf.SavePlain)},
 		{"ReadOnly", bs(dbConf.ReadOnly)},
 	}

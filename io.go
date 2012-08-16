@@ -178,79 +178,102 @@ func (coarsedb *CoarseDB) readLinks() error {
 	Vprintf("\t\tReading %s...\n", FileCoarseLinks)
 	timer := time.Now()
 
-	gr, err := gzip.NewReader(coarsedb.FileLinks)
-	if err != nil {
-		return err
-	}
-	br := func(data interface{}) error {
-		return binary.Read(gr, binary.BigEndian, data)
-	}
-
-	var cnt, orgSeqId int32
-	var coarseStart, coarseEnd int16
-
+	var cnt int32
 	for coarseSeqId := 0; true; coarseSeqId++ {
-		if err = br(&cnt); err != nil {
+		if binary.Read(coarsedb.FileLinks, binary.BigEndian, &cnt) != nil {
 			break
 		}
 		for i := int32(0); i < cnt; i++ {
-			if err = br(&orgSeqId); err != nil {
+			newLink, err := coarsedb.readLink()
+			if err != nil {
 				return err
 			}
-			if err = br(&coarseStart); err != nil {
-				return err
-			}
-			if err = br(&coarseEnd); err != nil {
-				return err
-			}
-			newLink := NewLinkToCompressed(orgSeqId, coarseStart, coarseEnd)
 			coarsedb.Seqs[coarseSeqId].addLink(newLink)
 		}
-	}
-	if err := gr.Close(); err != nil {
-		return err
 	}
 
 	Vprintf("\t\tDone reading %s (%s).\n", FileCoarseLinks, time.Since(timer))
 	return nil
 }
 
-func (coarsedb *CoarseDB) saveLinks() error {
+func (coarsedb *CoarseDB) readLink() (_ *LinkToCompressed, err error) {
+	br := func(data interface{}) error {
+		return binary.Read(coarsedb.FileLinks, binary.BigEndian, data)
+	}
+
+	var orgSeqId int32
+	var coarseStart, coarseEnd int16
+
+	if err = br(&orgSeqId); err != nil {
+		return
+	}
+	if err = br(&coarseStart); err != nil {
+		return
+	}
+	if err = br(&coarseEnd); err != nil {
+		return
+	}
+	return NewLinkToCompressed(orgSeqId, coarseStart, coarseEnd), nil
+}
+
+func (coarsedb *CoarseDB) saveLinks() (err error) {
 	Vprintf("Writing %s...\n", FileCoarseLinks)
+	Vprintf("Writing %s...\n", FileCoarseLinksIndex)
 	timer := time.Now()
 
-	gw, err := gzip.NewWriterLevel(coarsedb.FileLinks, gzip.BestSpeed)
-	if err != nil {
-		return err
-	}
+	byteOff := int64(0)
+	buf := new(bytes.Buffer)
+
 	bw := func(data interface{}) error {
-		return binary.Write(gw, binary.BigEndian, data)
+		return binary.Write(buf, binary.BigEndian, data)
 	}
 	for _, seq := range coarsedb.Seqs {
+		// Reset the buffer so it's empty. We want it to only contain
+		// the next set of links.
+		buf.Reset()
+
+		// Get the number of links.
+		// This is necessary for reading so we know how many links to read.
 		cnt := int32(0)
 		for link := seq.Links; link != nil; link = link.Next {
 			cnt++
 		}
 		if err = bw(cnt); err != nil {
-			return err
+			return
 		}
+
+		// For each link, write its original sequence id, and the coarse
+		// sequence start/end.
 		for link := seq.Links; link != nil; link = link.Next {
 			if err = bw(link.OrgSeqId); err != nil {
-				return err
+				return
 			}
 			if err = bw(link.CoarseStart); err != nil {
-				return err
+				return
 			}
 			if err = bw(link.CoarseEnd); err != nil {
-				return err
+				return
 			}
 		}
-	}
-	if err := gw.Close(); err != nil {
-		return nil
+
+		// Write the bytes to the links file.
+		if _, err = coarsedb.FileLinks.Write(buf.Bytes()); err != nil {
+			return
+		}
+
+		// Now write the byte offset that points to the start of this
+		// set of links.
+		err = binary.Write(coarsedb.FileLinksIndex, binary.BigEndian, byteOff)
+		if err != nil {
+			return
+		}
+
+		// Set the byte offset to be at the end of this set of links.
+		byteOff += int64(buf.Len())
 	}
 
 	Vprintf("Done writing %s (%s).\n", FileCoarseLinks, time.Since(timer))
+	Vprintf("Done writing %s (%s).\n", FileCoarseLinksIndex, time.Since(timer))
 	return nil
 }
 
@@ -294,6 +317,12 @@ func (comdb *CompressedDB) ReadSeq(
 			fmt.Errorf("Tried to seek to offset %d in the compressed "+
 				"database, but seeked to %d instead.", off, newOff)
 	}
+
+	return comdb.ReadNextSeq(coarsedb, orgSeqId)
+}
+
+func (comdb *CompressedDB) ReadNextSeq(
+	coarsedb *CoarseDB, orgSeqId int) (OriginalSeq, error) {
 
 	record, err := comdb.csvReader.Read()
 	if err != nil {
@@ -412,6 +441,7 @@ func (comdb *CompressedDB) writer() {
 		// Increment the byte offset to be at the end of this record.
 		byteOffset += int64(buf.Len())
 	}
+	comdb.Index.Close()
 	comdb.File.Close()
 	comdb.writerDone <- struct{}{}
 }
