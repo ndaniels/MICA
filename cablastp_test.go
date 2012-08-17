@@ -8,6 +8,8 @@ import (
 
 func TestSeedHashing(t *testing.T) {
 	seedSize := 4
+	seedLowComplexity := 6
+
 	type test struct {
 		kmer string
 		hash int
@@ -16,7 +18,7 @@ func TestSeedHashing(t *testing.T) {
 		{"ABCD", 578},
 		{"AAAA", 0},
 	}
-	seeds := NewSeeds(seedSize)
+	seeds := NewSeeds(seedSize, seedLowComplexity)
 	for _, test := range tests {
 		thash := seeds.hashKmer([]byte(test.kmer))
 		tkmer := seeds.unhashKmer(test.hash)
