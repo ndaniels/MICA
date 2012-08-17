@@ -47,15 +47,15 @@ func init() {
 // when expanding the slice, and has the potential for pinning memory).
 type SeedLoc struct {
 	// Index into the coarse database sequence slice.
-	SeqInd int32
+	SeqInd uint32
 
 	// Index into the coarse sequence corresponding to `SeqInd`.
-	ResInd int16
+	ResInd uint16
 
 	Next *SeedLoc
 }
 
-func NewSeedLoc(seqInd int32, resInd int16) *SeedLoc {
+func NewSeedLoc(seqInd uint32, resInd uint16) *SeedLoc {
 	return &SeedLoc{seqInd, resInd, nil}
 }
 
@@ -117,7 +117,7 @@ func (ss Seeds) Add(coarseSeqIndex int, corSeq *CoarseSeq) {
 		kmer := corSeq.Residues[i : i+ss.SeedSize]
 
 		kmerIndex := ss.hashKmer(kmer)
-		loc := NewSeedLoc(int32(coarseSeqIndex), int16(i))
+		loc := NewSeedLoc(uint32(coarseSeqIndex), uint16(i))
 
 		if ss.Locs[kmerIndex] == nil {
 			ss.Locs[kmerIndex] = loc
@@ -138,7 +138,7 @@ func (ss Seeds) Add(coarseSeqIndex int, corSeq *CoarseSeq) {
 // `mem` is a pointer to a slice of seed locations, where a seed location is
 // a tuple of (sequence index, residue index). `mem` is used to prevent
 // unnecessary allocation. A pointer to thise slice is returned.
-func (ss Seeds) Lookup(kmer []byte, mem *[][2]int) [][2]int {
+func (ss Seeds) Lookup(kmer []byte, mem *[][2]uint) [][2]uint {
 	ss.lock.RLock()
 	// Don't use defer. It comes with a performance penalty in hot spots.
 
@@ -150,7 +150,7 @@ func (ss Seeds) Lookup(kmer []byte, mem *[][2]int) [][2]int {
 	*mem = (*mem)[:0]
 	for seedLoc := seeds; seedLoc != nil; seedLoc = seedLoc.Next {
 		*mem = append(*mem,
-			[2]int{int(seedLoc.SeqInd), int(seedLoc.ResInd)})
+			[2]uint{uint(seedLoc.SeqInd), uint(seedLoc.ResInd)})
 	}
 	ss.lock.RUnlock()
 

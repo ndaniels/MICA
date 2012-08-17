@@ -48,7 +48,7 @@ func NewWriteCoarseDB(appnd bool, db *DB) (*CoarseDB, error) {
 	coarsedb := &CoarseDB{
 		Seqs:           make([]*CoarseSeq, 0, 10000000),
 		seqsRead:       0,
-		Seeds:          NewSeeds(db.MapSeedSize, db.LowComplexityWindow),
+		Seeds:          NewSeeds(db.MapSeedSize, db.SeedLowComplexity),
 		FileFasta:      nil,
 		FileSeeds:      nil,
 		FileLinks:      nil,
@@ -136,7 +136,7 @@ func NewReadCoarseDB(db *DB) (*CoarseDB, error) {
 
 	coarsedb := &CoarseDB{
 		Seqs:           make([]*CoarseSeq, 0, 10000000),
-		Seeds:          NewSeeds(db.MapSeedSize, db.LowComplexityWindow),
+		Seeds:          NewSeeds(db.MapSeedSize, db.SeedLowComplexity),
 		FileFasta:      nil,
 		FileSeeds:      nil,
 		FileLinks:      nil,
@@ -184,7 +184,7 @@ func (coarsedb *CoarseDB) Add(oseq []byte) (int, *CoarseSeq) {
 
 // CoarseSeqGet is a thread-safe way to retrieve a sequence with index `i`
 // from the coarse database.
-func (coarsedb *CoarseDB) CoarseSeqGet(i int) *CoarseSeq {
+func (coarsedb *CoarseDB) CoarseSeqGet(i uint) *CoarseSeq {
 	coarsedb.seqLock.RLock()
 	seq := coarsedb.Seqs[i]
 	coarsedb.seqLock.RUnlock()
@@ -216,7 +216,7 @@ func (coarsedb *CoarseDB) Expand(
 
 	// Read in the number of links for this sequence.
 	// Each link corresponds to a single original sequence.
-	var numLinks int32
+	var numLinks uint32
 	err = binary.Read(coarsedb.FileLinks, binary.BigEndian, &numLinks)
 	if err != nil {
 		return nil, err
@@ -225,9 +225,9 @@ func (coarsedb *CoarseDB) Expand(
 	// We use a map as a set of original sequence ids for eliminating 
 	// duplicates (since a coarse sequence can point to different pieces of the 
 	// same compressed sequence).
-	ids := make(map[int32]bool, numLinks)
+	ids := make(map[uint32]bool, numLinks)
 	oseqs := make([]OriginalSeq, 0, numLinks)
-	for i := int32(0); i < numLinks; i++ {
+	for i := uint32(0); i < numLinks; i++ {
 		compLink, err := coarsedb.readLink()
 		if err != nil {
 			return nil, err

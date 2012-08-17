@@ -12,7 +12,7 @@ const (
 type memory struct {
 	table    []int
 	ref, org []byte
-	seeds    [][2]int
+	seeds    [][2]uint
 }
 
 func newMemory() *memory {
@@ -20,6 +20,6 @@ func newMemory() *memory {
 		table: make([]int, memSeqSize*memSeqSize),
 		ref:   make([]byte, memSeqSize),
 		org:   make([]byte, memSeqSize),
-		seeds: make([][2]int, 0, numSeeds),
+		seeds: make([][2]uint, 0, numSeeds),
 	}
 }

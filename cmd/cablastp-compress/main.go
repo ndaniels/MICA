@@ -73,11 +73,18 @@ func init() {
 	flag.IntVar(&dbConf.ExtSeedSize, "ext-seed-size",
 		dbConf.ExtSeedSize,
 		"The additional residues to require for each seed match.")
-	flag.IntVar(&dbConf.LowComplexityWindow, "low-complexity-window",
-		dbConf.LowComplexityWindow,
+	flag.IntVar(&dbConf.LowComplexity, "low-complexity",
+		dbConf.LowComplexity,
 		"The window size used to detect regions of low complexity.\n"+
 			"\tLow complexity regions are repetitions of a single amino\n"+
-			"\tacid residue. They are not included in the seeds table.")
+			"\tacid residue. Low complexity regions are skipped when\n"+
+			"\ttrying to extend a match.")
+	flag.IntVar(&dbConf.SeedLowComplexity, "seed-low-complexity",
+		dbConf.SeedLowComplexity,
+		"The seed window size used to detect regions of low complexity.\n"+
+			"\tLow complexity regions are repetitions of a single amino\n"+
+			"\tacid residue. Low complexity regions matching this window\n"+
+			"\tsize are not included in the seeds table.")
 	flag.BoolVar(&dbConf.SavePlain, "plain",
 		dbConf.SavePlain,
 		"When set, additional plain-text versions of files that are \n"+

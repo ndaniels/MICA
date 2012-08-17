@@ -34,9 +34,9 @@ func SeqIdentity(seq1, seq2 []byte) int {
 
 // IsLowComplexity detects whether the residue at the given offset is in
 // a region of low complexity, where low complexity is defined as a window
-// size where every residue is the same (no variation in composition).
+// where every residue is the same (no variation in composition).
 func IsLowComplexity(residues []byte, offset, window int) bool {
-	repeats := 0
+	repeats := 1
 	last := byte(0)
 	start := max(0, offset-window)
 	end := min(len(residues), offset+window)
@@ -48,7 +48,10 @@ func IsLowComplexity(residues []byte, offset, window int) bool {
 			}
 			continue
 		}
+
+		// The last residue isn't the same as this residue, so reset.
 		last = residues[i]
+		repeats = 1
 	}
 	return false
 }
@@ -72,7 +75,7 @@ func repetitive(bs []byte) bool {
 type sequence struct {
 	Name     string
 	Residues []byte
-	Offset   int
+	Offset   uint
 	Id       int
 }
 
@@ -97,8 +100,8 @@ func newBiogoSeq(id int, s *seq.Seq) *sequence {
 // newSubSequence returns a new *sequence value that corresponds to a 
 // subsequence of 'sequence'. 'start' and 'end' specify an inclusive range in 
 // 'sequence'. newSubSequence panics if the range is invalid.
-func (seq *sequence) newSubSequence(start, end int) *sequence {
-	if start < 0 || start >= end || end > seq.Len() {
+func (seq *sequence) newSubSequence(start, end uint) *sequence {
+	if start < 0 || start >= end || end > uint(seq.Len()) {
 		panic(fmt.Sprintf("Invalid sub sequence (%d, %d) for sequence "+
 			"with length %d.", start, end, seq.Len()))
 	}
@@ -150,7 +153,7 @@ func NewBiogoCoarseSeq(id int, seq *seq.Seq) *CoarseSeq {
 	return NewCoarseSeq(id, seq.ID, seq.Seq)
 }
 
-func (rseq *CoarseSeq) NewSubSequence(start, end int) *CoarseSeq {
+func (rseq *CoarseSeq) NewSubSequence(start, end uint) *CoarseSeq {
 	return &CoarseSeq{
 		sequence: rseq.sequence.newSubSequence(start, end),
 		Links:    nil,
@@ -189,6 +192,6 @@ func NewBiogoOriginalSeq(id int, seq *seq.Seq) *OriginalSeq {
 	return &OriginalSeq{sequence: newBiogoSeq(id, seq)}
 }
 
-func (oseq *OriginalSeq) NewSubSequence(start, end int) *OriginalSeq {
+func (oseq *OriginalSeq) NewSubSequence(start, end uint) *OriginalSeq {
 	return &OriginalSeq{oseq.sequence.newSubSequence(start, end)}
 }

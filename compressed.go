@@ -177,7 +177,7 @@ func (cseq CompressedSeq) Decompress(coarsedb *CoarseDB) (OriginalSeq, error) {
 	var corres, subCorres []byte
 	residues := make([]byte, 0, 20)
 	for _, lk := range cseq.Links {
-		if lk.CoarseSeqId < 0 || lk.CoarseSeqId >= len(coarsedb.Seqs) {
+		if lk.CoarseSeqId < 0 || lk.CoarseSeqId >= uint(len(coarsedb.Seqs)) {
 			return OriginalSeq{},
 				fmt.Errorf("Cannot decompress compressed sequence (id: %d), "+
 					"because a link refers to an invalid coarse sequence "+

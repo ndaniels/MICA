@@ -14,29 +14,29 @@ type LinkToCoarse struct {
 	// sequence indicated here is equivalent to the corresponding piece of
 	// the original sequence.
 	Diff                   string
-	CoarseSeqId            int
-	CoarseStart, CoarseEnd int16
+	CoarseSeqId            uint
+	CoarseStart, CoarseEnd uint16
 }
 
-func NewLinkToCoarse(coarseSeqId, coarseStart, coarseEnd int,
+func NewLinkToCoarse(coarseSeqId, coarseStart, coarseEnd uint,
 	alignment [2][]byte) LinkToCoarse {
 
 	return LinkToCoarse{
 		Diff:        NewEditScript(alignment).String(),
 		CoarseSeqId: coarseSeqId,
-		CoarseStart: int16(coarseStart),
-		CoarseEnd:   int16(coarseEnd),
+		CoarseStart: uint16(coarseStart),
+		CoarseEnd:   uint16(coarseEnd),
 	}
 }
 
 func NewLinkToCoarseNoDiff(
-	coarseSeqId, coarseStart, coarseEnd int) LinkToCoarse {
+	coarseSeqId, coarseStart, coarseEnd uint) LinkToCoarse {
 
 	return LinkToCoarse{
 		Diff:        "",
 		CoarseSeqId: coarseSeqId,
-		CoarseStart: int16(coarseStart),
-		CoarseEnd:   int16(coarseEnd),
+		CoarseStart: uint16(coarseStart),
+		CoarseEnd:   uint16(coarseEnd),
 	}
 }
 

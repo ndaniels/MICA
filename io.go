@@ -57,7 +57,7 @@ func (coarsedb *CoarseDB) saveFasta() error {
 }
 
 func (coarsedb *CoarseDB) readSeeds() error {
-	Vprintf("\t\tReading %s...\n", FileCoarseSeeds)
+	Vprintf("\t\tReading %s... (this could take a while)\n", FileCoarseSeeds)
 	timer := time.Now()
 
 	gr, err := gzip.NewReader(coarsedb.FileSeeds)
@@ -65,8 +65,8 @@ func (coarsedb *CoarseDB) readSeeds() error {
 		return fmt.Errorf("Could not create gzip reader: %s", err)
 	}
 
-	var hash, cnt, seqInd int32
-	var resInd int16
+	var hash, cnt, seqInd uint32
+	var resInd uint16
 	for {
 		if err = binary.Read(gr, binary.BigEndian, &hash); err != nil {
 			break
@@ -74,7 +74,7 @@ func (coarsedb *CoarseDB) readSeeds() error {
 		if err = binary.Read(gr, binary.BigEndian, &cnt); err != nil {
 			return fmt.Errorf("Could not read seed count: %s", err)
 		}
-		for i := int32(0); i < cnt; i++ {
+		for i := uint32(0); i < cnt; i++ {
 			if err = binary.Read(gr, binary.BigEndian, &seqInd); err != nil {
 				return fmt.Errorf("Could not read seed sequence index: %s", err)
 			}
@@ -104,7 +104,7 @@ func (coarsedb *CoarseDB) readSeeds() error {
 func (coarsedb *CoarseDB) saveSeeds() error {
 	var i int32
 
-	Vprintf("Writing %s...\n", FileCoarseSeeds)
+	Vprintf("Writing %s... (this could take a while)\n", FileCoarseSeeds)
 	timer := time.Now()
 
 	gzipWriter, err := gzip.NewWriterLevel(coarsedb.FileSeeds, gzip.BestSpeed)
@@ -201,8 +201,8 @@ func (coarsedb *CoarseDB) readLink() (_ *LinkToCompressed, err error) {
 		return binary.Read(coarsedb.FileLinks, binary.BigEndian, data)
 	}
 
-	var orgSeqId int32
-	var coarseStart, coarseEnd int16
+	var orgSeqId uint32
+	var coarseStart, coarseEnd uint16
 
 	if err = br(&orgSeqId); err != nil {
 		return
@@ -371,7 +371,7 @@ func readCompressedSeq(id int, record []string) (CompressedSeq, error) {
 			return CompressedSeq{}, nil
 		}
 		lk := NewLinkToCoarseNoDiff(
-			int(coarseSeqId64), int(coarseStart64), int(coarseEnd64))
+			uint(coarseSeqId64), uint(coarseStart64), uint(coarseEnd64))
 		lk.Diff = string([]byte(record[i+3]))
 
 		cseq.Add(lk)
