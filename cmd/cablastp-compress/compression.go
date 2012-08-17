@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"runtime"
 	"sync"
 
@@ -109,9 +108,6 @@ func compress(db *cablastp.DB, orgSeqId int,
 	// with a coarse sequence in the compressed database.
 	lastMatch, current := 0, 0
 
-	nseeds, nExtended, nAligned, nTwoAligned, matches := 0, 0, 0, 0, 0
-	skipped := 0
-
 	// Iterate through the original sequence a 'kmer' at a time.
 	for current = 0; current < olen-mapSeedSize-extSeedSize; current++ {
 		kmer := orgSeq.Residues[current : current+mapSeedSize]
@@ -125,7 +121,6 @@ func compress(db *cablastp.DB, orgSeqId int,
 				orgSeq.Residues[current:], db.MinMatchLen, db.LowComplexity)
 			if skip > 0 {
 				current += skip
-				skipped += skip
 				continue
 			}
 		}
@@ -133,8 +128,6 @@ func compress(db *cablastp.DB, orgSeqId int,
 		// Each seed location corresponding to the current K-mer must be
 		// used to attempt to extend a match.
 		for _, seedLoc := range seeds {
-			nseeds++
-
 			corSeqId := int(seedLoc[0])
 			corResInd := int(seedLoc[1])
 			corSeq := coarsedb.CoarseSeqGet(uint(corSeqId))
@@ -160,7 +153,6 @@ func compress(db *cablastp.DB, orgSeqId int,
 			// the end of the sequence for the coarse sequence, and the 
 			// position of the "current" pointer and the end of the sequence
 			// for the original sequence.
-			nExtended++
 			corMatch, orgMatch := extendMatch(
 				corSeq.Residues[corResInd:], orgSeq.Residues[current:],
 				db.GappedWindowSize, db.UngappedWindowSize,
@@ -174,15 +166,11 @@ func compress(db *cablastp.DB, orgSeqId int,
 				continue
 			}
 
-			nAligned++
-
 			alignment := nwAlign(corMatch, orgMatch, mem)
 			id := cablastp.SeqIdentity(alignment[0], alignment[1])
 			if id < db.MatchSeqIdThreshold {
 				continue
 			}
-
-			matches++
 
 			// If we end up extending a match because we're close to
 			// some boundary (either a sequence or a match boundary), then
@@ -207,7 +195,6 @@ func compress(db *cablastp.DB, orgSeqId int,
 
 			// If we've extended our match, we need another alignment.
 			if changed {
-				nTwoAligned++
 				alignment = nwAlign(corMatch, orgMatch, mem)
 			}
 
@@ -259,19 +246,6 @@ func compress(db *cablastp.DB, orgSeqId int,
 	if orgSeq.Len()-lastMatch > 0 {
 		orgSub := orgSeq.NewSubSequence(uint(lastMatch), uint(orgSeq.Len()))
 		addWithoutMatch(&cseq, coarsedb, orgSeqId, orgSub)
-	}
-
-	if nExtended > 10000 {
-		fmt.Printf("id: %d, seeds: %d, "+
-			"extended: %d, aligned: %d, 2-aligned: %d, matches: %d, "+
-			"skipped: %d\n",
-			orgSeqId, nseeds, nExtended, nAligned, nTwoAligned, matches,
-			skipped)
-		fmt.Println("-----")
-		fmt.Println(cseq)
-		fmt.Println("-----")
-		fmt.Printf("%s\n", string(orgSeq.Residues))
-		fmt.Println("---------------------------------------------------")
 	}
 
 	return cseq
