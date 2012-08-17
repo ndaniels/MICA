@@ -1,7 +1,7 @@
 all: gofmt blosum/blosum.go install
 
 install:
-	go install -p 6 . ./compress
+	go install -p 6 . ./cmd/cablastp-compress ./cmd/cablastp-decompress
 
 blosum/blosum.go:
 	scripts/mkBlosum | gofmt > blosum/blosum.go
@@ -23,9 +23,4 @@ push:
 	git push origin master
 	git push tufts master
 	git push github master
-
-pushl:
-	git push origin linkedlist
-	git push tufts linkedlist
-	git push github linkedlist
 
