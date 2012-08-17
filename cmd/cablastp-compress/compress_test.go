@@ -11,6 +11,42 @@ import (
 	"code.google.com/p/biogo/seq"
 )
 
+func TestSkipLowComplexity(t *testing.T) {
+	type test struct {
+		seq                    string
+		windowSize, regionSize int
+		skipped                int
+		leftover               string
+	}
+	tests := []test{
+		{"ABCDDDDDDDDDDDDDDDDDDXYZ", 10, 5, 21, "XYZ"},
+		{"DDDDDDABCDEF", 10, 5, 6, "ABCDEF"},
+		{"DDDDDDABCDEFFFFFFFFFFXYZXYZ", 10, 5, 6, "ABCDEFFFFFFFFFFXYZXYZ"},
+		{"ABCDEFFFFFFFFFFFFFFFXYZXYZ", 10, 5, 20, "XYZXYZ"},
+	}
+	for _, test := range tests {
+		skipped := skipLowComplexity(
+			[]byte(test.seq), test.windowSize, test.regionSize)
+		if skipped != test.skipped {
+			t.Fatalf("Skipping low complexity regions in '%s' with a "+
+				"window size of %d and a region size of %d should have "+
+				"skipped %d residues, but it actually skipped %d residues.",
+				test.seq, test.windowSize, test.regionSize,
+				test.skipped, skipped)
+		}
+
+		leftover := test.seq[skipped:]
+		if leftover != test.leftover {
+			t.Fatalf("Skipping low complexity regions in '%s' with a "+
+				"window size of %d and a region size of %d skipped %d "+
+				"residues and returned '%s' as leftovers but should have "+
+				"returned '%s'.",
+				test.seq, test.windowSize, test.regionSize,
+				test.skipped, leftover, test.leftover)
+		}
+	}
+}
+
 func TestAlignEditScripts(t *testing.T) {
 	type test struct {
 		fromSeq, toSeq string
