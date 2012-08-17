@@ -110,6 +110,7 @@ func compress(db *cablastp.DB, orgSeqId int,
 	lastMatch, current := 0, 0
 
 	nseeds, nExtended, nAligned, nTwoAligned, matches := 0, 0, 0, 0, 0
+	skipped := 0
 
 	// Iterate through the original sequence a 'kmer' at a time.
 	for current = 0; current < olen-mapSeedSize-extSeedSize; current++ {
@@ -124,6 +125,7 @@ func compress(db *cablastp.DB, orgSeqId int,
 				orgSeq.Residues[current:], db.MinMatchLen, db.LowComplexity)
 			if skip > 0 {
 				current += skip
+				skipped += skip
 				continue
 			}
 		}
@@ -259,10 +261,12 @@ func compress(db *cablastp.DB, orgSeqId int,
 		addWithoutMatch(&cseq, coarsedb, orgSeqId, orgSub)
 	}
 
-	if nExtended > 300000000 {
+	if nExtended > 10000 {
 		fmt.Printf("id: %d, seeds: %d, "+
-			"extended: %d, aligned: %d, 2-aligned: %d, matches: %d\n",
-			orgSeqId, nseeds, nExtended, nAligned, nTwoAligned, matches)
+			"extended: %d, aligned: %d, 2-aligned: %d, matches: %d, "+
+			"skipped: %d\n",
+			orgSeqId, nseeds, nExtended, nAligned, nTwoAligned, matches,
+			skipped)
 		fmt.Println("-----")
 		fmt.Println(cseq)
 		fmt.Println("-----")
@@ -350,7 +354,7 @@ func extendMatch(corRes, orgRes []byte,
 // that must contain the same residue in order to qualify as a low complexity
 // region.
 func skipLowComplexity(seq []byte, windowSize, regionSize int) int {
-	upto := min(len(seq), windowSize)
+	upto := min(len(seq), windowSize+regionSize)
 	last, repeats, i, found := byte(0), 1, 0, false
 	for i = 0; i < upto; i++ {
 		if seq[i] == last {
