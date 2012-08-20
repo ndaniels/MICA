@@ -77,6 +77,9 @@ type Seeds struct {
 	// Cache
 	// (SeedAlphaSize)^0, (SeedAlphaSize)^1 ... (SeedAlphaSize)^(SeedAlphaSize).
 	powers []int
+
+	// The total number of seeds in the table.
+	numSeeds int64
 }
 
 // NewSeeds creates a new table of seed location lists. The table is
@@ -100,27 +103,29 @@ func NewSeeds(seedSize, lowComplexityWindow int) Seeds {
 		lowComplexityWindow: lowComplexityWindow,
 		lock:                &sync.RWMutex{},
 		powers:              powers,
+		numSeeds:            0,
 	}
 }
 
 // NumSeeds computes the number of seeds currently in the seeds table.
 // Since the seeds table is typically big, this is an expensive operation.
 func (ss Seeds) NumSeeds() int64 {
-	ss.lock.RLock()
-	defer ss.lock.RUnlock()
-
-	count := int64(0)
-	for _, seedLocs := range ss.Locs {
-		for lk := seedLocs; lk != nil; lk = lk.Next {
-			count++
-		}
-	}
-	return count
+	return ss.numSeeds
+	// ss.lock.RLock() 
+	// defer ss.lock.RUnlock() 
+	//  
+	// count := int64(0) 
+	// for _, seedLocs := range ss.Locs { 
+	// for lk := seedLocs; lk != nil; lk = lk.Next { 
+	// count++ 
+	// } 
+	// } 
+	// return count 
 }
 
 // MaybeWipe completely wipes the seeds table if the number of seeds in the
 // table exceeds `maxSeeds`.
-func (ss Seeds) MaybeWipe(maxSeeds int64) {
+func (ss *Seeds) MaybeWipe(maxSeeds int64) {
 	if ss.NumSeeds() >= maxSeeds {
 		println("Blowing away seeds table...")
 		ss.lock.Lock() // acquire write lock to blow away seeds table
@@ -129,12 +134,13 @@ func (ss Seeds) MaybeWipe(maxSeeds int64) {
 		for i := range ss.Locs {
 			ss.Locs[i] = nil
 		}
+		ss.numSeeds = 0
 	}
 }
 
 // Add will create seed locations for all K-mers in corSeq and add them to
 // the seeds table.
-func (ss Seeds) Add(coarseSeqIndex int, corSeq *CoarseSeq) {
+func (ss *Seeds) Add(coarseSeqIndex int, corSeq *CoarseSeq) {
 	ss.lock.Lock()
 	// Don't use defer. It comes with a performance penalty in hot spots.
 
@@ -147,6 +153,7 @@ func (ss Seeds) Add(coarseSeqIndex int, corSeq *CoarseSeq) {
 
 		kmerIndex := ss.hashKmer(kmer)
 		loc := NewSeedLoc(uint32(coarseSeqIndex), uint16(i))
+		ss.numSeeds++
 
 		if ss.Locs[kmerIndex] == nil {
 			ss.Locs[kmerIndex] = loc
