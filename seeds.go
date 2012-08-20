@@ -110,10 +110,10 @@ func NewSeeds(seedSize, lowComplexityWindow int) Seeds {
 // NumSeeds computes the number of seeds currently in the seeds table.
 // Since the seeds table is typically big, this is an expensive operation.
 func (ss Seeds) NumSeeds() int64 {
+	ss.lock.RLock()
+	defer ss.lock.RUnlock()
+
 	return ss.numSeeds
-	// ss.lock.RLock() 
-	// defer ss.lock.RUnlock() 
-	//  
 	// count := int64(0) 
 	// for _, seedLocs := range ss.Locs { 
 	// for lk := seedLocs; lk != nil; lk = lk.Next { 
