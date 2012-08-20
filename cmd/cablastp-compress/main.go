@@ -33,6 +33,7 @@ var (
 	flagAppend      = false
 	flagOverwrite   = false
 	flagQuiet       = false
+	flagMaxSeeds    = int64(76695844)
 	flagCpuProfile  = ""
 	flagMemProfile  = ""
 	flagMemStats    = ""
@@ -106,6 +107,11 @@ func init() {
 		"When set, any existing database will be destroyed.")
 	flag.BoolVar(&flagQuiet, "quiet", flagQuiet,
 		"When set, the only outputs will be errors echoed to stderr.")
+	flag.Int64Var(&flagMaxSeeds, "max-seeds", flagMaxSeeds,
+		"When set, the in memory seeds table will be completely erased\n"+
+			"\twhen the number of seeds exceeds the specified number.\n"+
+			"\tEach seed corresponds to 14 bytes of memory.\n"+
+			"\tSetting to zero disables this behavior.")
 	flag.StringVar(&flagCpuProfile, "cpuprofile", flagCpuProfile,
 		"When set, a CPU profile will be written to the file specified.")
 	flag.StringVar(&flagMemProfile, "memprofile", flagMemProfile,
@@ -193,6 +199,9 @@ func main() {
 			}
 			orgSeqId = pool.compress(orgSeqId, readSeq.Seq)
 			verboseOutput(db, orgSeqId)
+			if flagMaxSeeds > 0 && orgSeqId%10000 == 0 {
+				db.CoarseDB.Seeds.MaybeWipe(flagMaxSeeds)
+			}
 		}
 	}
 	cablastp.Vprintln("\n")

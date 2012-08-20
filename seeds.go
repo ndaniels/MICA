@@ -103,6 +103,35 @@ func NewSeeds(seedSize, lowComplexityWindow int) Seeds {
 	}
 }
 
+// NumSeeds computes the number of seeds currently in the seeds table.
+// Since the seeds table is typically big, this is an expensive operation.
+func (ss Seeds) NumSeeds() int64 {
+	ss.lock.RLock()
+	defer ss.lock.RUnlock()
+
+	count := int64(0)
+	for _, seedLocs := range ss.Locs {
+		for lk := seedLocs; lk != nil; lk = lk.Next {
+			count++
+		}
+	}
+	return count
+}
+
+// MaybeWipe completely wipes the seeds table if the number of seeds in the
+// table exceeds `maxSeeds`.
+func (ss Seeds) MaybeWipe(maxSeeds int64) {
+	if ss.NumSeeds() >= maxSeeds {
+		println("Blowing away seeds table...")
+		ss.lock.Lock() // acquire write lock to blow away seeds table
+		defer ss.lock.Unlock()
+
+		for i := range ss.Locs {
+			ss.Locs[i] = nil
+		}
+	}
+}
+
 // Add will create seed locations for all K-mers in corSeq and add them to
 // the seeds table.
 func (ss Seeds) Add(coarseSeqIndex int, corSeq *CoarseSeq) {
