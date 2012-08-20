@@ -114,18 +114,14 @@ func (ss Seeds) NumSeeds() int64 {
 	defer ss.lock.RUnlock()
 
 	return ss.numSeeds
-	// count := int64(0) 
-	// for _, seedLocs := range ss.Locs { 
-	// for lk := seedLocs; lk != nil; lk = lk.Next { 
-	// count++ 
-	// } 
-	// } 
-	// return count 
 }
 
-// MaybeWipe completely wipes the seeds table if the number of seeds in the
-// table exceeds `maxSeeds`.
-func (ss *Seeds) MaybeWipe(maxSeeds int64) {
+// MaybeWipe completely wipes the seeds table if the memory of the seeds table
+// exceeds seedTableSizeGB (which is the number of gigabytes).
+func (ss *Seeds) MaybeWipe(seedTableSizeGB float64) {
+	seedLocSize := int64(16)
+	maxSeedBytes := seedTableSizeGB * 1024.0 * 1024.0 * 1024.0
+	maxSeeds := int64(maxSeedBytes) / seedLocSize
 	if ss.NumSeeds() >= maxSeeds {
 		println("Blowing away seeds table...")
 		ss.lock.Lock() // acquire write lock to blow away seeds table
