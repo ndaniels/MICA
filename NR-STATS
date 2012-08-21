@@ -1,0 +1,54 @@
+Pulsar
+======
+Ratio: 34.17%
+Seed table limit: NONE
+Extension seed size: 4
+Match Seq Id Threshold: 60
+Ext Seq Id Threshold: 50
+GOMAXPROCS: 16
+Run time: 4466m39s
+
+Ratio: 56.13%
+Seed table limit: 2GB
+Extension seed size: 0
+Match Seq Id Threshold: 60
+Ext Seq Id Threshold: 50
+GOMAXPROCS: 16
+Run time: 454m18s
+
+Ratio: ???
+Seed table limit: 8GB
+Extension seed size: 0
+Match Seq Id Threshold: 60
+Ext Seq Id Threshold: 50
+GOMAXPROCS: 24
+Run time: ???
+
+Titan
+=====
+Ratio: 52.41%
+Seed table limit: 4GB
+Extension seed size: 2
+Match Seq Id Threshold: 60
+Ext Seq Id Threshold: 50
+GOMAXPROCS: 10
+Run time: 526m47s
+
+Ratio: ???
+Seed table limit: 8GB
+Extension seed size: 0
+Match Seq Id Threshold: 70
+Ext Seq Id Threshold: 60
+GOMAXPROCS: 10
+Run time: ???
+
+Meteor
+======
+Ratio: ???
+Seed table limit: 6GB
+Extension seed size: 2
+Match Seq Id Threshold: 60
+Ext Seq Id Threshold: 50
+GOMAXPROCS: 10
+Run time: ???
+
