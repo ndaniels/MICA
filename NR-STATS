@@ -24,6 +24,14 @@ Ext Seq Id Threshold: 50
 GOMAXPROCS: 24
 Run time: 1157m15s
 
+Ratio: ???
+Seed table limit: 12GB
+Extension seed size: 0
+Match Seq Id Threshold: 60
+Ext Seq Id Threshold: 50
+GOMAXPROCS: 24
+Run time: ???
+
 Titan
 =====
 Ratio: 52.41%
