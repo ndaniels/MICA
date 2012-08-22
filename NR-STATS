@@ -44,11 +44,11 @@ Run time: ???
 
 Meteor
 ======
-Ratio: ???
+Ratio: 48.83%
 Seed table limit: 6GB
 Extension seed size: 2
 Match Seq Id Threshold: 60
 Ext Seq Id Threshold: 50
 GOMAXPROCS: 10
-Run time: ???
+Run time: 975m45s
 
