@@ -42,13 +42,13 @@ Ext Seq Id Threshold: 50
 GOMAXPROCS: 10
 Run time: 526m47s
 
-Ratio: ???
+Ratio: 48.74%
 Seed table limit: 8GB
 Extension seed size: 0
 Match Seq Id Threshold: 70
 Ext Seq Id Threshold: 60
 GOMAXPROCS: 10
-Run time: ???
+Run time: 2485m11s
 
 Meteor
 ======
