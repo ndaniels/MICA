@@ -30,15 +30,15 @@ var DefaultDBConf = DBConf{
 	MatchKmerSize:       4,
 	GappedWindowSize:    25,
 	UngappedWindowSize:  10,
-	ExtSeqIdThreshold:   50,
-	MatchSeqIdThreshold: 60,
+	ExtSeqIdThreshold:   60,
+	MatchSeqIdThreshold: 70,
 	MatchExtend:         30,
 	MapSeedSize:         6,
-	ExtSeedSize:         2,
+	ExtSeedSize:         0,
 	LowComplexity:       10,
 	SeedLowComplexity:   6,
 	SavePlain:           false,
-	ReadOnly:            false,
+	ReadOnly:            true,
 }
 
 func LoadDBConf(r io.Reader) (conf DBConf, err error) {
