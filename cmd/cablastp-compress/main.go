@@ -33,7 +33,7 @@ var (
 	flagAppend      = false
 	flagOverwrite   = false
 	flagQuiet       = false
-	flagMaxSeedsGB  = 2.0
+	flagMaxSeedsGB  = 8.0
 	flagCpuProfile  = ""
 	flagMemProfile  = ""
 	flagMemStats    = ""

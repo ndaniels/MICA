@@ -1,0 +1,11 @@
+#!/bin/sh
+
+if [ $# != 1 ]; then
+  echo "Usage: `basename $0`: database-dir" >&2
+  exit 1
+fi
+
+dbdir=$1
+
+makeblastdb -dbtype prot -in $dbdir/coarse.fasta -out $dbdir/blastdb
+
