@@ -15,6 +15,16 @@ import (
 	"github.com/BurntSushi/cablastp"
 )
 
+// blastp -db all-yeasts-cablastdb/blastdb -outfmt 5 < yeasts-query.fasta 
+
+// A BLAST database is created on the reference sequence after compression.
+// The search program will blast the input query sequences against this
+// database (with a relaxed e-value), and expand the hits using links into an 
+// in memory FASTA file. This FASTA file is passed to the stdin of a 
+// `makeblastdb` command, which outputs the fine BLAST database. Finally, the 
+// query sequences are blasted against this new database, and the hits are 
+// returned unmodified.
+
 const interval = 1000
 
 var (
