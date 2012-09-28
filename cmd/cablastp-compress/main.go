@@ -14,6 +14,8 @@ import (
 	"github.com/BurntSushi/cablastp"
 )
 
+// makeblastdb -dbtype prot -input_type fasta
+
 const interval = 1000
 
 var (
