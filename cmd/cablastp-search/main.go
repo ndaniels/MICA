@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path"
 	"runtime"
 	"runtime/pprof"
 
-	"code.google.com/p/biogo/io/seqio/fasta"
-	"code.google.com/p/biogo/seq"
+	// "code.google.com/p/biogo/io/seqio/fasta" 
+	// "code.google.com/p/biogo/seq" 
 
 	"github.com/BurntSushi/cablastp"
 )
@@ -28,6 +29,9 @@ import (
 const interval = 1000
 
 var (
+	// A default configuration.
+	dbConf = cablastp.DefaultDBConf
+
 	// Flags that affect the higher level operation of compression.
 	// Flags that control algorithmic parameters are stored in `dbConf`.
 	flagGoMaxProcs = runtime.NumCPU()
@@ -38,6 +42,13 @@ var (
 
 func init() {
 	log.SetFlags(0)
+
+	flag.StringVar(&dbConf.BlastMakeBlastDB, "makeblastdb",
+		dbConf.BlastMakeBlastDB,
+		"The location of the 'makeblastdb' executable.")
+	flag.StringVar(&dbConf.BlastBlastp, "blastp",
+		dbConf.BlastBlastp,
+		"The location of the 'blastp' executable.")
 
 	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
 		"The maximum number of CPUs that can be executing simultaneously.")
@@ -64,45 +75,28 @@ func main() {
 		cablastp.Verbose = true
 	}
 
-	// Open the fasta file specified for writing.
-	// This will be the source of the fine database.
-	outFasta, err := os.Create(flag.Arg(1))
+	queryFasta, err := os.Open(flag.Arg(1))
 	if err != nil {
-		fatalf("Could not write to '%s': %s\n", flag.Arg(1), err)
+		fatalf("Could not open '%s': %s.\n", flag.Arg(1), err)
 	}
-	fastaWriter := fasta.NewWriter(outFasta, 60)
 
-	// Create a new database for writing. If we're appending, we load
-	// the coarse database into memory, and setup the database for writing.
 	db, err := cablastp.NewReadDB(flag.Arg(0))
 	if err != nil {
 		fatalf("Could not open '%s' database: %s\n", flag.Arg(0), err)
 	}
 	cablastp.Vprintln("")
 
-	// Start the CPU profile after all of the data has been read.
-	if len(flagCpuProfile) > 0 {
-		f, err := os.Create(flagCpuProfile)
-		if err != nil {
-			fatalf("%s\n", err)
-		}
-		pprof.StartCPUProfile(f)
-	}
-
-	numSeqs := db.ComDB.NumSequences()
-	for orgSeqId := 0; orgSeqId < numSeqs; orgSeqId++ {
-		oseq, err := db.ComDB.ReadNextSeq(db.CoarseDB, orgSeqId)
-		if err != nil {
-			fatalf("%s\n", err)
-		}
-		fastaWriter.Write(
-			seq.New(oseq.Name, append(oseq.Residues, '*'), nil))
+	cmd := exec.Command(
+		db.BlastBlastp,
+		"-db", path.Join(db.Path, cablastp.FileBlastCoarse),
+		"-outfmt", "5")
+	cmd.Stdout = os.Stdout
+	cmd.Stdin = queryFasta
+	if err := cablastp.Exec(cmd); err != nil {
+		fatalf("%s\n", err)
 	}
 
 	cleanup(db)
-	if err = fastaWriter.Close(); err != nil {
-		fatalf("%s\n", err)
-	}
 }
 
 func cleanup(db *cablastp.DB) {
@@ -133,7 +127,7 @@ func usage() {
 	fmt.Fprintf(os.Stderr,
 		"\nUsage: %s [flags] "+
 			"database-directory "+
-			"out-fasta-file\n",
+			"query-fasta-file\n",
 		path.Base(os.Args[0]))
 	cablastp.PrintFlagDefaults()
 	os.Exit(1)

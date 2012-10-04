@@ -23,6 +23,8 @@ type DBConf struct {
 	SeedLowComplexity   int
 	SavePlain           bool
 	ReadOnly            bool
+	BlastMakeBlastDB    string
+	BlastBlastp         string
 }
 
 var DefaultDBConf = DBConf{
@@ -39,6 +41,8 @@ var DefaultDBConf = DBConf{
 	SeedLowComplexity:   6,
 	SavePlain:           false,
 	ReadOnly:            true,
+	BlastMakeBlastDB:    "makeblastdb",
+	BlastBlastp:         "blastp",
 }
 
 func LoadDBConf(r io.Reader) (conf DBConf, err error) {
@@ -104,6 +108,10 @@ func LoadDBConf(r io.Reader) (conf DBConf, err error) {
 			} else {
 				conf.ReadOnly = false
 			}
+		case "BlastMakeBlastDB":
+			conf.BlastMakeBlastDB = strings.TrimSpace(line[1])
+		case "BlastBlastp":
+			conf.BlastBlastp = strings.TrimSpace(line[1])
 		default:
 			return conf, fmt.Errorf("Invalid DBConf flag: %s", line[0])
 		}
@@ -161,6 +169,12 @@ func (flagConf DBConf) FlagMerge(fileConf DBConf) (DBConf, error) {
 	if !only["read-only"] {
 		flagConf.ReadOnly = fileConf.ReadOnly
 	}
+	if !only["makeblastdb"] {
+		flagConf.BlastMakeBlastDB = fileConf.BlastMakeBlastDB
+	}
+	if !only["blastp"] {
+		flagConf.BlastBlastp = fileConf.BlastBlastp
+	}
 	return flagConf, nil
 }
 
@@ -192,6 +206,8 @@ func (dbConf DBConf) Write(w io.Writer) error {
 		{"SeedLowComplexity", s(dbConf.SeedLowComplexity)},
 		{"SavePlain", bs(dbConf.SavePlain)},
 		{"ReadOnly", bs(dbConf.ReadOnly)},
+		{"BlastMakeBlastDB", dbConf.BlastMakeBlastDB},
+		{"BlastBlastp", dbConf.BlastBlastp},
 	}
 	if err := csvWriter.WriteAll(records); err != nil {
 		return err

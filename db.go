@@ -3,11 +3,13 @@ package cablastp
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 )
 
 const (
-	FileParams = "params"
+	FileParams      = "params"
+	FileBlastCoarse = "blastdb-coarse"
 )
 
 type DB struct {
@@ -54,6 +56,13 @@ func NewWriteDB(appnd bool, conf DBConf, dir string) (*DB, error) {
 		Path:      dir,
 		params:    nil,
 		appending: appnd,
+	}
+
+	// Do a sanity check and make sure we can access the `makeblastdb`
+	// executable. Otherwise we might do a lot of work for nothing...
+	if err = execExists(db.BlastMakeBlastDB); err != nil {
+		return nil, fmt.Errorf(
+			"Could not find 'makeblastdb' executable: %s", err)
 	}
 
 	// Now try to load the configuration parameters from the 'params' file.
@@ -145,6 +154,19 @@ func NewReadDB(dir string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Do a sanity check and make sure we can access the `makeblastdb`
+	// and `blastp` executables. Otherwise we might do a lot of work for 
+	// nothing...
+	if err = execExists(db.BlastMakeBlastDB); err != nil {
+		return nil, fmt.Errorf(
+			"Could not find 'makeblastdb' executable: %s", err)
+	}
+	if err = execExists(db.BlastBlastp); err != nil {
+		return nil, fmt.Errorf(
+			"Could not find 'blastp' executable: %s", err)
+	}
+
 	db.ComDB, err = NewReadCompressedDB(db)
 	if err != nil {
 		return nil, err
@@ -166,19 +188,21 @@ func (db *DB) openReadFile(name string) (*os.File, error) {
 	return f, nil
 }
 
-func (db *DB) Save() (err error) {
+func (db *DB) Save() error {
+	var err error
+
 	// Only write the params file when the database is first created.
 	if !db.appending {
 		// Make sure the params file is truncated so that we overwrite any
 		// previous configuration.
 		if err = db.params.Truncate(0); err != nil {
-			return
+			return err
 		}
 		if _, err = db.params.Seek(0, os.SEEK_SET); err != nil {
-			return
+			return err
 		}
 		if err = db.DBConf.Write(db.params); err != nil {
-			return
+			return err
 		}
 	}
 
@@ -186,8 +210,21 @@ func (db *DB) Save() (err error) {
 	// We don't need to explicitly save the compressed database, since its
 	// data is written as it is generated (including the index).
 	if err = db.CoarseDB.Save(); err != nil {
-		return
+		return err
 	}
+
+	// Now we need to construct a blastp database from the coarse fasta file. 
+	// e.g., `makeblastdb -dbtype prot -input_type fasta -in coarse.fasta`
+	cmd := exec.Command(
+		"makeblastdb", "-dbtype", "prot", "-input_type", "fasta",
+		"-in", path.Join(db.Path, FileCoarseFasta),
+		"-out", path.Join(db.Path, FileBlastCoarse))
+
+	Vprintf("Creating %s...\n", FileBlastCoarse)
+	if err = Exec(cmd); err != nil {
+		return err
+	}
+	Vprintf("Done creating %s.\n", FileBlastCoarse)
 	return nil
 }
 
@@ -201,4 +238,20 @@ func (db *DB) WriteClose() {
 	db.params.Close()
 	db.CoarseDB.WriteClose()
 	db.ComDB.WriteClose()
+}
+
+func execExists(name string) error {
+	_, err := exec.LookPath(name)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func fileExists(name string) error {
+	_, err := os.Stat(name)
+	if err != nil && os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
