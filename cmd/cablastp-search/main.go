@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/xml"
 	"flag"
 	"fmt"
 	"log"
@@ -66,6 +68,8 @@ func init() {
 }
 
 func main() {
+	buf := new(bytes.Buffer)
+
 	if flag.NArg() < 2 {
 		flag.Usage()
 	}
@@ -90,10 +94,34 @@ func main() {
 		db.BlastBlastp,
 		"-db", path.Join(db.Path, cablastp.FileBlastCoarse),
 		"-outfmt", "5")
-	cmd.Stdout = os.Stdout
+	cmd.Stdout = buf
 	cmd.Stdin = queryFasta
 	if err := cablastp.Exec(cmd); err != nil {
 		fatalf("%s\n", err)
+	}
+
+	results := blast{}
+	if err := xml.NewDecoder(buf).Decode(&results); err != nil {
+		fatalf("Could not parse BLAST search results: %s", err)
+	}
+	for _, hit := range results.Hits {
+		for _, hsp := range hit.Hsps {
+			oseqs, err := db.CoarseDB.Expand(db.ComDB,
+				hit.Accession, hsp.HitFrom, hsp.HitTo)
+			if err != nil {
+				errorf("Could not decompress coarse sequence %d (%d, %d): %s\n",
+					hit.Accession, hsp.HitFrom, hsp.HitTo, err)
+				continue
+			}
+
+			fmt.Println("--------------------------------------")
+			fmt.Printf("Accession: %d (%d, %d)\n",
+				hit.Accession, hsp.HitFrom, hsp.HitTo)
+			for _, oseq := range oseqs {
+				fmt.Printf("%s\n\n", oseq)
+			}
+			fmt.Println("--------------------------------------")
+		}
 	}
 
 	cleanup(db)
@@ -112,6 +140,10 @@ func cleanup(db *cablastp.DB) {
 func fatalf(format string, v ...interface{}) {
 	fmt.Fprintf(os.Stderr, format, v...)
 	os.Exit(1)
+}
+
+func errorf(format string, v ...interface{}) {
+	fmt.Fprintf(os.Stderr, format, v...)
 }
 
 func writeMemProfile(name string) {

@@ -193,21 +193,21 @@ func (coarsedb *CoarseDB) CoarseSeqGet(i uint) *CoarseSeq {
 }
 
 // Expand will follow all links to compressed sequences for the coarse
-// sequence at index `i` and return a slice of decompressed sequences.
+// sequence at index `id` and return a slice of decompressed sequences.
 func (coarsedb *CoarseDB) Expand(
-	comdb *CompressedDB, id int) ([]OriginalSeq, error) {
+	comdb *CompressedDB, id, start, end int) ([]OriginalSeq, error) {
 
 	// Calculate the byte offset into the coarse links file where the links
 	// for the coarse sequence `i` starts.
 	off, err := coarsedb.linkOffset(id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Could not get link offset: %s", err)
 	}
 
 	// Actually seek to that offset.
 	newOff, err := coarsedb.FileLinks.Seek(off, os.SEEK_SET)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Could not seek: %s", err)
 	} else if newOff != off {
 		return nil,
 			fmt.Errorf("Tried to seek to offset %d in the coarse links, "+
@@ -219,7 +219,7 @@ func (coarsedb *CoarseDB) Expand(
 	var numLinks uint32
 	err = binary.Read(coarsedb.FileLinks, binary.BigEndian, &numLinks)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Could not read number of links: %s", err)
 	}
 
 	// We use a map as a set of original sequence ids for eliminating 
@@ -227,18 +227,27 @@ func (coarsedb *CoarseDB) Expand(
 	// same compressed sequence).
 	ids := make(map[uint32]bool, numLinks)
 	oseqs := make([]OriginalSeq, 0, numLinks)
+	s, e := uint16(start), uint16(end)
 	for i := uint32(0); i < numLinks; i++ {
 		compLink, err := coarsedb.readLink()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("Could not read link: %s", err)
 		}
+
+		// We only use this link if the match is in the range.
+		if e < compLink.CoarseStart || s > compLink.CoarseEnd {
+			continue
+		}
+
+		// Don't decompress the same original sequence more than once.
 		if ids[compLink.OrgSeqId] {
 			continue
 		}
 
 		oseq, err := comdb.ReadSeq(coarsedb, int(compLink.OrgSeqId))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf(
+				"Could not read compressed sequence: %s", err)
 		}
 		ids[compLink.OrgSeqId] = true
 		oseqs = append(oseqs, oseq)
