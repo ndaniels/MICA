@@ -97,6 +97,9 @@ func init() {
 		dbConf.ReadOnly,
 		"When set, the database created will be read-only (i.e., it \n"+
 			"\tcannot be appended to), but it will be smaller.")
+	flag.StringVar(&dbConf.BlastMakeBlastDB, "makeblastdb",
+		dbConf.BlastMakeBlastDB,
+		"The location of the 'makeblastdb' executable.")
 
 	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
 		"The maximum number of CPUs that can be executing simultaneously.")
