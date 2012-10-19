@@ -387,6 +387,10 @@ func nextSeqToWrite(
 	nextIndex int, saved []CompressedSeq) (*CompressedSeq, []CompressedSeq) {
 
 	for i, cseq := range saved {
+		if cseq.Id < nextIndex {
+			panic(fmt.Sprintf("Cannot keep sequences (%d) earlier than the "+
+				"next index (%d)\n\n%s\n", cseq.Id, nextIndex, cseq))
+		}
 		if cseq.Id == nextIndex {
 			cseq_ := cseq
 			saved = append(saved[:i], saved[i+1:]...)
@@ -399,6 +403,7 @@ func nextSeqToWrite(
 func (comdb *CompressedDB) writer() {
 	var record []string
 	var err error
+	var cseq *CompressedSeq
 
 	byteOffset := int64(0)
 	buf := new(bytes.Buffer)
@@ -429,7 +434,7 @@ func (comdb *CompressedDB) writer() {
 		}
 		saved = append(saved, possible)
 
-		cseq, saved := nextSeqToWrite(nextIndex, saved)
+		cseq, saved = nextSeqToWrite(nextIndex, saved)
 		for cseq != nil {
 			// Reset the buffer so it's empty. We want it to only contain
 			// the next record we're writing.
