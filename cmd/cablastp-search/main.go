@@ -171,7 +171,7 @@ func makeFineBlastDB(db *cablastp.DB, stdin *bytes.Buffer) (string, error) {
 	}
 
 	cmd := exec.Command(
-		db.BlastMakeBlastDB, "-dbtype", "prot", "-input_type", "fasta",
+		db.BlastMakeBlastDB, "-dbtype", "prot",
 		"-title", cablastp.FileBlastFine,
 		"-in", "-",
 		"-out", path.Join(tmpDir, cablastp.FileBlastFine))
