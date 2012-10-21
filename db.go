@@ -10,6 +10,7 @@ import (
 const (
 	FileParams      = "params"
 	FileBlastCoarse = "blastdb-coarse"
+	FileBlastFine   = "blastdb-fine"
 )
 
 type DB struct {
@@ -216,7 +217,7 @@ func (db *DB) Save() error {
 	// Now we need to construct a blastp database from the coarse fasta file. 
 	// e.g., `makeblastdb -dbtype prot -input_type fasta -in coarse.fasta`
 	cmd := exec.Command(
-		"makeblastdb", "-dbtype", "prot", "-input_type", "fasta",
+		db.BlastMakeBlastDB, "-dbtype", "prot", "-input_type", "fasta",
 		"-in", path.Join(db.Path, FileCoarseFasta),
 		"-out", path.Join(db.Path, FileBlastCoarse))
 

@@ -1,17 +1,17 @@
 package main
 
 import (
+	"bytes"
+	"encoding/xml"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"path"
 	"runtime"
 	"runtime/pprof"
-
-	// "code.google.com/p/biogo/io/seqio/fasta" 
-	// "code.google.com/p/biogo/seq" 
 
 	"github.com/BurntSushi/cablastp"
 )
@@ -38,6 +38,8 @@ var (
 	flagQuiet      = false
 	flagCpuProfile = ""
 	flagMemProfile = ""
+	flagCoarseEval = 1.0e-10
+	flagNoCleanup  = false
 )
 
 func init() {
@@ -49,6 +51,13 @@ func init() {
 	flag.StringVar(&dbConf.BlastBlastp, "blastp",
 		dbConf.BlastBlastp,
 		"The location of the 'blastp' executable.")
+	flag.Float64Var(&flagCoarseEval, "coarse-eval", flagCoarseEval,
+		"The e-value threshold for the coarse search. This will NOT\n"+
+			"\tbe used on the fine search. The fine search e-value threshold\n"+
+			"\tcan be set in the 'blast-args' argument.")
+	flag.BoolVar(&flagNoCleanup, "no-cleanup", flagNoCleanup,
+		"When set, the temporary fine BLAST database that is created\n"+
+			"\twill NOT be deleted.")
 
 	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
 		"The maximum number of CPUs that can be executing simultaneously.")
@@ -66,6 +75,8 @@ func init() {
 }
 
 func main() {
+	buf := new(bytes.Buffer)
+
 	if flag.NArg() < 2 {
 		flag.Usage()
 	}
@@ -75,28 +86,161 @@ func main() {
 		cablastp.Verbose = true
 	}
 
-	queryFasta, err := os.Open(flag.Arg(1))
+	inputFastaQuery, err := getInputFasta()
 	if err != nil {
-		fatalf("Could not open '%s': %s.\n", flag.Arg(1), err)
+		fatalf("Could not read input fasta query: %s\n", err)
 	}
 
 	db, err := cablastp.NewReadDB(flag.Arg(0))
 	if err != nil {
 		fatalf("Could not open '%s' database: %s\n", flag.Arg(0), err)
 	}
-	cablastp.Vprintln("")
+
+	cablastp.Vprintln("\nBlasting query on coarse database...")
+	if err := blastCoarse(db, inputFastaQuery, buf); err != nil {
+		fatalf("Error blasting coarse database: %s\n", err)
+	}
+
+	cablastp.Vprintln("Decompressing blast hits...")
+	expandedSequences, err := expandBlastHits(db, buf)
+	if err != nil {
+		fatalf("%s\n", err)
+	}
+
+	// Clear the buffer and write the fasta file to it.
+	// Se it as `makeblastdb`'s stdin.
+	buf.Reset()
+	if err := writeFasta(expandedSequences, buf); err != nil {
+		fatalf("Could not create FASTA input from coarse hits: %s\n", err)
+	}
+
+	// Create the fine Blast database in a temporary directory.
+	cablastp.Vprintln("Building fine BLAST database...")
+	tmpDir, err := makeFineBlastDB(db, buf)
+	if err != nil {
+		fatalf("Could not create fine database to search on: %s\n", err)
+	}
+
+	// Finally, run the query against the fine database and pass on the
+	// stdout and stderr...
+	cablastp.Vprintln("Blasting query on fine database...")
+	if _, err := inputFastaQuery.Seek(0, os.SEEK_SET); err != nil {
+		fatalf("Could not seek to start of query fasta input: %s\n", err)
+	}
+	if err := blastFine(db, tmpDir, inputFastaQuery); err != nil {
+		fatalf("Error blasting fine database: %s\n", err)
+	}
+
+	// Delete the temporary fine database.
+	if !flagNoCleanup {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			fatalf("Could not delete fine BLAST database: %s\n", err)
+		}
+	}
+
+	cleanup(db)
+}
+
+func blastFine(
+	db *cablastp.DB, blastFineDir string, stdin *bytes.Reader) error {
+
+	cmd := exec.Command(
+		db.BlastBlastp,
+		"-db", path.Join(blastFineDir, cablastp.FileBlastFine))
+	cmd.Stdin = stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cablastp.Exec(cmd)
+}
+
+func makeFineBlastDB(db *cablastp.DB, stdin *bytes.Buffer) (string, error) {
+	tmpDir, err := ioutil.TempDir("", "cablastp-fine-search-db")
+	if err != nil {
+		return "", fmt.Errorf("Could not create temporary directory: %s\n", err)
+	}
+
+	cmd := exec.Command(
+		db.BlastMakeBlastDB, "-dbtype", "prot", "-input_type", "fasta",
+		"-title", cablastp.FileBlastFine,
+		"-in", "-",
+		"-out", path.Join(tmpDir, cablastp.FileBlastFine))
+	cmd.Stdin = stdin
+
+	cablastp.Vprintf("Created temporary fine BLAST database in %s\n", tmpDir)
+
+	return tmpDir, cablastp.Exec(cmd)
+}
+
+func writeFasta(oseqs []cablastp.OriginalSeq, buf *bytes.Buffer) error {
+	for _, oseq := range oseqs {
+		_, err := fmt.Fprintf(buf, "> %s\n%s\n",
+			oseq.Name, string(oseq.Residues))
+		if err != nil {
+			return fmt.Errorf("Could not write to buffer: %s", err)
+		}
+	}
+	return nil
+}
+
+func expandBlastHits(
+	db *cablastp.DB, buf *bytes.Buffer) ([]cablastp.OriginalSeq, error) {
+
+	results := blast{}
+	if err := xml.NewDecoder(buf).Decode(&results); err != nil {
+		return nil, fmt.Errorf("Could not parse BLAST search results: %s", err)
+	}
+
+	used := make(map[int]bool, 100) // prevent original sequence duplicates
+	oseqs := make([]cablastp.OriginalSeq, 0, 100)
+	for _, hit := range results.Hits {
+		for _, hsp := range hit.Hsps {
+			someOseqs, err := db.CoarseDB.Expand(db.ComDB,
+				hit.Accession, hsp.HitFrom, hsp.HitTo)
+			if err != nil {
+				errorf("Could not decompress coarse sequence %d (%d, %d): %s\n",
+					hit.Accession, hsp.HitFrom, hsp.HitTo, err)
+				continue
+			}
+
+			// Make sure this his is below the coarse e-value threshold.
+			if hsp.Evalue > flagCoarseEval {
+				continue
+			}
+
+			for _, oseq := range someOseqs {
+				if used[oseq.Id] {
+					continue
+				}
+				used[oseq.Id] = true
+				oseqs = append(oseqs, oseq)
+			}
+		}
+	}
+	return oseqs, nil
+}
+
+func blastCoarse(
+	db *cablastp.DB, stdin *bytes.Reader, stdout *bytes.Buffer) error {
 
 	cmd := exec.Command(
 		db.BlastBlastp,
 		"-db", path.Join(db.Path, cablastp.FileBlastCoarse),
 		"-outfmt", "5")
-	cmd.Stdout = os.Stdout
-	cmd.Stdin = queryFasta
-	if err := cablastp.Exec(cmd); err != nil {
-		fatalf("%s\n", err)
-	}
+	cmd.Stdin = stdin
+	cmd.Stdout = stdout
+	return cablastp.Exec(cmd)
+}
 
-	cleanup(db)
+func getInputFasta() (*bytes.Reader, error) {
+	queryFasta, err := os.Open(flag.Arg(1))
+	if err != nil {
+		return nil, fmt.Errorf("Could not open '%s': %s.", flag.Arg(1), err)
+	}
+	bs, err := ioutil.ReadAll(queryFasta)
+	if err != nil {
+		return nil, fmt.Errorf("Could not read input fasta query: %s", err)
+	}
+	return bytes.NewReader(bs), nil
 }
 
 func cleanup(db *cablastp.DB) {
@@ -112,6 +256,10 @@ func cleanup(db *cablastp.DB) {
 func fatalf(format string, v ...interface{}) {
 	fmt.Fprintf(os.Stderr, format, v...)
 	os.Exit(1)
+}
+
+func errorf(format string, v ...interface{}) {
+	fmt.Fprintf(os.Stderr, format, v...)
 }
 
 func writeMemProfile(name string) {

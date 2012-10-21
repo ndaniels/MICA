@@ -1,6 +1,7 @@
 .*.swp
 cmd/cablastp-compress/cablastp-compress
 cmd/cablastp-decompress/cablastp-decompress
+cmd/cablastp-search/cablastp-search
 mit
 TAGS
 *.prof*

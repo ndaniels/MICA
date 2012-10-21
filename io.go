@@ -324,9 +324,13 @@ func (comdb *CompressedDB) ReadSeq(
 func (comdb *CompressedDB) ReadNextSeq(
 	coarsedb *CoarseDB, orgSeqId int) (OriginalSeq, error) {
 
-	record, err := comdb.csvReader.Read()
+	csvReader := csv.NewReader(comdb.File)
+	csvReader.Comma = ','
+	csvReader.FieldsPerRecord = -1
+
+	record, err := csvReader.Read()
 	if err != nil {
-		return OriginalSeq{}, err
+		return OriginalSeq{}, fmt.Errorf("[csv reader]: %s", err)
 	}
 
 	cseq, err := readCompressedSeq(orgSeqId, record)
@@ -379,15 +383,36 @@ func readCompressedSeq(id int, record []string) (CompressedSeq, error) {
 	return cseq, nil
 }
 
+func nextSeqToWrite(
+	nextIndex int, saved []CompressedSeq) (*CompressedSeq, []CompressedSeq) {
+
+	for i, cseq := range saved {
+		if cseq.Id < nextIndex {
+			panic(fmt.Sprintf("Cannot keep sequences (%d) earlier than the "+
+				"next index (%d)\n\n%s\n", cseq.Id, nextIndex, cseq))
+		}
+		if cseq.Id == nextIndex {
+			cseq_ := cseq
+			saved = append(saved[:i], saved[i+1:]...)
+			return &cseq_, saved
+		}
+	}
+	return nil, saved
+}
+
 func (comdb *CompressedDB) writer() {
 	var record []string
 	var err error
+	var cseq *CompressedSeq
 
 	byteOffset := int64(0)
 	buf := new(bytes.Buffer)
 	csvWriter := csv.NewWriter(buf)
 	csvWriter.Comma = ','
 	csvWriter.UseCRLF = false
+
+	saved := make([]CompressedSeq, 0, 1000)
+	nextIndex := comdb.NumSequences()
 
 	// If we're appending to the index, set the byteOffset to be at the end
 	// of the current compressed database.
@@ -400,46 +425,60 @@ func (comdb *CompressedDB) writer() {
 		byteOffset = info.Size()
 	}
 
-	for cseq := range comdb.writerChan {
-		// Reset the buffer so it's empty. We want it to only contain
-		// the next record we're writing.
-		buf.Reset()
-
-		// Allocate memory for creating the next record.
-		// A record is a sequence name followed by four-tuples of links:
-		// (coarse-seq-id, coarse-start, coarse-end, diff).
-		record = make([]string, 0, 1+4*len(cseq.Links))
-		record = append(record, cseq.Name)
-		for _, link := range cseq.Links {
-			record = append(record,
-				fmt.Sprintf("%d", link.CoarseSeqId),
-				fmt.Sprintf("%d", link.CoarseStart),
-				fmt.Sprintf("%d", link.CoarseEnd),
-				link.Diff)
+	for possible := range comdb.writerChan {
+		// We have to preserve the order of compressed sequences, so we don't
+		// write anything until we have the next sequence that we expect.
+		if possible.Id < nextIndex {
+			panic(fmt.Sprintf("BUG: Next sequence expected is '%d', but "+
+				"we have an earlier sequence: %d", nextIndex, possible.Id))
 		}
+		saved = append(saved, possible)
 
-		// Write the record to our *buffer* and flush it.
-		if err = csvWriter.Write(record); err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			os.Exit(1)
+		cseq, saved = nextSeqToWrite(nextIndex, saved)
+		for cseq != nil {
+			// Reset the buffer so it's empty. We want it to only contain
+			// the next record we're writing.
+			buf.Reset()
+
+			// Allocate memory for creating the next record.
+			// A record is a sequence name followed by four-tuples of links:
+			// (coarse-seq-id, coarse-start, coarse-end, diff).
+			record = make([]string, 0, 1+4*len(cseq.Links))
+			record = append(record, cseq.Name)
+			for _, link := range cseq.Links {
+				record = append(record,
+					fmt.Sprintf("%d", link.CoarseSeqId),
+					fmt.Sprintf("%d", link.CoarseStart),
+					fmt.Sprintf("%d", link.CoarseEnd),
+					link.Diff)
+			}
+
+			// Write the record to our *buffer* and flush it.
+			if err = csvWriter.Write(record); err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				os.Exit(1)
+			}
+			csvWriter.Flush()
+
+			// Pass the bytes on to the compressed file.
+			if _, err = comdb.File.Write(buf.Bytes()); err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				os.Exit(1)
+			}
+
+			// Now write the byte offset that points to the start of this record
+			err = binary.Write(comdb.Index, binary.BigEndian, byteOffset)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				os.Exit(1)
+			}
+
+			// Increment the byte offset to be at the end of this record.
+			byteOffset += int64(buf.Len())
+
+			nextIndex++
+			cseq, saved = nextSeqToWrite(nextIndex, saved)
 		}
-		csvWriter.Flush()
-
-		// Pass the bytes on to the compressed file.
-		if _, err = comdb.File.Write(buf.Bytes()); err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			os.Exit(1)
-		}
-
-		// Now write the byte offset that points to the start of this record.
-		err = binary.Write(comdb.Index, binary.BigEndian, byteOffset)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			os.Exit(1)
-		}
-
-		// Increment the byte offset to be at the end of this record.
-		byteOffset += int64(buf.Len())
 	}
 	comdb.Index.Close()
 	comdb.File.Close()
