@@ -16,8 +16,6 @@ import (
 	"github.com/BurntSushi/cablastp"
 )
 
-// blastp -db all-yeasts-cablastdb/blastdb -outfmt 5 < yeasts-query.fasta 
-
 // A BLAST database is created on the reference sequence after compression.
 // The search program will blast the input query sequences against this
 // database (with a relaxed e-value), and expand the hits using links into an 
@@ -25,8 +23,6 @@ import (
 // `makeblastdb` command, which outputs the fine BLAST database. Finally, the 
 // query sequences are blasted against this new database, and the hits are 
 // returned unmodified.
-
-const interval = 1000
 
 var (
 	// A default configuration.
@@ -41,6 +37,9 @@ var (
 	flagCoarseEval = 1.0e-10
 	flagNoCleanup  = false
 )
+
+// blastArgs are all the arguments after "--blast-args".
+var blastArgs []string
 
 func init() {
 	log.SetFlags(0)
@@ -67,6 +66,15 @@ func init() {
 		"When set, a CPU profile will be written to the file specified.")
 	flag.StringVar(&flagMemProfile, "memprofile", flagMemProfile,
 		"When set, a memory profile will be written to the file specified.")
+
+	// find '--blast-args' and chop off the remainder before letting the flag
+	// package have its way.
+	for i, arg := range os.Args {
+		if arg == "--blast-args" {
+			blastArgs = os.Args[i+1:]
+			os.Args = os.Args[:i]
+		}
+	}
 
 	flag.Usage = usage
 	flag.Parse()
@@ -144,9 +152,12 @@ func main() {
 func blastFine(
 	db *cablastp.DB, blastFineDir string, stdin *bytes.Reader) error {
 
-	cmd := exec.Command(
-		db.BlastBlastp,
-		"-db", path.Join(blastFineDir, cablastp.FileBlastFine))
+	// We pass our own "-db" flag to blastp, but the rest come from user
+	// defined flags.
+	flags := []string{"-db", path.Join(blastFineDir, cablastp.FileBlastFine)}
+	flags = append(flags, blastArgs...)
+
+	cmd := exec.Command(db.BlastBlastp, flags...)
 	cmd.Stdin = stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -183,10 +194,10 @@ func writeFasta(oseqs []cablastp.OriginalSeq, buf *bytes.Buffer) error {
 }
 
 func expandBlastHits(
-	db *cablastp.DB, buf *bytes.Buffer) ([]cablastp.OriginalSeq, error) {
+	db *cablastp.DB, blastOut *bytes.Buffer) ([]cablastp.OriginalSeq, error) {
 
 	results := blast{}
-	if err := xml.NewDecoder(buf).Decode(&results); err != nil {
+	if err := xml.NewDecoder(blastOut).Decode(&results); err != nil {
 		return nil, fmt.Errorf("Could not parse BLAST search results: %s", err)
 	}
 
@@ -202,7 +213,7 @@ func expandBlastHits(
 				continue
 			}
 
-			// Make sure this his is below the coarse e-value threshold.
+			// Make sure this hit is below the coarse e-value threshold.
 			if hsp.Evalue > flagCoarseEval {
 				continue
 			}
@@ -273,9 +284,8 @@ func writeMemProfile(name string) {
 
 func usage() {
 	fmt.Fprintf(os.Stderr,
-		"\nUsage: %s [flags] "+
-			"database-directory "+
-			"query-fasta-file\n",
+		"\nUsage: %s [flags] database-directory query-fasta-file "+
+			"[--blast-args BLASTP_ARGUMENTS]\n",
 		path.Base(os.Args[0]))
 	cablastp.PrintFlagDefaults()
 	os.Exit(1)

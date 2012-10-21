@@ -1,7 +1,6 @@
 package cablastp
 
 import (
-	"bufio"
 	"bytes"
 	"compress/gzip"
 	"encoding/binary"
@@ -36,23 +35,39 @@ func (coarsedb *CoarseDB) readFasta() error {
 	return nil
 }
 
-func (coarsedb *CoarseDB) saveFasta() error {
+func (coarsedb *CoarseDB) saveFasta() (err error) {
 	Vprintf("Writing %s...\n", FileCoarseFasta)
+	Vprintf("Writing %s...\n", FileCoarseFastaIndex)
 	timer := time.Now()
 
-	bufWriter := bufio.NewWriter(coarsedb.FileFasta)
-	for i := coarsedb.seqsRead; i < len(coarsedb.Seqs); i++ {
-		_, err := fmt.Fprintf(bufWriter,
-			"> %d\n%s\n", i, string(coarsedb.Seqs[i].Residues))
+	byteOff := int64(0)
+	buf := new(bytes.Buffer)
+
+	if coarsedb.fastaIndexSize > 0 {
+		info, err := coarsedb.FileFasta.Stat()
 		if err != nil {
 			return err
 		}
+		byteOff = info.Size()
 	}
-	if err := bufWriter.Flush(); err != nil {
-		return err
+
+	for i := coarsedb.seqsRead; i < len(coarsedb.Seqs); i++ {
+		buf.Reset()
+		fmt.Fprintf(buf, "> %d\n%s\n", i, string(coarsedb.Seqs[i].Residues))
+
+		if _, err = coarsedb.FileFasta.Write(buf.Bytes()); err != nil {
+			return
+		}
+		err = binary.Write(coarsedb.FileFastaIndex, binary.BigEndian, byteOff)
+		if err != nil {
+			return
+		}
+
+		byteOff += int64(buf.Len())
 	}
 
 	Vprintf("Done writing %s (%s).\n", FileCoarseFasta, time.Since(timer))
+	Vprintf("Done writing %s (%s).\n", FileCoarseFastaIndex, time.Since(timer))
 	return nil
 }
 

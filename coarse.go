@@ -9,6 +9,7 @@ import (
 
 const (
 	FileCoarseFasta      = "coarse.fasta"
+	FileCoarseFastaIndex = "coarse.fasta.index"
 	FileCoarseLinks      = "coarse.links"
 	FileCoarsePlainLinks = "coarse.links.plain"
 	FileCoarseLinksIndex = "coarse.links.index"
@@ -25,6 +26,9 @@ type CoarseDB struct {
 	Seeds    Seeds
 
 	FileFasta      *os.File
+	fastaCache     map[int]*CoarseSeq
+	FileFastaIndex *os.File
+	fastaIndexSize int64
 	FileSeeds      *os.File
 	FileLinks      *os.File
 	FileLinksIndex *os.File
@@ -50,6 +54,8 @@ func NewWriteCoarseDB(appnd bool, db *DB) (*CoarseDB, error) {
 		seqsRead:       0,
 		Seeds:          NewSeeds(db.MapSeedSize, db.SeedLowComplexity),
 		FileFasta:      nil,
+		FileFastaIndex: nil,
+		fastaIndexSize: 0,
 		FileSeeds:      nil,
 		FileLinks:      nil,
 		FileLinksIndex: nil,
@@ -59,6 +65,10 @@ func NewWriteCoarseDB(appnd bool, db *DB) (*CoarseDB, error) {
 		plainSeeds:     nil,
 	}
 	coarsedb.FileFasta, err = db.openWriteFile(appnd, FileCoarseFasta)
+	if err != nil {
+		return nil, err
+	}
+	coarsedb.FileFastaIndex, err = db.openWriteFile(appnd, FileCoarseFastaIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +85,12 @@ func NewWriteCoarseDB(appnd bool, db *DB) (*CoarseDB, error) {
 		return nil, err
 	}
 
+	info, err := coarsedb.FileFastaIndex.Stat()
+	if err != nil {
+		return nil, err
+	}
+	coarsedb.fastaIndexSize = info.Size()
+
 	if coarsedb.plain {
 		coarsedb.plainLinks, err = db.openWriteFile(appnd, FileCoarsePlainLinks)
 		if err != nil {
@@ -87,7 +103,7 @@ func NewWriteCoarseDB(appnd bool, db *DB) (*CoarseDB, error) {
 	}
 
 	if appnd {
-		if err = coarsedb.load(); err != nil {
+		if err = coarsedb.Load(); err != nil {
 			return nil, err
 		}
 
@@ -135,9 +151,12 @@ func NewReadCoarseDB(db *DB) (*CoarseDB, error) {
 	Vprintln("\tOpening coarse database...")
 
 	coarsedb := &CoarseDB{
-		Seqs:           make([]*CoarseSeq, 0, 10000000),
+		Seqs:           make([]*CoarseSeq, 0, 100000),
 		Seeds:          NewSeeds(db.MapSeedSize, db.SeedLowComplexity),
 		FileFasta:      nil,
+		fastaCache:     make(map[int]*CoarseSeq, 200),
+		FileFastaIndex: nil,
+		fastaIndexSize: 0,
 		FileSeeds:      nil,
 		FileLinks:      nil,
 		FileLinksIndex: nil,
@@ -146,6 +165,10 @@ func NewReadCoarseDB(db *DB) (*CoarseDB, error) {
 		plain:          db.SavePlain,
 	}
 	coarsedb.FileFasta, err = db.openReadFile(FileCoarseFasta)
+	if err != nil {
+		return nil, err
+	}
+	coarsedb.FileFastaIndex, err = db.openReadFile(FileCoarseFastaIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -158,9 +181,11 @@ func NewReadCoarseDB(db *DB) (*CoarseDB, error) {
 		return nil, err
 	}
 
-	if err := coarsedb.load(); err != nil {
+	info, err := coarsedb.FileFastaIndex.Stat()
+	if err != nil {
 		return nil, err
 	}
+	coarsedb.fastaIndexSize = info.Size()
 
 	Vprintln("\tDone opening coarse database.")
 	return coarsedb, nil
@@ -256,6 +281,63 @@ func (coarsedb *CoarseDB) Expand(
 	return oseqs, nil
 }
 
+func (coarsedb *CoarseDB) NumSequences() int {
+	return int(coarsedb.fastaIndexSize / 8)
+}
+
+func (coarsedb *CoarseDB) ReadCoarseSeq(id int) (*CoarseSeq, error) {
+	// Prevent reading the same coarse sequence over and over.
+	if coarseSeq, ok := coarsedb.fastaCache[id]; ok {
+		return coarseSeq, nil
+	}
+
+	off, err := coarsedb.coarseOffset(id)
+	if err != nil {
+		return nil, fmt.Errorf("Could not get coarse offset: %s", err)
+	}
+
+	newOff, err := coarsedb.FileFasta.Seek(off, os.SEEK_SET)
+	if err != nil {
+		return nil, fmt.Errorf("Could not seek in coarse fasta: %s", err)
+	} else if newOff != off {
+		return nil,
+			fmt.Errorf("Tried to seek to ffset %d in the coarse fasta file, "+
+				"but seeked to %d instead.", off, newOff)
+	}
+
+	// Read in the sequence.
+	var corSeqId int
+	var residues string
+	n, err := fmt.Fscanf(coarsedb.FileFasta, "> %d\n%s\n", &corSeqId, &residues)
+	if err != nil {
+		return nil, fmt.Errorf("Could not scan coarse sequence %d: %s", id, err)
+	} else if n != 2 {
+		return nil, fmt.Errorf("Expected to read in two values for coarse "+
+			"sequence %d, but read %d values instead.", id, n)
+	} else if corSeqId != id {
+		return nil, fmt.Errorf("Expected to read coarse sequence %d but read "+
+			"coarse sequence %d instead.", id, corSeqId)
+	}
+
+	coarseSeq := NewCoarseSeq(id, "", []byte(residues))
+	coarsedb.fastaCache[id] = coarseSeq
+	return coarseSeq, nil
+}
+
+func (coarsedb *CoarseDB) coarseOffset(id int) (seqOff int64, err error) {
+	tryOff := int64(id) * 8
+	realOff, err := coarsedb.FileFastaIndex.Seek(tryOff, os.SEEK_SET)
+	if err != nil {
+		return
+	} else if tryOff != realOff {
+		return 0,
+			fmt.Errorf("Tried to seek to offset %d in the coarse index, "+
+				"but seeked to %d instead.", tryOff, realOff)
+	}
+	err = binary.Read(coarsedb.FileFastaIndex, binary.BigEndian, &seqOff)
+	return
+}
+
 func (coarsedb *CoarseDB) linkOffset(id int) (seqOff int64, err error) {
 	tryOff := int64(id) * 8
 	realOff, err := coarsedb.FileLinksIndex.Seek(tryOff, os.SEEK_SET)
@@ -273,6 +355,7 @@ func (coarsedb *CoarseDB) linkOffset(id int) (seqOff int64, err error) {
 // ReadClose closes all files necessary for reading the coarse database.
 func (coarsedb *CoarseDB) ReadClose() {
 	coarsedb.FileFasta.Close()
+	coarsedb.FileFastaIndex.Close()
 	coarsedb.FileLinks.Close()
 	coarsedb.FileLinksIndex.Close()
 }
@@ -280,6 +363,7 @@ func (coarsedb *CoarseDB) ReadClose() {
 // ReadClose closes all files necessary for writing the coarse database.
 func (coarsedb *CoarseDB) WriteClose() {
 	coarsedb.FileFasta.Close()
+	coarsedb.FileFastaIndex.Close()
 	coarsedb.FileSeeds.Close()
 	coarsedb.FileLinks.Close()
 	coarsedb.FileLinksIndex.Close()
@@ -289,7 +373,7 @@ func (coarsedb *CoarseDB) WriteClose() {
 	}
 }
 
-func (coarsedb *CoarseDB) load() (err error) {
+func (coarsedb *CoarseDB) Load() (err error) {
 	if err = coarsedb.readFasta(); err != nil {
 		return
 	}

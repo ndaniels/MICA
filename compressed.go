@@ -173,11 +173,10 @@ func (cseq *CompressedSeq) Add(link LinkToCoarse) {
 	cseq.Links = append(cseq.Links, link)
 }
 
-func (cseq CompressedSeq) Decompress(coarsedb *CoarseDB) (OriginalSeq, error) {
-	var corres, subCorres []byte
+func (cseq CompressedSeq) Decompress(coarse *CoarseDB) (OriginalSeq, error) {
 	residues := make([]byte, 0, 20)
 	for _, lk := range cseq.Links {
-		if lk.CoarseSeqId < 0 || lk.CoarseSeqId >= uint(len(coarsedb.Seqs)) {
+		if lk.CoarseSeqId < 0 || lk.CoarseSeqId >= uint(coarse.NumSequences()) {
 			return OriginalSeq{},
 				fmt.Errorf("Cannot decompress compressed sequence (id: %d), "+
 					"because a link refers to an invalid coarse sequence "+
@@ -188,8 +187,11 @@ func (cseq CompressedSeq) Decompress(coarsedb *CoarseDB) (OriginalSeq, error) {
 			return OriginalSeq{}, err
 		}
 
-		corres = coarsedb.Seqs[lk.CoarseSeqId].Residues
-		subCorres = corres[lk.CoarseStart:lk.CoarseEnd]
+		coarseSeq, err := coarse.ReadCoarseSeq(int(lk.CoarseSeqId))
+		if err != nil {
+			return OriginalSeq{}, err
+		}
+		subCorres := coarseSeq.Residues[lk.CoarseStart:lk.CoarseEnd]
 		residues = append(residues, editScript.Apply(subCorres)...)
 	}
 	return *NewOriginalSeq(cseq.Id, cseq.Name, residues), nil
