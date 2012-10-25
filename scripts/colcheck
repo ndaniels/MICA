@@ -3,8 +3,7 @@
 import argparse
 from collections import OrderedDict
 import os
-
-import cmdlib
+import sys
 
 try:
     from termcolor import colored
@@ -37,7 +36,7 @@ for f in args.files:
     if f in fileErrors:
         continue
     if not os.access(f, os.R_OK):
-        cmdlib.eprint('Could not read file "%s"' % f)
+        print >> sys.stderr, 'Could not read file "%s"' % f
         continue
 
     fileErrors[f] = []
@@ -67,6 +66,6 @@ for f, errors in fileErrors.iteritems():
     print
 
 if someErrors:
-    cmdlib.exit(1)
-cmdlib.exit(0)
+    sys.exit(1)
+sys.exit(0)
 
