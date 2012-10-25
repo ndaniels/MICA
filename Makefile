@@ -9,7 +9,7 @@ blosum/blosum.go:
 
 gofmt:
 	gofmt -w *.go cmd/*/*.go
-	scripts/colcheck *.go cmd/*/*.go
+#	scripts/colcheck *.go cmd/*/*.go
 
 tags:
 	find ./ \( \
