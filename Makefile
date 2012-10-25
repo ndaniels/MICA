@@ -1,7 +1,8 @@
 all: gofmt blosum/blosum.go install
 
 install:
-	go install -p 6 . ./cmd/cablastp-compress ./cmd/cablastp-decompress
+	go install -p 6 . \
+		./cmd/cablastp-compress ./cmd/cablastp-decompress ./cmd/cablastp-search
 
 blosum/blosum.go:
 	scripts/mkBlosum | gofmt > blosum/blosum.go
