@@ -115,34 +115,27 @@ func main() {
 		fatalf("%s\n", err)
 	}
 
-	// Clear the buffer and write the fasta file to it.
-	// Se it as `makeblastdb`'s stdin.
-	buf.Reset()
-	if err := writeFasta(expandedSequences, buf); err != nil {
+	// Write the contents of the expanded sequences to a fasta file.
+	// It is then passed as the "-subject" parameter to blastp.
+	var tmpFine string
+	if tmpFine, err = writeFasta(expandedSequences); err != nil {
 		fatalf("Could not create FASTA input from coarse hits: %s\n", err)
 	}
 
-	// Create the fine Blast database in a temporary directory.
-	cablastp.Vprintln("Building fine BLAST database...")
-	tmpDir, err := makeFineBlastDB(db, buf)
-	if err != nil {
-		fatalf("Could not create fine database to search on: %s\n", err)
-	}
-
-	// Finally, run the query against the fine database and pass on the
+	// Finally, run the query against the fine fasta database and pass on the
 	// stdout and stderr...
 	cablastp.Vprintln("Blasting query on fine database...")
 	if _, err := inputFastaQuery.Seek(0, os.SEEK_SET); err != nil {
 		fatalf("Could not seek to start of query fasta input: %s\n", err)
 	}
-	if err := blastFine(db, tmpDir, inputFastaQuery); err != nil {
+	if err := blastFine(db, tmpFine, inputFastaQuery); err != nil {
 		fatalf("Error blasting fine database: %s\n", err)
 	}
 
 	// Delete the temporary fine database.
 	if !flagNoCleanup {
-		if err := os.RemoveAll(tmpDir); err != nil {
-			fatalf("Could not delete fine BLAST database: %s\n", err)
+		if err := os.Remove(tmpFine); err != nil {
+			fatalf("Could not delete fine fasta database: %s\n", err)
 		}
 	}
 
@@ -150,11 +143,11 @@ func main() {
 }
 
 func blastFine(
-	db *cablastp.DB, blastFineDir string, stdin *bytes.Reader) error {
+	db *cablastp.DB, blastFineFile string, stdin *bytes.Reader) error {
 
 	// We pass our own "-db" flag to blastp, but the rest come from user
 	// defined flags.
-	flags := []string{"-db", path.Join(blastFineDir, cablastp.FileBlastFine)}
+	flags := []string{"-subject", blastFineFile}
 	flags = append(flags, blastArgs...)
 
 	cmd := exec.Command(db.BlastBlastp, flags...)
@@ -164,33 +157,20 @@ func blastFine(
 	return cablastp.Exec(cmd)
 }
 
-func makeFineBlastDB(db *cablastp.DB, stdin *bytes.Buffer) (string, error) {
-	tmpDir, err := ioutil.TempDir("", "cablastp-fine-search-db")
+func writeFasta(oseqs []cablastp.OriginalSeq) (string, error) {
+	tmpFine, err := ioutil.TempFile("", "cablastp-fine-fasta")
 	if err != nil {
-		return "", fmt.Errorf("Could not create temporary directory: %s\n", err)
+		return "", err
 	}
-
-	cmd := exec.Command(
-		db.BlastMakeBlastDB, "-dbtype", "prot",
-		"-title", cablastp.FileBlastFine,
-		"-in", "-",
-		"-out", path.Join(tmpDir, cablastp.FileBlastFine))
-	cmd.Stdin = stdin
-
-	cablastp.Vprintf("Created temporary fine BLAST database in %s\n", tmpDir)
-
-	return tmpDir, cablastp.Exec(cmd)
-}
-
-func writeFasta(oseqs []cablastp.OriginalSeq, buf *bytes.Buffer) error {
 	for _, oseq := range oseqs {
-		_, err := fmt.Fprintf(buf, "> %s\n%s\n",
+		_, err := fmt.Fprintf(tmpFine, "> %s\n%s\n",
 			oseq.Name, string(oseq.Residues))
 		if err != nil {
-			return fmt.Errorf("Could not write to buffer: %s", err)
+			return "", fmt.Errorf("Could not write to file %s: %s",
+				tmpFine.Name(), err)
 		}
 	}
-	return nil
+	return tmpFine.Name(), nil
 }
 
 func expandBlastHits(
