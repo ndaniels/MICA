@@ -35,11 +35,11 @@ func NewEditScriptParse(editScript string) (*EditScript, error) {
 			fallthrough
 		case 'd':
 			if mod != nil {
-				// if mod.Kind == ModInsertion { 
-				// mod.End = mod.Start 
-				// } else { 
-				// mod.End = mod.Start + len(mod.Residues) 
-				// } 
+				// if mod.Kind == ModInsertion {
+				// mod.End = mod.Start
+				// } else {
+				// mod.End = mod.Start + len(mod.Residues)
+				// }
 				mods = append(mods, mod)
 			}
 			newMod := NewMod(byteToModKind(b))
@@ -91,11 +91,11 @@ func NewEditScriptParse(editScript string) (*EditScript, error) {
 
 	// One last modification?
 	if mod != nil {
-		// if mod.Kind == ModInsertion { 
-		// mod.End = mod.Start 
-		// } else { 
-		// mod.End = mod.Start + len(mod.Residues) 
-		// } 
+		// if mod.Kind == ModInsertion {
+		// mod.End = mod.Start
+		// } else {
+		// mod.End = mod.Start + len(mod.Residues)
+		// }
 		mods = append(mods, mod)
 	}
 
@@ -144,7 +144,7 @@ func newEditScript(fromSeq, toSeq []byte) *EditScript {
 			if mod.Kind == newModKind {
 				mod.AddResidue(to)
 			} else {
-				// mod.End = fromIndex 
+				// mod.End = fromIndex
 				mods = append(mods, mod)
 
 				if newModKind == -1 {
@@ -168,7 +168,7 @@ func newEditScript(fromSeq, toSeq []byte) *EditScript {
 		}
 	}
 	if mod != nil {
-		// mod.End = fromIndex 
+		// mod.End = fromIndex
 		mods = append(mods, mod)
 	}
 
@@ -182,12 +182,12 @@ func (diff *EditScript) Apply(fromSeq []byte) []byte {
 		toSeq = append(toSeq, fromSeq[lastEnd:mod.Start]...)
 		toSeq = append(toSeq, mod.Residues...)
 		lastEnd = mod.End
-		// fmt.Println(mod) 
+		// fmt.Println(mod)
 	}
-	// fmt.Println(diff) 
-	// fmt.Printf("%s\n", fromSeq) 
-	// fmt.Println(lastEnd, len(fromSeq)) 
-	// fmt.Println("----------------------------") 
+	// fmt.Println(diff)
+	// fmt.Printf("%s\n", fromSeq)
+	// fmt.Println(lastEnd, len(fromSeq))
+	// fmt.Println("----------------------------")
 	toSeq = append(toSeq, fromSeq[lastEnd:len(fromSeq)]...)
 	return toSeq
 }
@@ -226,7 +226,7 @@ type Mod struct {
 	Start, End int
 
 	// The new residues.
-	// When Mod is a deletion, this is empty. In which case, the number of 
+	// When Mod is a deletion, this is empty. In which case, the number of
 	// residues to delete equals (End - Start).
 	Residues []byte
 }

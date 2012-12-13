@@ -157,7 +157,7 @@ func NewReadDB(dir string) (*DB, error) {
 	}
 
 	// Do a sanity check and make sure we can access the `makeblastdb`
-	// and `blastp` executables. Otherwise we might do a lot of work for 
+	// and `blastp` executables. Otherwise we might do a lot of work for
 	// nothing...
 	if err = execExists(db.BlastMakeBlastDB); err != nil {
 		return nil, fmt.Errorf(
@@ -214,7 +214,7 @@ func (db *DB) Save() error {
 		return err
 	}
 
-	// Now we need to construct a blastp database from the coarse fasta file. 
+	// Now we need to construct a blastp database from the coarse fasta file.
 	// e.g., `makeblastdb -dbtype prot -in coarse.fasta`
 	cmd := exec.Command(
 		db.BlastMakeBlastDB, "-dbtype", "prot",

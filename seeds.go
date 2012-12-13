@@ -8,7 +8,7 @@ import (
 	"github.com/BurntSushi/cablastp/blosum"
 )
 
-// SeedAlphaNums is a map to assign *valid* amino acid resiudes contiunous 
+// SeedAlphaNums is a map to assign *valid* amino acid resiudes contiunous
 // values so that base-N arithmetic can be performed on them. (Where
 // N = SeedAlphaSize.)
 // Invalid amino acid resiudes map to -1 and will produce a panic.

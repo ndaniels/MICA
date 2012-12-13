@@ -16,7 +16,7 @@ func alignLen(seq []byte) (length int) {
 }
 
 // alignUngapped takes a coarse and an original sub-sequence and returns a
-// length corresponding to the number of amino acids scanned by greedily 
+// length corresponding to the number of amino acids scanned by greedily
 // consuming successive K-mer matches in N-mer windows.
 //
 // The algorithm works by attempting to find *exact* K-mer matches between the

@@ -150,7 +150,7 @@ func compress(db *cablastp.DB, orgSeqId int,
 
 			// The "match" between coarse and original sequence will
 			// occur somewhere between the the residue index of the seed and
-			// the end of the sequence for the coarse sequence, and the 
+			// the end of the sequence for the coarse sequence, and the
 			// position of the "current" pointer and the end of the sequence
 			// for the original sequence.
 			corMatch, orgMatch := extendMatch(
@@ -198,7 +198,7 @@ func compress(db *cablastp.DB, orgSeqId int,
 				alignment = nwAlign(corMatch, orgMatch, mem)
 			}
 
-			// Otherwise, we accept the first valid match and move on to the 
+			// Otherwise, we accept the first valid match and move on to the
 			// next kmer after the match ends.
 			corStart := corResInd
 			corEnd := corStart + len(corMatch)
@@ -217,11 +217,11 @@ func compress(db *cablastp.DB, orgSeqId int,
 				addWithoutMatch(&cseq, coarsedb, orgSeqId, orgSub)
 			}
 
-			// For the given match, add a LinkToCoarse to the portion of 
-			// the coarse sequence matched. This serves as a component 
-			// of a compressed original sequence. Also, add a 
-			// LinkToCompressed to the coarse sequence matched. This 
-			// serves as a bridge to expand coarse sequences into their 
+			// For the given match, add a LinkToCoarse to the portion of
+			// the coarse sequence matched. This serves as a component
+			// of a compressed original sequence. Also, add a
+			// LinkToCompressed to the coarse sequence matched. This
+			// serves as a bridge to expand coarse sequences into their
 			// original sequences.
 			cseq.Add(cablastp.NewLinkToCoarse(
 				uint(corSeqId), uint(corStart), uint(corEnd), alignment))
@@ -229,7 +229,7 @@ func compress(db *cablastp.DB, orgSeqId int,
 				uint32(orgSeqId), uint16(corStart), uint16(corEnd)))
 
 			// Skip the current pointer ahead to the end of this match.
-			// Update the lastMatch pointer to point at the end of this 
+			// Update the lastMatch pointer to point at the end of this
 			// match.
 			lastMatch = orgEnd
 			current = orgEnd - 1
@@ -257,7 +257,7 @@ func extendMatch(corRes, orgRes []byte,
 	gappedWindowSize, ungappedWindowSize, kmerSize, idThreshold int,
 	mem *memory) (corMatchRes, orgMatchRes []byte) {
 
-	// Starting at seedLoc.resInd and current (from 'compress'), corMatchLen 
+	// Starting at seedLoc.resInd and current (from 'compress'), corMatchLen
 	// and orgMatchLen correspond to the length of the match in each of
 	// the coarse and the original sequence, respectively.
 	// At the end of the loop, the slices [seedLoc.resInd:corMatchLen]

@@ -70,7 +70,7 @@ func repetitive(bs []byte) bool {
 	return true
 }
 
-// sequence is the underlying (i.e., embedded) type of reference and original 
+// sequence is the underlying (i.e., embedded) type of reference and original
 // sequences used in cablast.
 type sequence struct {
 	Name     string
@@ -91,14 +91,14 @@ func newSeq(id int, name string, residues []byte) *sequence {
 	}
 }
 
-// newBiogoSeq creates a new *sequence value from biogo's Seq type, and ensures 
+// newBiogoSeq creates a new *sequence value from biogo's Seq type, and ensures
 // that all residues in the sequence are upper cased.
 func newBiogoSeq(id int, s *seq.Seq) *sequence {
 	return newSeq(id, s.ID, s.Seq)
 }
 
-// newSubSequence returns a new *sequence value that corresponds to a 
-// subsequence of 'sequence'. 'start' and 'end' specify an inclusive range in 
+// newSubSequence returns a new *sequence value that corresponds to a
+// subsequence of 'sequence'. 'start' and 'end' specify an inclusive range in
 // 'sequence'. newSubSequence panics if the range is invalid.
 func (seq *sequence) newSubSequence(start, end uint) *sequence {
 	if start < 0 || start >= end || end > uint(seq.Len()) {
@@ -120,8 +120,8 @@ func (seq *sequence) Len() int {
 	return len(seq.Residues)
 }
 
-// String returns a string (fasta) representation of this sequence. If this 
-// sequence is a subsequence, then the range of the subsequence (with respect 
+// String returns a string (fasta) representation of this sequence. If this
+// sequence is a subsequence, then the range of the subsequence (with respect
 // to the original sequence) is also printed.
 func (seq *sequence) String() string {
 	if seq.Offset == 0 {

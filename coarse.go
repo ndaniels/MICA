@@ -247,8 +247,8 @@ func (coarsedb *CoarseDB) Expand(
 		return nil, fmt.Errorf("Could not read number of links: %s", err)
 	}
 
-	// We use a map as a set of original sequence ids for eliminating 
-	// duplicates (since a coarse sequence can point to different pieces of the 
+	// We use a map as a set of original sequence ids for eliminating
+	// duplicates (since a coarse sequence can point to different pieces of the
 	// same compressed sequence).
 	ids := make(map[uint32]bool, numLinks)
 	oseqs := make([]OriginalSeq, 0, numLinks)
