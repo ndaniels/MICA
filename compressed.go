@@ -16,6 +16,12 @@ const (
 // by replacing regions of sequences that are redundant with pointers to
 // similar regions in the coarse database. Each pointer includes an offset and
 // an edit script, which allows complete recovery of the original sequence.
+//
+// N.B. A compressed database doesn't keep an in memory representation of
+// all compressed sequences. In particular, writing to a compressed database
+// always corresponds to writing a compressed sequence to disk. And reading
+// from a compressed database always corresponds to reading a sequence from
+// disk (unless it has been cached in 'seqCache').
 type CompressedDB struct {
 	// File pointers to be used in reading/writing compressed databases.
 	File  *os.File

@@ -14,7 +14,7 @@ const (
 )
 
 type EditScript struct {
-	Mods []*Mod
+	mods []*mod
 }
 
 func NewEditScript(alignment [2][]byte) *EditScript {
@@ -22,8 +22,8 @@ func NewEditScript(alignment [2][]byte) *EditScript {
 }
 
 func NewEditScriptParse(editScript string) (*EditScript, error) {
-	mods := make([]*Mod, 0, 15)
-	var mod *Mod = nil
+	mods := make([]*mod, 0, 15)
+	var mod *mod = nil
 
 	for i := 0; i < len(editScript); i++ {
 		b := editScript[i]
@@ -35,14 +35,9 @@ func NewEditScriptParse(editScript string) (*EditScript, error) {
 			fallthrough
 		case 'd':
 			if mod != nil {
-				// if mod.Kind == ModInsertion {
-				// mod.End = mod.Start
-				// } else {
-				// mod.End = mod.Start + len(mod.Residues)
-				// }
 				mods = append(mods, mod)
 			}
-			newMod := NewMod(byteToModKind(b))
+			newMod := newMod(byteToModKind(b))
 
 			// Consume numbers until we hit a non-number.
 			digits := make([]byte, 0, 3)
@@ -91,15 +86,10 @@ func NewEditScriptParse(editScript string) (*EditScript, error) {
 
 	// One last modification?
 	if mod != nil {
-		// if mod.Kind == ModInsertion {
-		// mod.End = mod.Start
-		// } else {
-		// mod.End = mod.Start + len(mod.Residues)
-		// }
 		mods = append(mods, mod)
 	}
 
-	return &EditScript{Mods: mods}, nil
+	return &EditScript{mods: mods}, nil
 }
 
 func newEditScript(fromSeq, toSeq []byte) *EditScript {
@@ -111,12 +101,12 @@ func newEditScript(fromSeq, toSeq []byte) *EditScript {
 
 	// The set of all modifications between fromSeq and toSeq, expressed
 	// in terms of substitutions, insertions and deletions.
-	mods := make([]*Mod, 0, 15)
+	mods := make([]*mod, 0, 15)
 
 	// mod corresponds to the current modification that is taking
 	// place. It is either nil (no modification), a substitution, a deletion
 	// or an insertion.
-	var mod *Mod = nil
+	var mod *mod = nil
 
 	// fromIndex corresponds to the true index of the 'fromSeq'.
 	// This is necessary because an alignment puts '-' characters in 'fromSeq',
@@ -150,14 +140,14 @@ func newEditScript(fromSeq, toSeq []byte) *EditScript {
 				if newModKind == -1 {
 					mod = nil
 				} else {
-					mod = NewMod(newModKind)
+					mod = newMod(newModKind)
 					mod.Start = fromIndex
 					mod.End = fromIndex // never changes if mod is ModInsertion
 					mod.AddResidue(to)
 				}
 			}
 		} else if newModKind != -1 {
-			mod = NewMod(newModKind)
+			mod = newMod(newModKind)
 			mod.Start = fromIndex
 			mod.End = fromIndex // never changes if mod is ModInsertion
 			mod.AddResidue(to)
@@ -172,13 +162,13 @@ func newEditScript(fromSeq, toSeq []byte) *EditScript {
 		mods = append(mods, mod)
 	}
 
-	return &EditScript{Mods: mods}
+	return &EditScript{mods: mods}
 }
 
 func (diff *EditScript) Apply(fromSeq []byte) []byte {
 	toSeq := make([]byte, 0, len(fromSeq))
 	lastEnd := 0
-	for _, mod := range diff.Mods {
+	for _, mod := range diff.mods {
 		toSeq = append(toSeq, fromSeq[lastEnd:mod.Start]...)
 		toSeq = append(toSeq, mod.Residues...)
 		lastEnd = mod.End
@@ -193,9 +183,9 @@ func (diff *EditScript) Apply(fromSeq []byte) []byte {
 }
 
 func (diff *EditScript) String() string {
-	mods := make([]string, len(diff.Mods))
+	mods := make([]string, len(diff.mods))
 	lastDist := 0
-	for i, m := range diff.Mods {
+	for i, m := range diff.mods {
 		dist := m.Start - lastDist
 		lastDist = m.Start
 
@@ -217,7 +207,7 @@ func (diff *EditScript) String() string {
 	return strings.Join(mods, "")
 }
 
-type Mod struct {
+type mod struct {
 	// Either a substitution, deletion or an insertion
 	Kind int
 
@@ -231,8 +221,8 @@ type Mod struct {
 	Residues []byte
 }
 
-func NewMod(kind int) *Mod {
-	return &Mod{
+func newMod(kind int) *mod {
+	return &mod{
 		Kind:     kind,
 		Start:    0,
 		End:      0,
@@ -240,7 +230,7 @@ func NewMod(kind int) *Mod {
 	}
 }
 
-func (m *Mod) AddResidue(residue byte) {
+func (m *mod) AddResidue(residue byte) {
 	if m.Kind != ModDeletion {
 		m.Residues = append(m.Residues, residue)
 	}
@@ -249,7 +239,7 @@ func (m *Mod) AddResidue(residue byte) {
 	}
 }
 
-func (m *Mod) String() string {
+func (m *mod) String() string {
 	switch m.Kind {
 	case ModSubstitution:
 		return fmt.Sprintf("s(%d,%d)%s", m.Start, m.End, string(m.Residues))
