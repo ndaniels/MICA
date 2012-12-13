@@ -355,20 +355,6 @@ func (comdb *CompressedDB) ReadNextSeq(
 	return cseq.Decompress(coarsedb)
 }
 
-func (comdb *CompressedDB) orgSeqOffset(id int) (seqOff int64, err error) {
-	tryOff := int64(id) * 8
-	realOff, err := comdb.Index.Seek(tryOff, os.SEEK_SET)
-	if err != nil {
-		return 0, err
-	} else if tryOff != realOff {
-		return 0,
-			fmt.Errorf("Tried to seek to offset %d in the compressed index, "+
-				"but seeked to %d instead.", tryOff, realOff)
-	}
-	err = binary.Read(comdb.Index, binary.BigEndian, &seqOff)
-	return
-}
-
 func readCompressedSeq(id int, record []string) (CompressedSeq, error) {
 	cseq := CompressedSeq{
 		Id:    id,
@@ -396,6 +382,20 @@ func readCompressedSeq(id int, record []string) (CompressedSeq, error) {
 		cseq.Add(lk)
 	}
 	return cseq, nil
+}
+
+func (comdb *CompressedDB) orgSeqOffset(id int) (seqOff int64, err error) {
+	tryOff := int64(id) * 8
+	realOff, err := comdb.Index.Seek(tryOff, os.SEEK_SET)
+	if err != nil {
+		return 0, err
+	} else if tryOff != realOff {
+		return 0,
+			fmt.Errorf("Tried to seek to offset %d in the compressed index, "+
+				"but seeked to %d instead.", tryOff, realOff)
+	}
+	err = binary.Read(comdb.Index, binary.BigEndian, &seqOff)
+	return
 }
 
 func nextSeqToWrite(

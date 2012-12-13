@@ -7,6 +7,7 @@ import (
 	"sync"
 )
 
+// Hard-coded file names for different pieces of a cablastp database.
 const (
 	FileCoarseFasta      = "coarse.fasta"
 	FileCoarseFastaIndex = "coarse.fasta.index"
@@ -18,33 +19,55 @@ const (
 )
 
 // CoarseDB represents a set of unique sequences that comprise the "coarse"
-// database. Sequences in the ReferenceDB are use to re-create the original
-// sequences.
+// database. Sequences in the coarse database, combined with information in the
+// compressed database, are used to re-create the original sequences.
 type CoarseDB struct {
-	Seqs     []*CoarseSeq
-	seqsRead int
-	Seeds    Seeds
+	Seqs  []*CoarseSeq
+	Seeds Seeds
 
-	FileFasta      *os.File
-	fastaCache     map[int]*CoarseSeq
-	FileFastaIndex *os.File
+	// The fastaCache is used during decompression. Namely, once a coarse
+	// sequence is decompressed, it is cached into this map.
+	fastaCache map[int]*CoarseSeq
+
+	// The size of the coarse database index in bytes. This can be used to
+	// quickly compute the number of sequences in the coarse database.
+	// (Since each sequence is represented by a 64-bit integer offset, simply
+	// divide by 8.)
 	fastaIndexSize int64
+
+	// File pointers to each file in the "coarse" part of a cablastp database.
+	FileFasta      *os.File
+	FileFastaIndex *os.File
 	FileSeeds      *os.File
 	FileLinks      *os.File
 	FileLinksIndex *os.File
 
+	// Ensures that adding a sequence to the coarse database is atomic.
 	seqLock *sync.RWMutex
 
-	readOnly   bool
-	plain      bool
+	// If a database is *created* without the read only flag set, then we have
+	// to save the seeds table.
+	// (We may want to remove this feature.)
+	readOnly bool
+
+	// If read only is not set, then this is used to track how many sequences
+	// were already in the coarse database. (So that when we add more, we only
+	// write the new ones.)
+	seqsRead int
+
+	// plain is a debugging feature that writes the links and seeds table (when
+	// not read only) in a human readable format, rather than the default binary
+	// format.
+	plain bool
+
+	// File pointers to use when 'plain' is true.
 	plainLinks *os.File
 	plainSeeds *os.File
 }
 
-// NewCoarseDB takes a list of initial original sequences, and adds each
-// sequence to the reference database unchanged. Seeds are also generated for
-// each K-mer in each original sequence.
-func NewWriteCoarseDB(appnd bool, db *DB) (*CoarseDB, error) {
+// newWriteCoarseDB sets up a new coarse database to be written to (or opens
+// an existing one ready for writing when 'appnd' is set).
+func newWriteCoarseDB(appnd bool, db *DB) (*CoarseDB, error) {
 	var err error
 
 	Vprintln("\tOpening coarse database...")
@@ -103,7 +126,7 @@ func NewWriteCoarseDB(appnd bool, db *DB) (*CoarseDB, error) {
 	}
 
 	if appnd {
-		if err = coarsedb.Load(); err != nil {
+		if err = coarsedb.load(); err != nil {
 			return nil, err
 		}
 
@@ -145,7 +168,9 @@ func NewWriteCoarseDB(appnd bool, db *DB) (*CoarseDB, error) {
 	return coarsedb, nil
 }
 
-func NewReadCoarseDB(db *DB) (*CoarseDB, error) {
+// newReadCoarseDB opens a coarse database and prepares it for reading. This
+// is typically called before decompression.
+func newReadCoarseDB(db *DB) (*CoarseDB, error) {
 	var err error
 
 	Vprintln("\tOpening coarse database...")
@@ -281,10 +306,18 @@ func (coarsedb *CoarseDB) Expand(
 	return oseqs, nil
 }
 
+// NumRequences returns the number of sequences in the coarse database based
+// on the file size of the coarse database index.
 func (coarsedb *CoarseDB) NumSequences() int {
 	return int(coarsedb.fastaIndexSize / 8)
 }
 
+// ReadCoarseSeq reads the coarse sequence with identifier 'id' from disk, using
+// the fasta index. (If a coarse sequence has already been read, it is returned
+// from cache to save trips to disk.)
+//
+// TODO: Note that this does *not* recover links typically found in a coarse
+// sequence, although it probably should to avoid doing it in CoarseDB.Expand.
 func (coarsedb *CoarseDB) ReadCoarseSeq(id int) (*CoarseSeq, error) {
 	// Prevent reading the same coarse sequence over and over.
 	if coarseSeq, ok := coarsedb.fastaCache[id]; ok {
@@ -301,7 +334,7 @@ func (coarsedb *CoarseDB) ReadCoarseSeq(id int) (*CoarseSeq, error) {
 		return nil, fmt.Errorf("Could not seek in coarse fasta: %s", err)
 	} else if newOff != off {
 		return nil,
-			fmt.Errorf("Tried to seek to ffset %d in the coarse fasta file, "+
+			fmt.Errorf("Tried to seek to offset %d in the coarse fasta file, "+
 				"but seeked to %d instead.", off, newOff)
 	}
 
@@ -324,6 +357,11 @@ func (coarsedb *CoarseDB) ReadCoarseSeq(id int) (*CoarseSeq, error) {
 	return coarseSeq, nil
 }
 
+// coarseOffset returns the integer byte offset into the coarse database of
+// a particular coarse sequence. The offset is read from the coarse database
+// index.
+//
+// An error is returned if the file seek fails.
 func (coarsedb *CoarseDB) coarseOffset(id int) (seqOff int64, err error) {
 	tryOff := int64(id) * 8
 	realOff, err := coarsedb.FileFastaIndex.Seek(tryOff, os.SEEK_SET)
@@ -338,6 +376,11 @@ func (coarsedb *CoarseDB) coarseOffset(id int) (seqOff int64, err error) {
 	return
 }
 
+// linkOffset returns the integer byte offset into the coarse links database
+// of a particular coarse sequence. The offset is read from the coarse links
+// database index.
+//
+// An error is returned if the file seek fails.
 func (coarsedb *CoarseDB) linkOffset(id int) (seqOff int64, err error) {
 	tryOff := int64(id) * 8
 	realOff, err := coarsedb.FileLinksIndex.Seek(tryOff, os.SEEK_SET)
@@ -352,16 +395,16 @@ func (coarsedb *CoarseDB) linkOffset(id int) (seqOff int64, err error) {
 	return
 }
 
-// ReadClose closes all files necessary for reading the coarse database.
-func (coarsedb *CoarseDB) ReadClose() {
+// readClose closes all files necessary for reading the coarse database.
+func (coarsedb *CoarseDB) readClose() {
 	coarsedb.FileFasta.Close()
 	coarsedb.FileFastaIndex.Close()
 	coarsedb.FileLinks.Close()
 	coarsedb.FileLinksIndex.Close()
 }
 
-// ReadClose closes all files necessary for writing the coarse database.
-func (coarsedb *CoarseDB) WriteClose() {
+// writeClose closes all files necessary for writing the coarse database.
+func (coarsedb *CoarseDB) writeClose() {
 	coarsedb.FileFasta.Close()
 	coarsedb.FileFastaIndex.Close()
 	coarsedb.FileSeeds.Close()
@@ -373,7 +416,12 @@ func (coarsedb *CoarseDB) WriteClose() {
 	}
 }
 
-func (coarsedb *CoarseDB) Load() (err error) {
+// load reads the entire coarse database (sequences and links) into memory.
+// If the database is being appended to, the seeds table is also read into
+// memory.
+//
+// (This is only called when a coarse database is being appended to.)
+func (coarsedb *CoarseDB) load() (err error) {
 	if err = coarsedb.readFasta(); err != nil {
 		return
 	}
@@ -388,9 +436,10 @@ func (coarsedb *CoarseDB) Load() (err error) {
 	return nil
 }
 
-// Save will save the reference database as a coarse FASTA file and a binary
-// encoding of all reference links.
-func (coarsedb *CoarseDB) Save() error {
+// save will save the coarse database as a FASTA file and a binary
+// encoding of all coarse links. Seeds are also saved if this is not a read
+// only database.
+func (coarsedb *CoarseDB) save() error {
 	coarsedb.seqLock.RLock()
 	defer coarsedb.seqLock.RUnlock()
 

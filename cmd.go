@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+// Exec runs a command created with 'Command' in the os/exec package, and
+// converts anything reported to stderr to a Go error value.
+//
+// Note that if the command returns successfully, the error is guaranteed to
+// be nil.
 func Exec(cmd *exec.Cmd) error {
 	var stderr bytes.Buffer
 
