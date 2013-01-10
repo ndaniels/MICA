@@ -25,6 +25,9 @@ type DBConf struct {
 	ReadOnly            bool
 	BlastMakeBlastDB    string
 	BlastBlastp         string
+	BlastDeltaBlast     string
+	BlastPsiBlast       string
+	RPSPath             string
 }
 
 var DefaultDBConf = DBConf{
@@ -43,6 +46,8 @@ var DefaultDBConf = DBConf{
 	ReadOnly:            true,
 	BlastMakeBlastDB:    "makeblastdb",
 	BlastBlastp:         "blastp",
+	BlastDeltaBlast:     "deltablast",
+	BlastPsiBlast:       "psiblast",
 }
 
 func LoadDBConf(r io.Reader) (conf DBConf, err error) {
@@ -112,6 +117,10 @@ func LoadDBConf(r io.Reader) (conf DBConf, err error) {
 			conf.BlastMakeBlastDB = strings.TrimSpace(line[1])
 		case "BlastBlastp":
 			conf.BlastBlastp = strings.TrimSpace(line[1])
+		case "BlastDeltaBlast":
+			conf.BlastDeltaBlast = strings.TrimSpace(line[1])
+		case "RPSPath":
+			conf.RPSPath = strings.TrimSpace(line[1])
 		default:
 			return conf, fmt.Errorf("Invalid DBConf flag: %s", line[0])
 		}
@@ -175,6 +184,15 @@ func (flagConf DBConf) FlagMerge(fileConf DBConf) (DBConf, error) {
 	if !only["blastp"] {
 		flagConf.BlastBlastp = fileConf.BlastBlastp
 	}
+	if !only["deltablast"] {
+		flagConf.BlastDeltaBlast = fileConf.BlastDeltaBlast
+	}
+	if !only["psiblast"] {
+		flagConf.BlastPsiBlast = fileConf.BlastPsiBlast
+	}
+	if !only["rpspath"] {
+		flagConf.RPSPath = fileConf.RPSPath
+	}
 	return flagConf, nil
 }
 
@@ -208,6 +226,8 @@ func (dbConf DBConf) Write(w io.Writer) error {
 		{"ReadOnly", bs(dbConf.ReadOnly)},
 		{"BlastMakeBlastDB", dbConf.BlastMakeBlastDB},
 		{"BlastBlastp", dbConf.BlastBlastp},
+		{"BlastDeltaBlast", dbConf.BlastDeltaBlast},
+		{"RPSPath", dbConf.RPSPath},
 	}
 	if err := csvWriter.WriteAll(records); err != nil {
 		return err
