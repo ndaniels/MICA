@@ -156,13 +156,18 @@ func main() {
 	cleanup(db)
 }
 
+func s(i int) string {
+	return fmt.Sprintf("%d", i)
+}
+
 func blastFine(
 	db *cablastp.DB, blastFineDir string, stdin *bytes.Reader) error {
 
 	// We pass our own "-db" flag to blastp, but the rest come from user
 	// defined flags.
 	flags := []string{"-db", path.Join(blastFineDir, cablastp.FileBlastFine),
-		"-num_iterations", fmt.Sprintf("%d", flagIters)}
+		"-num_iterations", s(flagIters),
+		"-dbsize", s(db.BlastDBSize)}
 	flags = append(flags, blastArgs...)
 
 	cmd := exec.Command(db.BlastPsiBlast, flags...)
@@ -241,7 +246,8 @@ func expandBlastHits(
 func blastCoarse(
 	db *cablastp.DB, stdin *bytes.Reader, stdout *bytes.Buffer) error {
 	flags := []string{"-db", path.Join(db.Path, cablastp.FileBlastCoarse),
-		"-outfmt", "5", "-num_iterations", fmt.Sprintf("%d", flagIters)}
+		"-outfmt", "5", "-num_iterations", s(flagIters),
+		"-dbsize", s(db.BlastDBSize)}
 
 	cmd := exec.Command(db.BlastPsiBlast, flags...)
 	cmd.Stdin = stdin

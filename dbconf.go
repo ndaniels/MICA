@@ -28,6 +28,7 @@ type DBConf struct {
 	BlastDeltaBlast     string
 	BlastPsiBlast       string
 	RPSPath             string
+	BlastDBSize         int
 }
 
 var DefaultDBConf = DBConf{
@@ -48,6 +49,7 @@ var DefaultDBConf = DBConf{
 	BlastBlastp:         "blastp",
 	BlastDeltaBlast:     "deltablast",
 	BlastPsiBlast:       "psiblast",
+	BlastDBSize:         20000000,
 }
 
 func LoadDBConf(r io.Reader) (conf DBConf, err error) {
@@ -121,6 +123,8 @@ func LoadDBConf(r io.Reader) (conf DBConf, err error) {
 			conf.BlastDeltaBlast = strings.TrimSpace(line[1])
 		case "RPSPath":
 			conf.RPSPath = strings.TrimSpace(line[1])
+		case "BlastDBSize":
+			conf.BlastDBSize = atoi()
 		default:
 			return conf, fmt.Errorf("Invalid DBConf flag: %s", line[0])
 		}
@@ -193,6 +197,9 @@ func (flagConf DBConf) FlagMerge(fileConf DBConf) (DBConf, error) {
 	if !only["rpspath"] {
 		flagConf.RPSPath = fileConf.RPSPath
 	}
+	if !only["dbsize"] {
+		flagConf.BlastDBSize = fileConf.BlastDBSize
+	}
 	return flagConf, nil
 }
 
@@ -228,6 +235,7 @@ func (dbConf DBConf) Write(w io.Writer) error {
 		{"BlastBlastp", dbConf.BlastBlastp},
 		{"BlastDeltaBlast", dbConf.BlastDeltaBlast},
 		{"RPSPath", dbConf.RPSPath},
+		{"BlastDBSize", s(dbConf.BlastDBSize)},
 	}
 	if err := csvWriter.WriteAll(records); err != nil {
 		return err

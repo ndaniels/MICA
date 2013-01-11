@@ -148,13 +148,18 @@ func main() {
 	cleanup(db)
 }
 
+func s(i int) string {
+	return fmt.Sprintf("%d", i)
+}
+
 func blastFine(
 	db *cablastp.DB, blastFineFile string, stdin *bytes.Reader) error {
 
 	// We pass our own "-db" flag to blastp, but the rest come from user
 	// defined flags.
 	// deltablast needs a rpsdb path
-	flags := []string{"-subject", blastFineFile, "-rpsdb", db.RPSPath}
+	flags := []string{"-subject", blastFineFile, "-rpsdb", db.RPSPath,
+		"-dbsize", s(db.BlastDBSize)}
 	flags = append(flags, blastArgs...)
 
 	cmd := exec.Command(db.BlastDeltaBlast, flags...)
@@ -224,7 +229,7 @@ func blastCoarse(
 		db.BlastDeltaBlast,
 		"-db", path.Join(db.Path, cablastp.FileBlastCoarse),
 		"-rpsdb", db.RPSPath,
-		"-outfmt", "5")
+		"-outfmt", "5", "-dbsize", s(db.BlastDBSize))
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout
 	return cablastp.Exec(cmd)
