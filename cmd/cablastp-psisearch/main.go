@@ -117,84 +117,55 @@ func main() {
 	// start making changes here. temp file for pssm file needs to
 	// be passed around
 
-	var inPssm string
+	// if iters == 0, don't read in a pssm
+	// if iters == (flagIters-1), don't write out a pssm
+	// otherwise, read and write a pssm.
 
-	for iters := 0; iters < flagIters; iters++ {
+	cablastp.Vprintln("\nBlasting query on coarse database...")
+	if err := blastCoarse(db, inputFastaQuery, buf); err != nil {
+		fatalf("Error blasting coarse database: %s\n", err)
+	}
 
-		// if iters == 0, don't read in a pssm
-		// if iters == (flagIters-1), don't write out a pssm
-		// otherwise, read and write a pssm.
-		final := false
-		if iters == (flagIters - 1) {
-			final = true
-		}
+	cablastp.Vprintln("Decompressing blast hits...")
+	expandedSequences, err := expandBlastHits(db, buf)
+	if err != nil {
+		fatalf("%s\n", err)
+	}
 
-		outPssmF, err := ioutil.TempFile("", "cablastp-pssm")
-		if err != nil {
-			fatalf("%s\n", err)
-		}
-		outPssm := outPssmF.Name()
-		outPssmF.Close()
+	// Write the contents of the expanded sequences to a fasta file.
+	// It is then passed as the "-subject" parameter to blastp.
+	var tmpFine string
+	if tmpFine, err = writeFasta(expandedSequences); err != nil {
+		fatalf("Could not create FASTA input from coarse hits: %s\n", err)
+	}
 
-		cablastp.Vprintf("Iteration %d of %d\n", iters+1, flagIters)
+	// Finally, run the query against the fine fasta database and pass on 
+	// stdout and stderr...
+	cablastp.Vprintln("Blasting query on fine database...")
+	if _, err := inputFastaQuery.Seek(0, os.SEEK_SET); err != nil {
+		fatalf("Could not seek to start of query fasta input: %s\n", err)
+	}
+	if err := blastFine(db, tmpFine, inputFastaQuery); err != nil {
+		fatalf("Error blasting fine database: %s\n", err)
+	}
 
-		cablastp.Vprintln("\nBlasting query on coarse database...")
-		if err := blastCoarse(db, inputFastaQuery, buf, inPssm); err != nil {
-			fatalf("Error blasting coarse database: %s\n", err)
-		}
-
-		cablastp.Vprintln("Decompressing blast hits...")
-		expandedSequences, err := expandBlastHits(db, buf)
-		if err != nil {
-			fatalf("%s\n", err)
-		}
-
-		// Write the contents of the expanded sequences to a fasta file.
-		// It is then passed as the "-subject" parameter to blastp.
-		var tmpFine string
-		if tmpFine, err = writeFasta(expandedSequences); err != nil {
-			fatalf("Could not create FASTA input from coarse hits: %s\n", err)
-		}
-
-		// Finally, run the query against the fine fasta database and pass on 
-		// stdout and stderr...
-		cablastp.Vprintln("Blasting query on fine database...")
-		if _, err := inputFastaQuery.Seek(0, os.SEEK_SET); err != nil {
-			fatalf("Could not seek to start of query fasta input: %s\n", err)
-		}
-		if err := blastFine(db, tmpFine, inputFastaQuery, inPssm,
-			outPssm, final); err != nil {
-			fatalf("Error blasting fine database: %s\n", err)
-		}
-		inPssm = outPssm
-		// Delete the temporary fine database.
-		if !flagNoCleanup {
-			if err := os.Remove(tmpFine); err != nil {
-				fatalf("Could not delete fine fasta database: %s\n", err)
-			}
+	// Delete the temporary fine database.
+	if !flagNoCleanup {
+		if err := os.Remove(tmpFine); err != nil {
+			fatalf("Could not delete fine fasta database: %s\n", err)
 		}
 	}
-	// iterate to here
-	/////////////////////////
 
 	cleanup(db)
 }
 
 func blastFine(
-	db *cablastp.DB, blastFineFile string, stdin *bytes.Reader,
-	inPssm string, outPssm string, final bool) error {
+	db *cablastp.DB, blastFineFile string, stdin *bytes.Reader) error {
 
 	// We pass our own "-db" flag to blastp, but the rest come from user
 	// defined flags.
-	flags := []string{"-subject", blastFineFile, "-out_pssm", outPssm,
-		"-num_iterations", "2"}
-	if inPssm != "" {
-		flags = append(flags, "-in_pssm", inPssm)
-	}
-	// this is a bad hack and not portable. Fix this!
-	if !final {
-		flags = append(flags, "-out", "/dev/null")
-	}
+	flags := []string{"-subject", blastFineFile, "-num_iterations",
+		fmt.Sprintf("%d", flagIters)}
 	flags = append(flags, blastArgs...)
 
 	cmd := exec.Command(db.BlastPsiBlast, flags...)
@@ -259,9 +230,8 @@ func expandBlastHits(
 
 func blastCoarse(
 	db *cablastp.DB, stdin *bytes.Reader, stdout *bytes.Buffer) error {
-
 	flags := []string{"-db", path.Join(db.Path, cablastp.FileBlastCoarse),
-		"-outfmt", "5"}
+		"-outfmt", "5", "-num_iterations", fmt.Sprintf("%d", flagIters)}
 
 	cmd := exec.Command(db.BlastPsiBlast, flags...)
 	cmd.Stdin = stdin
