@@ -258,14 +258,10 @@ func expandBlastHits(
 }
 
 func blastCoarse(
-	db *cablastp.DB, stdin *bytes.Reader, stdout *bytes.Buffer,
-	inPssm string) error {
+	db *cablastp.DB, stdin *bytes.Reader, stdout *bytes.Buffer) error {
 
 	flags := []string{"-db", path.Join(db.Path, cablastp.FileBlastCoarse),
 		"-outfmt", "5"}
-	if inPssm != "" {
-		flags = append(flags, "-in_pssm", inPssm)
-	}
 
 	cmd := exec.Command(db.BlastPsiBlast, flags...)
 	cmd.Stdin = stdin
