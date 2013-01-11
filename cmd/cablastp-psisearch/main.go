@@ -36,13 +36,15 @@ var (
 
 	// Flags that affect the higher level operation of compression.
 	// Flags that control algorithmic parameters are stored in `dbConf`.
-	flagGoMaxProcs = runtime.NumCPU()
-	flagQuiet      = false
-	flagCpuProfile = ""
-	flagMemProfile = ""
-	flagCoarseEval = 1.0e-10
-	flagNoCleanup  = false
-	flagIters      = 1
+	flagMakeBlastDB = "makeblastdb"
+	flagPsiBlast    = "psiblast"
+	flagGoMaxProcs  = runtime.NumCPU()
+	flagQuiet       = false
+	flagCpuProfile  = ""
+	flagMemProfile  = ""
+	flagCoarseEval  = 1.0e-10
+	flagNoCleanup   = false
+	flagIters       = 1
 )
 
 // blastArgs are all the arguments after "--blast-args".
@@ -51,11 +53,11 @@ var blastArgs []string
 func init() {
 	log.SetFlags(0)
 
-	flag.StringVar(&dbConf.BlastMakeBlastDB, "makeblastdb",
-		dbConf.BlastMakeBlastDB,
+	flag.StringVar(&flagMakeBlastDB, "makeblastdb",
+		flagMakeBlastDB,
 		"The location of the 'makeblastdb' executable.")
-	flag.StringVar(&dbConf.BlastPsiBlast, "psiblast",
-		dbConf.BlastPsiBlast,
+	flag.StringVar(&flagPsiBlast, "psiblast",
+		flagPsiBlast,
 		"The location of the 'psiblast' executable.")
 	flag.Float64Var(&flagCoarseEval, "coarse-eval", flagCoarseEval,
 		"The e-value threshold for the coarse search. This will NOT\n"+
@@ -136,7 +138,7 @@ func main() {
 		fatalf("Could not create fine database to search on: %s\n", err)
 	}
 
-	// Finally, run the query against the fine fasta database and pass on 
+	// Finally, run the query against the fine fasta database and pass on
 	// stdout and stderr...
 	cablastp.Vprintln("Blasting query on fine database...")
 	if _, err := inputFastaQuery.Seek(0, os.SEEK_SET); err != nil {
@@ -170,7 +172,7 @@ func blastFine(
 		"-dbsize", s(db.BlastDBSize)}
 	flags = append(flags, blastArgs...)
 
-	cmd := exec.Command(db.BlastPsiBlast, flags...)
+	cmd := exec.Command(flagPsiBlast, flags...)
 	cmd.Stdin = stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -184,7 +186,7 @@ func makeFineBlastDB(db *cablastp.DB, stdin *bytes.Buffer) (string, error) {
 	}
 
 	cmd := exec.Command(
-		db.BlastMakeBlastDB, "-dbtype", "prot",
+		flagMakeBlastDB, "-dbtype", "prot",
 		"-title", cablastp.FileBlastFine,
 		"-in", "-",
 		"-out", path.Join(tmpDir, cablastp.FileBlastFine))
@@ -249,7 +251,7 @@ func blastCoarse(
 		"-outfmt", "5", "-num_iterations", s(flagIters),
 		"-dbsize", s(db.BlastDBSize)}
 
-	cmd := exec.Command(db.BlastPsiBlast, flags...)
+	cmd := exec.Command(flagPsiBlast, flags...)
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout
 	return cablastp.Exec(cmd)

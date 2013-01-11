@@ -33,6 +33,8 @@ var (
 
 	// Flags that affect the higher level operation of compression.
 	// Flags that control algorithmic parameters are stored in `dbConf`.
+	flagDeltaBlast = "deltablast"
+	flagRPSPath    = ""
 	flagGoMaxProcs = runtime.NumCPU()
 	flagQuiet      = false
 	flagCpuProfile = ""
@@ -47,14 +49,11 @@ var blastArgs []string
 func init() {
 	log.SetFlags(0)
 
-	flag.StringVar(&dbConf.BlastMakeBlastDB, "makeblastdb",
-		dbConf.BlastMakeBlastDB,
-		"The location of the 'makeblastdb' executable.")
-	flag.StringVar(&dbConf.BlastDeltaBlast, "deltablast",
-		dbConf.BlastDeltaBlast,
+	flag.StringVar(&flagDeltaBlast, "deltablast",
+		flagDeltaBlast,
 		"The location of the 'deltablast' executable.")
-	flag.StringVar(&dbConf.RPSPath, "rpspath",
-		dbConf.RPSPath,
+	flag.StringVar(&flagRPSPath, "rpspath",
+		flagRPSPath,
 		"The location of the 'rps' database.")
 	flag.Float64Var(&flagCoarseEval, "coarse-eval", flagCoarseEval,
 		"The e-value threshold for the coarse search. This will NOT\n"+
@@ -92,6 +91,10 @@ func main() {
 	buf := new(bytes.Buffer)
 
 	if flag.NArg() < 2 {
+		flag.Usage()
+	}
+	if len(flagRPSPath) == 0 {
+		fmt.Fprintln(os.Stderr, "The '--rpspath' flag must be set.")
 		flag.Usage()
 	}
 
@@ -158,11 +161,11 @@ func blastFine(
 	// We pass our own "-db" flag to blastp, but the rest come from user
 	// defined flags.
 	// deltablast needs a rpsdb path
-	flags := []string{"-subject", blastFineFile, "-rpsdb", db.RPSPath,
+	flags := []string{"-subject", blastFineFile, "-rpsdb", flagRPSPath,
 		"-dbsize", s(db.BlastDBSize)}
 	flags = append(flags, blastArgs...)
 
-	cmd := exec.Command(db.BlastDeltaBlast, flags...)
+	cmd := exec.Command(flagDeltaBlast, flags...)
 	cmd.Stdin = stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -226,9 +229,9 @@ func blastCoarse(
 	db *cablastp.DB, stdin *bytes.Reader, stdout *bytes.Buffer) error {
 
 	cmd := exec.Command(
-		db.BlastDeltaBlast,
+		flagDeltaBlast,
 		"-db", path.Join(db.Path, cablastp.FileBlastCoarse),
-		"-rpsdb", db.RPSPath,
+		"-rpsdb", flagRPSPath,
 		"-outfmt", "5", "-dbsize", s(db.BlastDBSize))
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout
@@ -277,7 +280,7 @@ func writeMemProfile(name string) {
 
 func usage() {
 	fmt.Fprintf(os.Stderr,
-		"\nUsage: %s [flags] -rpspath rpspath database-directory "+
+		"\nUsage: %s [flags] --rpspath rpspath database-directory "+
 			"query-fasta-file "+
 			"[--blast-args BLASTP_ARGUMENTS]\n",
 		path.Base(os.Args[0]))

@@ -203,10 +203,6 @@ func NewReadDB(dir string) (*DB, error) {
 		return nil, fmt.Errorf(
 			"Could not find 'makeblastdb' executable: %s", err)
 	}
-	if err = execExists(db.BlastBlastp); err != nil {
-		return nil, fmt.Errorf(
-			"Could not find 'blastp' executable: %s", err)
-	}
 
 	db.ComDB, err = newReadCompressedDB(db)
 	if err != nil {

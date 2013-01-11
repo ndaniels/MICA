@@ -28,8 +28,9 @@ var (
 	// A default configuration.
 	dbConf = cablastp.DefaultDBConf
 
-	// Flags that affect the higher level operation of compression.
+	// Flags that affect the operation of search.
 	// Flags that control algorithmic parameters are stored in `dbConf`.
+	flagBlastp     = "blastp"
 	flagGoMaxProcs = runtime.NumCPU()
 	flagQuiet      = false
 	flagCpuProfile = ""
@@ -44,11 +45,8 @@ var blastArgs []string
 func init() {
 	log.SetFlags(0)
 
-	flag.StringVar(&dbConf.BlastMakeBlastDB, "makeblastdb",
-		dbConf.BlastMakeBlastDB,
-		"The location of the 'makeblastdb' executable.")
-	flag.StringVar(&dbConf.BlastBlastp, "blastp",
-		dbConf.BlastBlastp,
+	flag.StringVar(&flagBlastp, "blastp",
+		flagBlastp,
 		"The location of the 'blastp' executable.")
 	flag.Float64Var(&flagCoarseEval, "coarse-eval", flagCoarseEval,
 		"The e-value threshold for the coarse search. This will NOT\n"+
@@ -151,10 +149,14 @@ func blastFine(
 
 	// We pass our own "-db" flag to blastp, but the rest come from user
 	// defined flags.
-	flags := []string{"-subject", blastFineFile, "-dbsize", s(db.BlastDBSize)}
+	flags := []string{
+		"-subject", blastFineFile,
+		"-dbsize", s(db.BlastDBSize),
+		"-num_threads", s(flagGoMaxProcs),
+	}
 	flags = append(flags, blastArgs...)
 
-	cmd := exec.Command(db.BlastBlastp, flags...)
+	cmd := exec.Command(flagBlastp, flags...)
 	cmd.Stdin = stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -218,8 +220,9 @@ func blastCoarse(
 	db *cablastp.DB, stdin *bytes.Reader, stdout *bytes.Buffer) error {
 
 	cmd := exec.Command(
-		db.BlastBlastp,
+		flagBlastp,
 		"-db", path.Join(db.Path, cablastp.FileBlastCoarse),
+		"-num_threads", s(flagGoMaxProcs),
 		"-outfmt", "5", "-dbsize", s(db.BlastDBSize))
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout

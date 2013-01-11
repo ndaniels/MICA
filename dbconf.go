@@ -24,10 +24,6 @@ type DBConf struct {
 	SavePlain           bool
 	ReadOnly            bool
 	BlastMakeBlastDB    string
-	BlastBlastp         string
-	BlastDeltaBlast     string
-	BlastPsiBlast       string
-	RPSPath             string
 	BlastDBSize         int
 }
 
@@ -46,9 +42,6 @@ var DefaultDBConf = DBConf{
 	SavePlain:           false,
 	ReadOnly:            true,
 	BlastMakeBlastDB:    "makeblastdb",
-	BlastBlastp:         "blastp",
-	BlastDeltaBlast:     "deltablast",
-	BlastPsiBlast:       "psiblast",
 	BlastDBSize:         20000000,
 }
 
@@ -117,12 +110,6 @@ func LoadDBConf(r io.Reader) (conf DBConf, err error) {
 			}
 		case "BlastMakeBlastDB":
 			conf.BlastMakeBlastDB = strings.TrimSpace(line[1])
-		case "BlastBlastp":
-			conf.BlastBlastp = strings.TrimSpace(line[1])
-		case "BlastDeltaBlast":
-			conf.BlastDeltaBlast = strings.TrimSpace(line[1])
-		case "RPSPath":
-			conf.RPSPath = strings.TrimSpace(line[1])
 		case "BlastDBSize":
 			conf.BlastDBSize = atoi()
 		default:
@@ -185,18 +172,6 @@ func (flagConf DBConf) FlagMerge(fileConf DBConf) (DBConf, error) {
 	if !only["makeblastdb"] {
 		flagConf.BlastMakeBlastDB = fileConf.BlastMakeBlastDB
 	}
-	if !only["blastp"] {
-		flagConf.BlastBlastp = fileConf.BlastBlastp
-	}
-	if !only["deltablast"] {
-		flagConf.BlastDeltaBlast = fileConf.BlastDeltaBlast
-	}
-	if !only["psiblast"] {
-		flagConf.BlastPsiBlast = fileConf.BlastPsiBlast
-	}
-	if !only["rpspath"] {
-		flagConf.RPSPath = fileConf.RPSPath
-	}
 	if !only["dbsize"] {
 		flagConf.BlastDBSize = fileConf.BlastDBSize
 	}
@@ -232,9 +207,6 @@ func (dbConf DBConf) Write(w io.Writer) error {
 		{"SavePlain", bs(dbConf.SavePlain)},
 		{"ReadOnly", bs(dbConf.ReadOnly)},
 		{"BlastMakeBlastDB", dbConf.BlastMakeBlastDB},
-		{"BlastBlastp", dbConf.BlastBlastp},
-		{"BlastDeltaBlast", dbConf.BlastDeltaBlast},
-		{"RPSPath", dbConf.RPSPath},
 		{"BlastDBSize", s(dbConf.BlastDBSize)},
 	}
 	if err := csvWriter.WriteAll(records); err != nil {
