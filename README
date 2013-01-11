@@ -1,2 +1,46 @@
-An implementation of cablast for protein sequences.
+An implementation of CaBLASTP for protein sequences.
 
+To install from source, you must have Go installed. It is freely available at
+http://www.golang.org/. CaBLASTP has been tested against Go 1.0.2 and 1.0.3.
+
+There are five binary executables created by `make`, also available as binaries
+for users without Go installed. They are cablastp-compress, which compresses
+FASTA input files (such as nr.fasta) into a compressed database for searching
+with CaBLASTP; cablastp-decompress which is a rarely-needed inverse of
+cablastp-compress; cablastp-search, which is a compressively accelerated version
+of BLASTP; cablastp-psisearch, which is a compressively accelerated version of
+PSI-BLAST; and finally cablastp-deltasearch, which is a compressively
+accelerated version of DELTA-BLAST.
+
+CaBLASTP boosts BLAST+ protein search, and as such it is not completely
+self-contained. It relies on BLAST+.
+
+To use CaBLASTP, you must already have BLAST+ 2.2 or later installed, so that
+the blast binaries are in your PATH. DELTA-BLAST requires BLAST+ 2.2.26 or later
+and we recommend 2.2.27. DELTA-BLAST also requires an RPS database configured
+per NCBI's instructions.
+
+We provide binaries for Mac OS X (64-bit intel, tested on OS X 10.8.2 and
+built with Go 1.0.3) and Linux (64-bit intel/AMD, tested on Linux kernel 3.6.1 
+and Go dev version cbf3546de9ae). With Go installed, CaBLASTP should work
+on Microsoft Windows but is untested.
+
+You do not need the Go compiler installed to use the binary distributions of
+CaBLASTP.
+
+As compression is compute-intensive, we provide an already-compressed database
+based on NCBI's NR from December 12, 2012.
+Should you wish to create your own compressed database, you would use the
+cablastp-compress binary. The database we provide was created with:
+
+cablastp-compress --ext-seed-size 0 --match-seq-id-threshold 70 --ext-seq-id-threshold 60 --max-seeds 20 -p 40 cablastp-nr20121212 nr.fasta
+
+The --max-seeds argument caps the size of the seeds table to, in this case, 20
+gigabytes. Compressing large databases can require a great deal of RAM. A
+significantly smaller cap will harm compression.
+
+To perform a compressively accelerated DELTA-BLAST search, you might do:
+cablastp-deltasearch -rpspath /path/to/cdd_delta /path/to/cablastp-nr20121212 /path/to/query.fasta
+
+To perform a compressively accelerated BLASTP search, you might do:
+cablastp-search /path/to/cablastp-nr20121212 /path/to/query.fasta
