@@ -162,6 +162,10 @@ func s(i int) string {
 	return fmt.Sprintf("%d", i)
 }
 
+func su(i uint64) string {
+	return fmt.Sprintf("%d", i)
+}
+
 func blastFine(
 	db *cablastp.DB, blastFineDir string, stdin *bytes.Reader) error {
 
@@ -169,7 +173,7 @@ func blastFine(
 	// defined flags.
 	flags := []string{"-db", path.Join(blastFineDir, cablastp.FileBlastFine),
 		"-num_iterations", s(flagIters),
-		"-dbsize", s(db.BlastDBSize)}
+		"-dbsize", su(db.BlastDBSize)}
 	flags = append(flags, blastArgs...)
 
 	cmd := exec.Command(flagPsiBlast, flags...)
@@ -249,7 +253,7 @@ func blastCoarse(
 	db *cablastp.DB, stdin *bytes.Reader, stdout *bytes.Buffer) error {
 	flags := []string{"-db", path.Join(db.Path, cablastp.FileBlastCoarse),
 		"-outfmt", "5", "-num_iterations", s(flagIters),
-		"-dbsize", s(db.BlastDBSize)}
+		"-dbsize", su(db.BlastDBSize)}
 
 	cmd := exec.Command(flagPsiBlast, flags...)
 	cmd.Stdin = stdin

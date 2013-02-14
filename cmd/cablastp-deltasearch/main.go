@@ -166,6 +166,10 @@ func s(i int) string {
 	return fmt.Sprintf("%d", i)
 }
 
+func su(i uint64) string {
+	return fmt.Sprintf("%d", i)
+}
+
 func blastFine(
 	db *cablastp.DB, blastFineDir string, stdin *bytes.Reader) error {
 
@@ -174,7 +178,7 @@ func blastFine(
 	// deltablast needs a rpsdb path
 	flags := []string{"-db", path.Join(blastFineDir, cablastp.FileBlastFine),
 		"-rpsdb", flagRPSPath,
-		"-dbsize", s(db.BlastDBSize)}
+		"-dbsize", su(db.BlastDBSize)}
 	flags = append(flags, blastArgs...)
 
 	cmd := exec.Command(flagDeltaBlast, flags...)
@@ -257,7 +261,7 @@ func blastCoarse(
 		flagDeltaBlast,
 		"-db", path.Join(db.Path, cablastp.FileBlastCoarse),
 		"-rpsdb", flagRPSPath,
-		"-outfmt", "5", "-dbsize", s(db.BlastDBSize))
+		"-outfmt", "5", "-dbsize", su(db.BlastDBSize))
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout
 	return cablastp.Exec(cmd)

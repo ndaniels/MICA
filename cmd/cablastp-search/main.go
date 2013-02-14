@@ -144,6 +144,10 @@ func s(i int) string {
 	return fmt.Sprintf("%d", i)
 }
 
+func su(i uint64) string {
+	return fmt.Sprintf("%d", i)
+}
+
 func blastFine(
 	db *cablastp.DB, blastFineFile string, stdin *bytes.Reader) error {
 
@@ -151,7 +155,7 @@ func blastFine(
 	// defined flags.
 	flags := []string{
 		"-subject", blastFineFile,
-		"-dbsize", s(db.BlastDBSize),
+		"-dbsize", su(db.BlastDBSize),
 		"-num_threads", s(flagGoMaxProcs),
 	}
 	flags = append(flags, blastArgs...)
@@ -223,7 +227,7 @@ func blastCoarse(
 		flagBlastp,
 		"-db", path.Join(db.Path, cablastp.FileBlastCoarse),
 		"-num_threads", s(flagGoMaxProcs),
-		"-outfmt", "5", "-dbsize", s(db.BlastDBSize))
+		"-outfmt", "5", "-dbsize", su(db.BlastDBSize))
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout
 	return cablastp.Exec(cmd)

@@ -30,6 +30,9 @@ CaBLASTP.
 
 As compression is compute-intensive, we provide an already-compressed database
 based on NCBI's NR from December 12, 2012.
+It is a .tgz file, so should be compressed with 
+'tar zxf cablastp-nr20121212.tgz'.
+
 Should you wish to create your own compressed database, you would use the
 cablastp-compress binary. The database we provide was created with:
 
@@ -38,6 +41,21 @@ cablastp-compress --ext-seed-size 0 --match-seq-id-threshold 70 --ext-seq-id-thr
 The --max-seeds argument caps the size of the seeds table to, in this case, 20
 gigabytes. Compressing large databases can require a great deal of RAM. A
 significantly smaller cap will harm compression.
+
+The --ext-seed-size argument allows for larger k-mer seeds without the memory
+overhead associated with the larger size, by greedily requiring the additional
+residues to be exact matches.
+
+The --match-seq-id-threshold argument sets the sequence identity percentage
+required for a match during compression.
+
+The --ext-seq-id-threshold argument sets the sequence identity percentage
+required for a single instance of extension during compression.
+
+The -p argument simply sets the number of processor cores used during 
+compression, and bears no relevance to the resulting compressed database.
+
+Run cablastp-compress -help for detailed help as to command-line arguments.
 
 To perform a compressively accelerated DELTA-BLAST search, you might do:
 cablastp-deltasearch -rpspath /path/to/cdd_delta /path/to/cablastp-nr20121212 /path/to/query.fasta
