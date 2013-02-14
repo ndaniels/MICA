@@ -42,7 +42,7 @@ var (
 	flagQuiet       = false
 	flagCpuProfile  = ""
 	flagMemProfile  = ""
-	flagCoarseEval  = 1.0e-10
+	flagCoarseEval  = 5.0
 	flagNoCleanup   = false
 	flagIters       = 1
 )
