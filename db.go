@@ -179,6 +179,13 @@ func (db *DB) openWriteFile(appnd bool, name string) (*os.File, error) {
 func NewReadDB(dir string) (*DB, error) {
 	Vprintf("Opening database in %s...\n", dir)
 
+	if strings.HasSuffix(dir, ".tar") || strings.HasSuffix(dir, ".gz") {
+		return nil, fmt.Errorf("The CaBLASTP database you've provided does " +
+			"not appear to be a directory. Please make sure you've extracted " +
+			"the downloaded database with `tar zxf cablastp-xxx.tar.gz` " +
+			"before using it with CaBLASTP.")
+	}
+
 	_, err := os.Open(dir)
 	if err != nil {
 		return nil, fmt.Errorf("Could not open '%s' for reading "+
