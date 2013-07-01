@@ -2,30 +2,19 @@ package main
 
 import (
 	"github.com/BurntSushi/cablastp/blosum"
-
-	"code.google.com/p/biogo/align/nw"
-	"code.google.com/p/biogo/util"
 )
 
 var (
-	nwLookUpP util.CTL
-	aligner   = &nw.Aligner{
-		Matrix:  blosum.Matrix62,
-		LookUp:  nwLookUpP,
-		GapChar: '-',
-	}
+	nwLookUpP map[byte]int
 )
 
 // Initialize the alignment lookup table. (i.e., translate ASCII residue
 // characters to BLOSUM62 matrix indices.)
 func init() {
-	m := make(map[int]int)
-	for i, v := range blosum.Alphabet62 {
-		m[int(v)] = i
+	nwLookUpP := make(map[byte]int)
+	for i := 0; i < len(blosum.Alphabet62); i++ {
+		nwLookUpP[blosum.Alphabet62[i]] = i
 	}
-	nwLookUpP = *util.NewCTL(m)
-
-	aligner.LookUp = nwLookUpP
 }
 
 // appendOne appends a single byte to a byte slice and only allocates if it
@@ -53,7 +42,7 @@ func appendOne(slice []byte, b byte) []byte {
 // programming to only allow a limited number of gaps proportion to the
 // length of the large of rseq and oseq.
 func nwAlign(rseq, oseq []byte, mem *memory) [2][]byte {
-	gap := len(aligner.Matrix) - 1
+	gap := len(blosum.Matrix62) - 1
 	r, c := len(rseq)+1, len(oseq)+1
 	off := 0
 
@@ -75,9 +64,9 @@ func nwAlign(rseq, oseq []byte, mem *memory) [2][]byte {
 	}
 
 	var sdiag, sup, sleft, rVal, oVal int
-	valToCode := aligner.LookUp.ValueToCode
-	gapChar := aligner.GapChar
-	matrix := aligner.Matrix
+	valToCode := nwLookUpP
+	gapChar := byte('-')
+	matrix := blosum.Matrix62
 
 	var i2, i3 int
 	for i := 1; i < r; i++ {

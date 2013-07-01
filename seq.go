@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"code.google.com/p/biogo/seq"
+	"github.com/TuftsBCB/seq"
 )
 
 // SeqIdentity computes the sequence identity of two byte slices.
@@ -91,10 +91,10 @@ func newSeq(id int, name string, residues []byte) *sequence {
 	}
 }
 
-// newBiogoSeq creates a new *sequence value from biogo's Seq type, and ensures
-// that all residues in the sequence are upper cased.
-func newBiogoSeq(id int, s *seq.Seq) *sequence {
-	return newSeq(id, s.ID, s.Seq)
+// newFastaSeq creates a new *sequence value from seq's Sequence type, and
+// ensures that all residues in the sequence are upper cased.
+func newFastaSeq(id int, s seq.Sequence) *sequence {
+	return newSeq(id, s.Name, s.Bytes())
 }
 
 // newSubSequence returns a new *sequence value that corresponds to a
@@ -110,9 +110,13 @@ func (seq *sequence) newSubSequence(start, end uint) *sequence {
 	return s
 }
 
-// BiogoSeq returns a new *seq.Seq from biogo.
-func (s *sequence) BiogoSeq() *seq.Seq {
-	return seq.New(s.Name, s.Residues, nil)
+// FastaSeq returns a new seq.Sequence from TuftsBCB/seq.
+func (s *sequence) FastaSeq() seq.Sequence {
+	rs := make([]seq.Residue, len(s.Residues))
+	for i := range s.Residues {
+		rs[i] = seq.Residue(s.Residues[i])
+	}
+	return seq.Sequence{s.Name, rs}
 }
 
 // Len retuns the number of residues in this sequence.
@@ -149,8 +153,8 @@ func NewCoarseSeq(id int, name string, residues []byte) *CoarseSeq {
 	}
 }
 
-func NewBiogoCoarseSeq(id int, seq *seq.Seq) *CoarseSeq {
-	return NewCoarseSeq(id, seq.ID, seq.Seq)
+func NewFastaCoarseSeq(id int, s seq.Sequence) *CoarseSeq {
+	return NewCoarseSeq(id, s.Name, s.Bytes())
 }
 
 func (rseq *CoarseSeq) NewSubSequence(start, end uint) *CoarseSeq {
@@ -188,8 +192,8 @@ func NewOriginalSeq(id int, name string, residues []byte) *OriginalSeq {
 	return &OriginalSeq{sequence: newSeq(id, name, residues)}
 }
 
-func NewBiogoOriginalSeq(id int, seq *seq.Seq) *OriginalSeq {
-	return &OriginalSeq{sequence: newBiogoSeq(id, seq)}
+func NewFastaOriginalSeq(id int, s seq.Sequence) *OriginalSeq {
+	return &OriginalSeq{sequence: newFastaSeq(id, s)}
 }
 
 func (oseq *OriginalSeq) NewSubSequence(start, end uint) *OriginalSeq {

@@ -9,8 +9,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 
-	"code.google.com/p/biogo/io/seqio/fasta"
-	"code.google.com/p/biogo/seq"
+	"github.com/TuftsBCB/io/fasta"
 
 	"github.com/BurntSushi/cablastp"
 )
@@ -59,7 +58,8 @@ func main() {
 	if err != nil {
 		fatalf("Could not write to '%s': %s\n", flag.Arg(1), err)
 	}
-	fastaWriter := fasta.NewWriter(outFasta, 60)
+	fastaWriter := fasta.NewWriter(outFasta)
+	fastaWriter.Asterisk = true
 
 	// Create a new database for writing. If we're appending, we load
 	// the coarse database into memory, and setup the database for writing.
@@ -80,16 +80,20 @@ func main() {
 
 	numSeqs := db.ComDB.NumSequences()
 	for orgSeqId := 0; orgSeqId < numSeqs; orgSeqId++ {
-		oseq, err := db.ComDB.ReadNextSeq(db.CoarseDB, orgSeqId)
+		oseq, err := db.ComDB.ReadSeq(db.CoarseDB, orgSeqId)
 		if err != nil {
-			fatalf("%s\n", err)
+			fatalf("Error reading seq id '%d': %s\n", orgSeqId, err)
 		}
-		fastaWriter.Write(
-			seq.New(oseq.Name, append(oseq.Residues, '*'), nil))
+		if err := fastaWriter.Write(oseq.FastaSeq()); err != nil {
+			cablastp.Vprintf("Error writing seq '%s': %s\n", oseq.Name, err)
+		}
 	}
 
 	cleanup(db)
-	if err = fastaWriter.Close(); err != nil {
+	if err = fastaWriter.Flush(); err != nil {
+		fatalf("%s\n", err)
+	}
+	if err = outFasta.Close(); err != nil {
 		fatalf("%s\n", err)
 	}
 }

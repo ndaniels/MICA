@@ -2,8 +2,9 @@ package cablastp
 
 import (
 	"io"
+	"os"
 
-	"code.google.com/p/biogo/io/seqio/fasta"
+	"github.com/TuftsBCB/io/fasta"
 )
 
 // ReadOriginalSeq is the value sent over `chan ReadOriginalSeq` when a new
@@ -15,17 +16,20 @@ type ReadOriginalSeq struct {
 
 // ReadOriginalSeqs reads a FASTA formatted file and returns a channel that
 // each new sequence is sent to.
-func ReadOriginalSeqs(fileName string,
-	ignore []byte) (chan ReadOriginalSeq, error) {
-
-	reader, err := fasta.NewReaderName(fileName)
+func ReadOriginalSeqs(
+	fileName string,
+	ignore []byte,
+) (chan ReadOriginalSeq, error) {
+	f, err := os.Open(fileName)
 	if err != nil {
 		return nil, err
 	}
+
+	reader := fasta.NewReader(f)
 	seqChan := make(chan ReadOriginalSeq, 200)
 	go func() {
 		for i := 0; true; i++ {
-			seq, err := reader.Read()
+			sequence, err := reader.Read()
 			if err == io.EOF {
 				close(seqChan)
 				break
@@ -38,16 +42,16 @@ func ReadOriginalSeqs(fileName string,
 				close(seqChan)
 				break
 			}
-			for i, residue := range seq.Seq {
+			for i, residue := range sequence.Residues {
 				for _, toignore := range ignore {
-					if toignore == residue {
-						seq.Seq[i] = 'X'
+					if toignore == byte(residue) {
+						sequence.Residues[i] = 'X'
 						break
 					}
 				}
 			}
 			seqChan <- ReadOriginalSeq{
-				Seq: NewBiogoOriginalSeq(i, seq),
+				Seq: NewFastaOriginalSeq(i, sequence),
 				Err: nil,
 			}
 		}

@@ -42,7 +42,7 @@ var DefaultDBConf = DBConf{
 	SavePlain:           false,
 	ReadOnly:            true,
 	BlastMakeBlastDB:    "makeblastdb",
-	BlastDBSize:         20000000,
+	BlastDBSize:         0,
 }
 
 func LoadDBConf(r io.Reader) (conf DBConf, err error) {

@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	"code.google.com/p/biogo/io/seqio/fasta"
+	"github.com/TuftsBCB/io/fasta"
 )
 
 func (coarsedb *CoarseDB) readFasta() error {
@@ -27,7 +27,7 @@ func (coarsedb *CoarseDB) readFasta() error {
 		if err != nil {
 			return err
 		}
-		coarsedb.Seqs = append(coarsedb.Seqs, NewBiogoCoarseSeq(i, seq))
+		coarsedb.Seqs = append(coarsedb.Seqs, NewFastaCoarseSeq(i, seq))
 	}
 	coarsedb.seqsRead = len(coarsedb.Seqs)
 
@@ -332,7 +332,6 @@ func (comdb *CompressedDB) ReadSeq(
 			fmt.Errorf("Tried to seek to offset %d in the compressed "+
 				"database, but seeked to %d instead.", off, newOff)
 	}
-
 	return comdb.ReadNextSeq(coarsedb, orgSeqId)
 }
 
@@ -340,11 +339,14 @@ func (comdb *CompressedDB) ReadNextSeq(
 	coarsedb *CoarseDB, orgSeqId int) (OriginalSeq, error) {
 
 	csvReader := csv.NewReader(comdb.File)
+	csvReader.LazyQuotes = true
 	csvReader.Comma = ','
 	csvReader.FieldsPerRecord = -1
 
 	record, err := csvReader.Read()
-	if err != nil {
+	if err == io.EOF && len(record) == 0 {
+		return OriginalSeq{}, fmt.Errorf("[csv reader]: id out of range")
+	} else if err != nil && err != io.EOF {
 		return OriginalSeq{}, fmt.Errorf("[csv reader]: %s", err)
 	}
 

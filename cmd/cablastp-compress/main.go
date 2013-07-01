@@ -27,7 +27,7 @@ var (
 	ignoredResidues = []byte{'J', 'O', 'U'}
 
 	// A default configuration.
-	dbConf = cablastp.DefaultDBConf
+	dbConf = &cablastp.DefaultDBConf
 
 	// Flags that affect the higher level operation of compression.
 	// Flags that control algorithmic parameters are stored in `dbConf`.
@@ -161,7 +161,7 @@ func main() {
 
 	// Create a new database for writing. If we're appending, we load
 	// the coarse database into memory, and setup the database for writing.
-	db, err := cablastp.NewWriteDB(flagAppend, dbConf, flag.Arg(0))
+	db, err := cablastp.NewWriteDB(flagAppend, *dbConf, flag.Arg(0))
 	if err != nil {
 		fatalf("%s\n", err)
 	}
@@ -170,6 +170,7 @@ func main() {
 	pool := startCompressWorkers(db)
 	orgSeqId := db.ComDB.NumSequences()
 	mainQuit := make(chan struct{}, 0)
+	totalResidues := dbConf.BlastDBSize
 
 	// If the process is killed, try to clean up elegantly.
 	// The idea is to preserve the integrity of the database.
@@ -203,6 +204,7 @@ func main() {
 			if readSeq.Err != nil {
 				log.Fatal(err)
 			}
+			totalResidues += readSeq.Seq.Len()
 			orgSeqId = pool.compress(orgSeqId, readSeq.Seq)
 			verboseOutput(db, orgSeqId)
 			if flagMaxSeedsGB > 0 && orgSeqId%10000 == 0 {
@@ -213,6 +215,8 @@ func main() {
 	cablastp.Vprintln("\n")
 	cablastp.Vprintf("Wrote %s.\n", cablastp.FileCompressed)
 	cablastp.Vprintf("Wrote %s.\n", cablastp.FileIndex)
+
+	db.BlastDBSize = totalResidues
 	cleanup(db, &pool)
 }
 
