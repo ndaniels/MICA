@@ -200,3 +200,11 @@ For example, to specify XML output, one might run:
 Where `-outfmt 5` is, as indicated in the NCBI blastp user guide, the 
 command-line argument for XML output.
 
+
+REPORTING BUGS
+==============
+If you find any bugs or have any problems using CaBLASTP, please submit a bug
+report on our issue tracker:
+
+    https://github.com/BurntSushi/cablastp/issues
+
