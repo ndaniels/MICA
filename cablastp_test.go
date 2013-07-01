@@ -73,7 +73,7 @@ func TestEditScripts(t *testing.T) {
 			[]byte(test.alignedFromSeq), []byte(test.alignedToSeq))
 
 		t.Log("")
-		for _, mod := range tval.Mods {
+		for _, mod := range tval.mods {
 			t.Log(mod.String())
 		}
 
