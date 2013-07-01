@@ -204,7 +204,7 @@ func main() {
 			if readSeq.Err != nil {
 				log.Fatal(err)
 			}
-			totalResidues += readSeq.Seq.Len()
+			totalResidues += uint64(readSeq.Seq.Len())
 			orgSeqId = pool.compress(orgSeqId, readSeq.Seq)
 			verboseOutput(db, orgSeqId)
 			if flagMaxSeedsGB > 0 && orgSeqId%10000 == 0 {
