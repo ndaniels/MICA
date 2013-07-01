@@ -1,22 +1,52 @@
-An implementation of CaBLASTP for protein sequences.
+ABOUT
+=====
 
-To install from source, you must have Go installed. It is freely available at
-http://www.golang.org/. CaBLASTP has been tested against Go 1.0.2 and 1.0.3.
+CaBLASTP is a family of programs for performing compressively-accelerated
+protein sequence searches based on the BLASTP family of tools (including 
+PSI-BLAST and DELTA-BLAST), as well as a compression tool (cablastp-compress)
+for creating searchable, compressed databases based on an input FASTA file.
 
-There are five binary executables created by `make`, also available as binaries
-for users without Go installed. They are cablastp-compress, which compresses
-FASTA input files (such as nr.fasta) into a compressed database for searching
-with CaBLASTP; cablastp-decompress which is a rarely-needed inverse of
-cablastp-compress; cablastp-search, which is a compressively accelerated version
-of BLASTP; cablastp-psisearch, which is a compressively accelerated version of
-PSI-BLAST; and finally cablastp-deltasearch, which is a compressively
-accelerated version of DELTA-BLAST.
+If you use CaBLASTP, please cite:
+Daniels N, Gallant A, Peng J, Cowen L, Baym M, Berger B
+(2013) Compressive Genomics for Protein Databases. 
+Submitted for publication.
+
+CaBLASTP is licensed under the GNU public license version 2.0. If you would
+like to license CaBLASTP in an environment where the GNU public license is
+unacceptable (such as inclusion in a non-GPL software package) commercial
+CaBLASTP licensing is available through MIT office of Technology Transfer.
+Contact bab@mit.edu for more information.
+Contact ndaniels@cs.tufts.edu for issues involving the code.
+
+INSTALLATION
+============
+
+To install from source, you must have the Go compiler installed. 
+It is freely available at http://www.golang.org/. 
+CaBLASTP has been tested against Go 1.0.2 and 1.0.3.
+
+If you have Go installed, simply run `make install` within the source directory.
+
+EXECUTABLES
+===========
+
+There are five binary executables created by `make install`, also available as 
+binaries for users without Go installed. They are: 
+cablastp-compress, which compresses FASTA input files (such as nr.fasta) into a      compressed database for searching with CaBLASTP; 
+cablastp-decompress which is a rarely-needed inverse of cablastp-compress; 
+cablastp-search, which is a compressively accelerated version of BLASTP; 
+cablastp-psisearch, which is a compressively accelerated version of PSI-BLAST; 
+cablastp-deltasearch, which is a compressively accelerated version of 
+     DELTA-BLAST.
+
+PREREQUISITES
+=============
 
 CaBLASTP boosts BLAST+ protein search, and as such it is not completely
 self-contained. It relies on BLAST+.
 
 To use CaBLASTP, you must already have BLAST+ 2.2 or later installed, so that
-the blast binaries are in your PATH. DELTA-BLAST requires BLAST+ 2.2.26 or later
+the BLAST binaries are in your PATH. DELTA-BLAST requires BLAST+ 2.2.26 or later
 and we recommend 2.2.27. DELTA-BLAST also requires an RPS database configured
 per NCBI's instructions.
 
@@ -28,19 +58,84 @@ on Microsoft Windows but is untested.
 You do not need the Go compiler installed to use the binary distributions of
 CaBLASTP.
 
+ADDITIONAL FILES
+================
+
 As compression is compute-intensive, we provide an already-compressed database
-based on NCBI's NR from December 12, 2012.
+based on NCBI's NR from December 12, 2012, which we will update thrice yearly.
+Since the CaBLASTP compressed database format is actually a directory 
+structure, we provide it as a .tar.gz file, so should be unarchived with 
+`tar zxf cablastp-nr20121212.tar.gz`.
+
+The result will be a directory, 'cablastp-nr20121212', which contains the 
+various files necessary for CaBLASTP to run.
+
 Should you wish to create your own compressed database, you would use the
 cablastp-compress binary. The database we provide was created with:
 
 cablastp-compress --ext-seed-size 0 --match-seq-id-threshold 70 --ext-seq-id-threshold 60 --max-seeds 20 -p 40 cablastp-nr20121212 nr.fasta
 
+Several of the command-line arguments are tuning parameters that affect the
+run-time performance of compression.
+
 The --max-seeds argument caps the size of the seeds table to, in this case, 20
 gigabytes. Compressing large databases can require a great deal of RAM. A
 significantly smaller cap will harm compression.
 
+The --ext-seed-size argument allows for larger k-mer seeds without the memory
+overhead associated with the larger size, by greedily requiring the additional
+residues to be exact matches.
+
+The --match-seq-id-threshold argument sets the sequence identity percentage
+required for a match during compression.
+
+The --ext-seq-id-threshold argument sets the sequence identity percentage
+required for a single instance of extension during compression.
+
+The -p argument simply sets the number of processor cores used during 
+compression, and bears no relevance to the resulting compressed database.
+
+In this case, the input file is `nr.fasta`, and the output name for the
+compressed database is `cablastp-nr20121212`.
+Note that the compressed database is actually a directory that will be created
+by `cablastp-compress`.
+
+USAGE
+=====
+
+Run cablastp-compress -help, cablastp-deltasearch -help, cablastp-search -help, 
+or cablastp-psisearch -help for detailed help as to command-line arguments.
+
+EXAMPLES
+========
+
 To perform a compressively accelerated DELTA-BLAST search, you might do:
-cablastp-deltasearch -rpspath /path/to/cdd_delta /path/to/cablastp-nr20121212 /path/to/query.fasta
+cablastp-deltasearch -rpspath /path/to/cdd_delta /path/to/cablastp_database /path/to/query.fasta
+
+where:
+/path/to/cdd_delta is the local file path to your conserved domain
+database (required for standard delta-blast as well)
+/path/to/cablastp_database is the local file path to your cablastp compressed
+database (it will be the path to cablastp-nr20121212 if you are using the
+provided December, 2012 database)
+/path/to/query.fasta is simply the local file path to the FASTA file you wish
+to use as a query.
 
 To perform a compressively accelerated BLASTP search, you might do:
-cablastp-search /path/to/cablastp-nr20121212 /path/to/query.fasta
+cablastp-search /path/to/cablastp_database /path/to/query.fasta
+
+where:
+/path/to/cablastp_database is the local file path to the cablastp compressed
+database, and
+/path/to/query.fasta is the local file path to the FASTA file you wish to use 
+as a query.
+
+Arguments the user wishes to pass to the underlying BLAST program, such as
+adjusting the output format or the E-value threshold, may be passed via the
+`--blast-args` flag.
+For example, to specify XML output, one might run:
+cablastp-search /path/to/cablastp_database /path/to/query.fasta --blast-args 
+-outfmt 5
+
+Where `-outfmt 5` is, as indicated in the NCBI blastp user guide, the 
+command-line argument for XML output.

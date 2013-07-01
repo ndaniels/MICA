@@ -24,7 +24,7 @@ type DBConf struct {
 	SavePlain           bool
 	ReadOnly            bool
 	BlastMakeBlastDB    string
-	BlastDBSize         int
+	BlastDBSize         uint64
 }
 
 var DefaultDBConf = DBConf{
@@ -73,6 +73,14 @@ func LoadDBConf(r io.Reader) (conf DBConf, err error) {
 			}
 			return int(i64)
 		}
+		atoui := func() uint64 {
+			var ui64 uint64
+			var err error
+			if ui64, err = strconv.ParseUint(line[1], 10, 64); err != nil {
+				panic(err)
+			}
+			return uint64(ui64)
+		}
 		switch line[0] {
 		case "MinMatchLen":
 			conf.MinMatchLen = atoi()
@@ -111,7 +119,7 @@ func LoadDBConf(r io.Reader) (conf DBConf, err error) {
 		case "BlastMakeBlastDB":
 			conf.BlastMakeBlastDB = strings.TrimSpace(line[1])
 		case "BlastDBSize":
-			conf.BlastDBSize = atoi()
+			conf.BlastDBSize = atoui()
 		default:
 			return conf, fmt.Errorf("Invalid DBConf flag: %s", line[0])
 		}
@@ -186,6 +194,9 @@ func (dbConf DBConf) Write(w io.Writer) error {
 	s := func(i int) string {
 		return fmt.Sprintf("%d", i)
 	}
+	su := func(i uint64) string {
+		return fmt.Sprintf("%d", i)
+	}
 	bs := func(b bool) string {
 		if b {
 			return "1"
@@ -207,7 +218,7 @@ func (dbConf DBConf) Write(w io.Writer) error {
 		{"SavePlain", bs(dbConf.SavePlain)},
 		{"ReadOnly", bs(dbConf.ReadOnly)},
 		{"BlastMakeBlastDB", dbConf.BlastMakeBlastDB},
-		{"BlastDBSize", s(dbConf.BlastDBSize)},
+		{"BlastDBSize", su(dbConf.BlastDBSize)},
 	}
 	if err := csvWriter.WriteAll(records); err != nil {
 		return err
