@@ -1,8 +1,10 @@
 package cablastp
 
 import (
+	"compress/gzip"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/TuftsBCB/io/fasta"
 )
@@ -20,9 +22,18 @@ func ReadOriginalSeqs(
 	fileName string,
 	ignore []byte,
 ) (chan ReadOriginalSeq, error) {
-	f, err := os.Open(fileName)
+	var f io.Reader
+	var err error
+
+	f, err = os.Open(fileName)
 	if err != nil {
 		return nil, err
+	}
+	if strings.HasSuffix(fileName, ".gz") {
+		f, err = gzip.NewReader(f)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	reader := fasta.NewReader(f)
