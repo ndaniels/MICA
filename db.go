@@ -57,6 +57,14 @@ type DB struct {
 // will be overwritten.
 func NewWriteDB(appnd bool, conf DBConf, dir string) (*DB, error) {
 	Vprintf("Opening database in %s...\n", dir)
+
+	if strings.HasSuffix(dir, ".tar") || strings.HasSuffix(dir, ".gz") {
+		return nil, fmt.Errorf("The CaBLASTP database you've provided does " +
+			"not appear to be a directory. Please make sure you've extracted " +
+			"the downloaded database with `tar zxf cablastp-xxx.tar.gz` " +
+			"before using it with CaBLASTP.")
+	}
+
 	_, err := os.Open(dir)
 	if appnd {
 		if err != nil {
