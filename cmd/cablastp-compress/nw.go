@@ -5,13 +5,12 @@ import (
 )
 
 var (
-	nwLookUpP map[byte]int
+	nwLookUpP [256]int
 )
 
 // Initialize the alignment lookup table. (i.e., translate ASCII residue
 // characters to BLOSUM62 matrix indices.)
 func init() {
-	nwLookUpP := make(map[byte]int)
 	for i := 0; i < len(blosum.Alphabet62); i++ {
 		nwLookUpP[blosum.Alphabet62[i]] = i
 	}
