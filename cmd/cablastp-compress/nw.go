@@ -51,7 +51,6 @@ func nwAlign(rseq, oseq []byte, mem *memory) [2][]byte {
 	if r <= 11 || c <= 11 {
 		constrained = false
 	}
-	constrained = false
 
 	var table []int
 	var j int
