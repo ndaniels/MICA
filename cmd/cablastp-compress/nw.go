@@ -5,14 +5,14 @@ import (
 )
 
 var (
-	nwLookUpP [256]int
+	resTrans [256]int
 )
 
 // Initialize the alignment lookup table. (i.e., translate ASCII residue
 // characters to BLOSUM62 matrix indices.)
 func init() {
 	for i := 0; i < len(blosum.Alphabet62); i++ {
-		nwLookUpP[blosum.Alphabet62[i]] = i
+		resTrans[blosum.Alphabet62[i]] = i
 	}
 }
 
@@ -63,7 +63,6 @@ func nwAlign(rseq, oseq []byte, mem *memory) [2][]byte {
 	}
 
 	var sdiag, sup, sleft, rVal, oVal int
-	valToCode := nwLookUpP
 	gapChar := byte('-')
 	matrix := blosum.Matrix62
 
@@ -75,7 +74,7 @@ func nwAlign(rseq, oseq []byte, mem *memory) [2][]byte {
 			if constrained && ((i-j) > constraint || (j-i) > constraint) {
 				continue
 			}
-			rVal, oVal = valToCode[rseq[i-1]], valToCode[oseq[j-1]]
+			rVal, oVal = resTrans[rseq[i-1]], resTrans[oseq[j-1]]
 
 			off = i2 + (j - 1)
 			sdiag = table[off] + matrix[rVal][oVal]
@@ -96,7 +95,7 @@ func nwAlign(rseq, oseq []byte, mem *memory) [2][]byte {
 
 	i, j := r-1, c-1
 	for i > 0 && j > 0 {
-		rVal, oVal = valToCode[rseq[i-1]], valToCode[oseq[j-1]]
+		rVal, oVal = resTrans[rseq[i-1]], resTrans[oseq[j-1]]
 
 		sdiag = table[(i-1)*c+(j-1)] + matrix[rVal][oVal]
 		sup = table[(i-1)*c+j] + matrix[gap][oVal]
