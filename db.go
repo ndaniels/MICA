@@ -21,7 +21,7 @@ const (
 // reading (decompression).
 type DB struct {
 	// An embedded configuration.
-	DBConf
+	*DBConf
 
 	// The path to the directory on disk.
 	Path string
@@ -56,7 +56,7 @@ type DB struct {
 // command line parameters. Note that if 'appnd' is set, then the configuration
 // will be read from disk---only options explicitly set via the command line
 // will be overwritten.
-func NewWriteDB(appnd bool, conf DBConf, dir string) (*DB, error) {
+func NewWriteDB(appnd bool, conf *DBConf, dir string) (*DB, error) {
 	Vprintf("Opening database in %s...\n", dir)
 
 	if strings.HasSuffix(dir, ".tar") || strings.HasSuffix(dir, ".gz") {

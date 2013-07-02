@@ -27,7 +27,7 @@ type DBConf struct {
 	BlastDBSize         uint64
 }
 
-var DefaultDBConf = DBConf{
+var DefaultDBConf = &DBConf{
 	MinMatchLen:         40,
 	MatchKmerSize:       4,
 	GappedWindowSize:    25,
@@ -45,7 +45,7 @@ var DefaultDBConf = DBConf{
 	BlastDBSize:         0,
 }
 
-func LoadDBConf(r io.Reader) (conf DBConf, err error) {
+func LoadDBConf(r io.Reader) (conf *DBConf, err error) {
 	defer func() {
 		if perr := recover(); perr != nil {
 			err = perr.(error)
@@ -61,7 +61,7 @@ func LoadDBConf(r io.Reader) (conf DBConf, err error) {
 
 	lines, err := csvReader.ReadAll()
 	if err != nil {
-		return conf, err
+		return nil, err
 	}
 
 	for _, line := range lines {
@@ -121,14 +121,14 @@ func LoadDBConf(r io.Reader) (conf DBConf, err error) {
 		case "BlastDBSize":
 			conf.BlastDBSize = atoui()
 		default:
-			return conf, fmt.Errorf("Invalid DBConf flag: %s", line[0])
+			return nil, fmt.Errorf("Invalid DBConf flag: %s", line[0])
 		}
 	}
 
 	return conf, nil
 }
 
-func (flagConf DBConf) FlagMerge(fileConf DBConf) (DBConf, error) {
+func (flagConf *DBConf) FlagMerge(fileConf *DBConf) (*DBConf, error) {
 	only := make(map[string]bool, 0)
 	flag.Visit(func(f *flag.Flag) { only[f.Name] = true })
 
