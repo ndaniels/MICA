@@ -16,17 +16,6 @@ func init() {
 	}
 }
 
-// appendOne appends a single byte to a byte slice and only allocates if it
-// absolutely has to.
-func appendOne(slice []byte, b byte) []byte {
-	if len(slice) == cap(slice) {
-		return append(slice, b)
-	}
-	slice = slice[0 : len(slice)+1]
-	slice[len(slice)-1] = b
-	return slice
-}
-
 // nwAlign performs Needleman-Wunsch sequence alignment.
 //
 // This is adapted from Dan Kortschak's Needleman-Wunsch algorithm from the
@@ -104,26 +93,26 @@ func nwAlign(rseq, oseq []byte, mem *memory) [2][]byte {
 		case sdiag > sup && sdiag > sleft:
 			i--
 			j--
-			refAln = appendOne(refAln, rseq[i])
-			orgAln = appendOne(orgAln, oseq[j])
+			refAln = append(refAln, rseq[i])
+			orgAln = append(orgAln, oseq[j])
 		case sup > sleft:
 			i--
-			refAln = appendOne(refAln, rseq[i])
-			orgAln = appendOne(orgAln, gapChar)
+			refAln = append(refAln, rseq[i])
+			orgAln = append(orgAln, gapChar)
 		default:
 			j--
-			refAln = appendOne(refAln, gapChar)
-			orgAln = appendOne(orgAln, oseq[j])
+			refAln = append(refAln, gapChar)
+			orgAln = append(orgAln, oseq[j])
 		}
 	}
 
 	for ; i > 0; i-- {
-		refAln = appendOne(refAln, rseq[i-1])
-		orgAln = appendOne(orgAln, gapChar)
+		refAln = append(refAln, rseq[i-1])
+		orgAln = append(orgAln, gapChar)
 	}
 	for ; j > 0; j-- {
-		refAln = appendOne(refAln, gapChar)
-		orgAln = appendOne(orgAln, oseq[j-1])
+		refAln = append(refAln, gapChar)
+		orgAln = append(orgAln, oseq[j-1])
 	}
 
 	if len(refAln) == len(orgAln) {
