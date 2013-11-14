@@ -83,7 +83,7 @@ func init() {
 func main() {
 	buf := new(bytes.Buffer)
 
-	if flag.NArg() < 2 {
+	if flag.NArg() != 2 {
 		flag.Usage()
 	}
 
