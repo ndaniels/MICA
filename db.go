@@ -280,8 +280,8 @@ func (db *DB) Save() error {
 	// e.g., `makeblastdb -dbtype prot -in coarse.fasta`
 	cmd := exec.Command(
 		db.BlastMakeBlastDB, "-dbtype", "prot",
-		"-in", path.Join(db.Path, FileCoarseFasta),
-		"-out", path.Join(db.Path, FileBlastCoarse))
+		"-in", FileCoarseFasta, "-out", FileBlastCoarse)
+	cmd.Dir = db.Path
 
 	Vprintf("Creating %s...\n", FileBlastCoarse)
 	if err = Exec(cmd); err != nil {
