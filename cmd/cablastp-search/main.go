@@ -166,7 +166,6 @@ func blastFine(
 	// defined flags.
 	flags := []string{
 		"-db", path.Join(blastFineDir, cablastp.FileBlastFine),
-		"-subject", blastFineFile,
 		"-dbsize", su(db.BlastDBSize),
 		"-num_threads", s(flagGoMaxProcs),
 	}
