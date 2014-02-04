@@ -129,7 +129,7 @@ func main() {
 	}
 
 	// Write the contents of the expanded sequences to a fasta file.
-	// It is then passed as the "-subject" parameter to blastp.
+	// It is then indexed using makeblastdb.
 	buf.Reset()
 	if err := writeFasta(expandedSequences, buf); err != nil {
 		fatalf("Could not create FASTA input from coarse hits: %s\n", err)
@@ -176,9 +176,12 @@ func blastFine(
 	// We pass our own "-db" flag to blastp, but the rest come from user
 	// defined flags.
 	// deltablast needs a rpsdb path
-	flags := []string{"-db", path.Join(blastFineDir, cablastp.FileBlastFine),
+	flags := []string{
+		"-db", path.Join(blastFineDir, cablastp.FileBlastFine),
 		"-rpsdb", flagRPSPath,
-		"-dbsize", su(db.BlastDBSize)}
+		"-dbsize", su(db.BlastDBSize),
+		"-num_threads", s(flagGoMaxProcs),
+	}
 	flags = append(flags, blastArgs...)
 
 	cmd := exec.Command(flagDeltaBlast, flags...)
