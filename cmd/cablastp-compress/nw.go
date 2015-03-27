@@ -131,3 +131,16 @@ func nwAlign(rseq, oseq []byte, mem *memory) [2][]byte {
 
 	return [2][]byte{refAln, orgAln}
 }
+
+func alignmentDistance(alignment [2][]byte) float64 {
+	hammingDist := float64(0)
+	aLen := len(alignment[0])
+
+	for i := aLen - 1; i >= 0; i-- {
+		if alignment[0][i] != alignment[1][i] {
+			hammingDist += 1
+		}
+	}
+
+	return 1 - (hammingDist / aLen)
+}

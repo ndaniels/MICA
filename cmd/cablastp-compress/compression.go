@@ -394,3 +394,30 @@ func max(a, b int) int {
 	}
 	return b
 }
+
+type seqComparison struct {
+	distance  float64
+	alignment [2][]byte
+}
+
+func compareSeqs(matchThreshold float64, cseq *cablastp.CompressedSeq, oseq *cablastp.OriginalSeq, mem *memory) seqComparison {
+	cLen := len(cseq.Residues)
+	oLen := len(oseq.Residues)
+	minDistance := 1 - min(cLen, oLen)/max(cLen, oLen)
+
+	if minDistance > matchThreshold {
+		return seqComparison{
+			distance:  1,
+			alignment: nil,
+		}
+	}
+
+	alignment := nwAlign(cseq.Residues, oseq.Residues, mem)
+	distance := alignmentDistance(alignment)
+
+	return seqComparison{
+		distance:  distance,
+		alignment: alignment,
+	}
+
+}
