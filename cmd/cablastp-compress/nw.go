@@ -142,5 +142,5 @@ func alignmentDistance(alignment [2][]byte) float64 {
 		}
 	}
 
-	return 1 - (hammingDist / aLen)
+	return 1 - ((aLen - hammingDist) / aLen)
 }
