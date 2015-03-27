@@ -1,10 +1,14 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path"
 	"runtime"
@@ -40,6 +44,8 @@ var (
 	flagMemProfile  = ""
 	flagMemStats    = ""
 	flagMemInterval = false
+
+	flagNumPrimeSeqs = 10 * 1000
 )
 
 func init() {
@@ -100,6 +106,13 @@ func init() {
 	flag.StringVar(&dbConf.BlastMakeBlastDB, "makeblastdb",
 		dbConf.BlastMakeBlastDB,
 		"The location of the 'makeblastdb' executable.")
+
+	flag.Float64Var(&dbConf.MaxClusterRadius, "max-cluster-radius",
+		dbConf.MaxClusterRadius,
+		"Set the maximum radius for clusters")
+
+	flag.IntVar(&flagNumPrimeSeqs, "num-prime-seqs", flagNumPrimeSeqs,
+		"Set the number of sequences to prime the coarse database with")
 
 	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
 		"The maximum number of CPUs that can be executing simultaneously.")
@@ -166,6 +179,17 @@ func main() {
 		fatalf("%s\n", err)
 	}
 	cablastp.Vprintln("")
+
+	// Stock the database with randomly selected coarse sequences
+	primeSeqIds := make(map[int]bool)
+	totalSeqs := countNumSeqsInFile()
+
+	for i := 0; i < flagNumPrimeSeqs; i++ {
+		primeId := rand.Int63n(totalSeqs)
+		primeSeqIds[primeId] = true
+	}
+	starterSeqs := grabPrimeSeqs(primeSeqIds)
+	primeCoarseDB(dbConf.MaxClusterRadius, db, starterSeqs)
 
 	pool := startCompressWorkers(db)
 	orgSeqId := db.ComDB.NumSequences()
@@ -357,4 +381,61 @@ NumGC: %d
 		ms.PauseNs, ms.NumGC)
 
 	f.Close()
+}
+
+func countNumSeqsInFile() int {
+
+	c1 := exec.Command("grep", "<", flag.Args()[1:])
+	c2 := exec.Command("wc", "-l")
+
+	r, w := io.Pipe()
+	c1.Stdout = w
+	c2.Stdin = r
+
+	var buff bytes.Buffer
+	c2.Stdout = &buff
+
+	c1.Start()
+	c2.Start()
+	c1.Wait()
+	w.Close()
+	c2.Wait()
+	out, err := c2.Output()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	readOut := bytes.NewBuffer(out)
+	numSeqs, err := binary.ReadVarint(readOut)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return numSeqs
+}
+
+func grabPrimeSeqs(primeIds map[int]bool) []starterSeq {
+	starterSeqs := make([]starterSeq, flagNumPrimeSeqs)
+	seqId := 0
+
+	for _, arg := range flag.Args()[1:] {
+		seqChan, err := cablastp.ReadOriginalSeqs(arg, ignoredResidues)
+		if err != nil {
+			log.Fatal(err)
+		}
+		for readSeq := range seqChan {
+			if readSeq.Err != nil {
+				log.Fatal(err)
+			}
+			if primeIds[seqId] {
+				sSeq := starterSeq{
+					oSeq:   readSeq.Seq,
+					oSeqId: primeId,
+				}
+				append(starterSeqs, sSeq)
+			}
+			seqId++
+		}
+	}
+	return starterSeqs
 }

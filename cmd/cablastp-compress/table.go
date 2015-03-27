@@ -11,7 +11,7 @@ type starterSeq struct {
 
 
 
-func initCoarseDB(clusterThresh float64, db *cablastp.DB, starterSeqs []starterSeq){
+func primeCoarseDB(clusterThresh float64, db *cablastp.DB, starterSeqs []starterSeq){
 	skipTable := make( map[int]bool )
 	coarsedb := db.CoarseDB
 	mem := newMemory()
