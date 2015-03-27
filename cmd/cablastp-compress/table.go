@@ -2,11 +2,26 @@ package main
 
 import(
 	"github.com/BurntSushi/cablastp"
+	"sort"
 )
 
 type starterSeq struct {
 	oSeq *cablastp.OriginalSeq
 	oSeqId int
+}
+
+type BySeqLength []starterSeq
+
+func (s BySeqLength) Len() int {
+	return len(s)
+}
+
+func (s BySeqLength) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s BySeqLength) Less(i, j int) bool {
+	return len(s[i].oSeq.Residues) < len(s[j].oSeq.Residues)
 }
 
 
@@ -15,6 +30,8 @@ func primeCoarseDB(clusterThresh float64, db *cablastp.DB, starterSeqs []starter
 	skipTable := make( map[int]bool )
 	coarsedb := db.CoarseDB
 	mem := newMemory()
+
+	sort.Sort( BySeqLength(starterSeqs))
 
 	for rowInd, rowSeq := starterSeqs {
 		if ! skipTable[rowInd]{
@@ -28,7 +45,7 @@ func primeCoarseDB(clusterThresh float64, db *cablastp.DB, starterSeqs []starter
 			for colInd, colSeq := starterSeqs[rowInd:] {
 				if ! skipTable[colInd]{
 
-					comp := compareSeqs(clusterThresh, comSeq, colSeq.oSeq, mem)
+					comp := compareSeqs(clusterThresh, corSeq, colSeq.oSeq, mem)
 					if comp.distance <= clusterThresh {
 
 						skipTable[colInd] = true

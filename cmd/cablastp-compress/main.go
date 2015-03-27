@@ -191,14 +191,7 @@ func main() {
 	starterSeqs := grabPrimeSeqs(primeSeqIds)
 	primeCoarseDB(dbConf.MaxClusterRadius, db, starterSeqs)
 
-	pool := startCompressWorkers(db)
-	orgSeqId := db.ComDB.NumSequences()
 	mainQuit := make(chan struct{}, 0)
-
-	// If the process is killed, try to clean up elegantly.
-	// The idea is to preserve the integrity of the database.
-	attachSignalHandler(db, mainQuit, &pool)
-
 	// Start the CPU profile after all of the data has been read.
 	if len(flagCpuProfile) > 0 {
 		f, err := os.Create(flagCpuProfile)
@@ -207,12 +200,14 @@ func main() {
 		}
 		pprof.StartCPUProfile(f)
 	}
+
+	currentSeqId := 0
 	for _, arg := range flag.Args()[1:] {
 		seqChan, err := cablastp.ReadOriginalSeqs(arg, ignoredResidues)
 		if err != nil {
 			log.Fatal(err)
 		}
-		if orgSeqId == 0 {
+		if currentSeqId == 0 {
 			timer = time.Now()
 		}
 		for readSeq := range seqChan {
@@ -228,11 +223,20 @@ func main() {
 				log.Fatal(err)
 			}
 			dbConf.BlastDBSize += uint64(readSeq.Seq.Len())
-			orgSeqId = pool.compress(orgSeqId, readSeq.Seq)
-			verboseOutput(db, orgSeqId)
-			if flagMaxSeedsGB > 0 && orgSeqId%10000 == 0 {
+			if !primeSeqIds[currentSeqId] {
+
+				pool := startCompressWorkers(db)
+				// If the process is killed, try to clean up elegantly.
+				// The idea is to preserve the integrity of the database.
+				attachSignalHandler(db, mainQuit, &pool)
+				pool.align(currentSeqId, readSeq.Seq)
+				pool.done()
+				verboseOutput(db, currentSeqId)
+			}
+			if flagMaxSeedsGB > 0 && currentSeqId%10000 == 0 {
 				db.CoarseDB.Seeds.MaybeWipe(flagMaxSeedsGB)
 			}
+			currentSeqId++
 		}
 	}
 	cablastp.Vprintln("\n")
