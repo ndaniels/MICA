@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/BurntSushi/cablastp"
+	"github.com/ndaniels/neutronium"
 )
 
 // alignLen computes the length of a sequence in an alignment.
@@ -53,7 +53,7 @@ func alignUngapped(rseq []byte, oseq []byte,
 				// match to the start of this match. But only if there is at
 				// least one residue in that range.
 				if (scanned-kmerSize)-length > 0 {
-					id := cablastp.SeqIdentity(
+					id := neutronium.SeqIdentity(
 						rseq[length:scanned-kmerSize],
 						oseq[length:scanned-kmerSize])
 
