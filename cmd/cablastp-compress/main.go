@@ -230,7 +230,7 @@ func main() {
 				// The idea is to preserve the integrity of the database.
 				attachSignalHandler(db, mainQuit, &pool)
 				pool.align(currentSeqId, readSeq.Seq)
-				pool.done()
+				pool.finishAndHandle()
 				verboseOutput(db, currentSeqId)
 			}
 			if flagMaxSeedsGB > 0 && currentSeqId%10000 == 0 {
