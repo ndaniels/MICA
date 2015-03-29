@@ -194,16 +194,10 @@ func main() {
 	starterSeqs := grabPrimeSeqs(primeSeqIds)
 	primeCoarseDB(dbConf.MaxClusterRadius, db, starterSeqs)
 	neutronium.Vprintln("Database primed.")
-	if err = db.Save(); err != nil {
-		fatalf("Could not save database: %s\n", err)
-	}
-	db.WriteClose()
-	neutronium.Vprintln("Saved prime database.")
-	neutronium.Vprintln("Reopening database...")
-	db, err = neutronium.NewWriteDB(true, dbConf, flag.Arg(0))
-	if err != nil {
-		fatalf("%s\n", err)
-	}
+	// if err = db.Save(); err != nil {
+	// 	fatalf("Could not save database: %s\n", err)
+	// }
+
 	neutronium.Vprintln("")
 
 	mainQuit := make(chan struct{}, 0)
@@ -216,6 +210,12 @@ func main() {
 		pprof.StartCPUProfile(f)
 	}
 	neutronium.Vprintln("Compressing Non-Prime Sequences...")
+	numNonPrimeSeqs := uint64(totalSeqs - int64(flagNumPrimeSeqs))
+	progressBar := neutronium.ProgressBar{
+		Label:   "Compressing Non-Primes",
+		Total:   numNonPrimeSeqs,
+		Current: uint64(0),
+	}
 	currentSeqId := 0
 	for _, arg := range flag.Args()[1:] {
 		seqChan, err := neutronium.ReadOriginalSeqs(arg, ignoredResidues)
@@ -239,7 +239,7 @@ func main() {
 			}
 			dbConf.BlastDBSize += uint64(readSeq.Seq.Len())
 			if !primeSeqIds[currentSeqId] {
-
+				progressBar.ClearAndDisplay()
 				pool := startCompressWorkers(db)
 				// If the process is killed, try to clean up elegantly.
 				// The idea is to preserve the integrity of the database.
@@ -247,6 +247,7 @@ func main() {
 				pool.align(currentSeqId, readSeq.Seq)
 				pool.finishAndHandle()
 				verboseOutput(db, currentSeqId)
+				progressBar.Increment()
 			}
 			if flagMaxSeedsGB > 0 && currentSeqId%10000 == 0 {
 				db.CoarseDB.Seeds.MaybeWipe(flagMaxSeedsGB)
@@ -257,6 +258,11 @@ func main() {
 	neutronium.Vprintln("\n")
 	neutronium.Vprintf("Wrote %s.\n", neutronium.FileCompressed)
 	neutronium.Vprintf("Wrote %s.\n", neutronium.FileIndex)
+
+	if err := db.Save(); err != nil {
+		fatalf("Could not save database: %s\n", err)
+	}
+	db.WriteClose()
 
 	//cleanup(db, &pool)
 }

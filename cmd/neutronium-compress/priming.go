@@ -32,8 +32,8 @@ func primeCoarseDB(clusterThresh float64, db *neutronium.DB, starterSeqs []start
 	for rowInd, rowSeq := range starterSeqs {
 		if !skipTable[rowInd] {
 
-			comSeq := neutronium.NewCompressedSeq(rowSeq.oSeqId, rowSeq.oSeq.Name)
-			addWithoutMatch(&comSeq, coarsedb, rowSeq.oSeqId, rowSeq.oSeq)
+			comRowSeq := neutronium.NewCompressedSeq(rowSeq.oSeqId, rowSeq.oSeq.Name)
+			addWithoutMatch(&comRowSeq, coarsedb, rowSeq.oSeqId, rowSeq.oSeq)
 			corSeqId := rowInd
 			corSeq := coarsedb.CoarseSeqGet(uint(corSeqId))
 			corLen := uint(len(corSeq.Residues))
@@ -45,7 +45,9 @@ func primeCoarseDB(clusterThresh float64, db *neutronium.DB, starterSeqs []start
 					if comp.distance <= clusterThresh {
 
 						skipTable[colInd] = true
-						comSeq.Add(neutronium.NewLinkToCoarse(
+
+						comColSeq := neutronium.NewCompressedSeq(colSeq.oSeqId, colSeq.oSeq.Name)
+						comColSeq.Add(neutronium.NewLinkToCoarse(
 							uint(corSeqId), 0, corLen, comp.alignment))
 						corSeq.AddLink(neutronium.NewLinkToCompressed(
 							uint32(colSeq.oSeqId), 0, uint16(corLen)))
