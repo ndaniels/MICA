@@ -1,15 +1,12 @@
 package main
 
 import (
-	"bytes"
-	"encoding/binary"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"math/rand"
 	"os"
-	"os/exec"
+
 	"os/signal"
 	"path"
 	"runtime"
@@ -184,13 +181,19 @@ func main() {
 	// Stock the database with randomly selected coarse sequences
 	primeSeqIds := make(map[int]bool)
 	totalSeqs := countNumSeqsInFile()
+	neutronium.Vprintf("Preparing to compress %d sequences...\n", totalSeqs)
 
 	for i := 0; i < flagNumPrimeSeqs; i++ {
 		primeId := rand.Intn(int(totalSeqs))
-		primeSeqIds[primeId] = true
+		if !primeSeqIds[primeId] {
+			primeSeqIds[primeId] = true
+		} else {
+			i--
+		}
 	}
 	starterSeqs := grabPrimeSeqs(primeSeqIds)
 	primeCoarseDB(dbConf.MaxClusterRadius, db, starterSeqs)
+	neutronium.Vprintln("Database primed...")
 
 	mainQuit := make(chan struct{}, 0)
 	// Start the CPU profile after all of the data has been read.
@@ -201,7 +204,7 @@ func main() {
 		}
 		pprof.StartCPUProfile(f)
 	}
-
+	neutronium.Vprintln("Compressing Non-Prime Sequences...")
 	currentSeqId := 0
 	for _, arg := range flag.Args()[1:] {
 		seqChan, err := neutronium.ReadOriginalSeqs(arg, ignoredResidues)
@@ -391,34 +394,17 @@ NumGC: %d
 func countNumSeqsInFile() int64 {
 	totalSeqs := int64(0)
 
-	for _, aFilename := range flag.Args()[1:] {
-
-		c1 := exec.Command("grep", "<", aFilename)
-		c2 := exec.Command("wc", "-l")
-
-		r, w := io.Pipe()
-		c1.Stdout = w
-		c2.Stdin = r
-
-		var buff bytes.Buffer
-		c2.Stdout = &buff
-
-		c1.Start()
-		c2.Start()
-		c1.Wait()
-		w.Close()
-		c2.Wait()
-		out, err := c2.Output()
+	for _, arg := range flag.Args()[1:] {
+		seqChan, err := neutronium.ReadOriginalSeqs(arg, ignoredResidues)
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		readOut := bytes.NewBuffer(out)
-		numSeqs, err := binary.ReadVarint(readOut)
-		if err != nil {
-			log.Fatal(err)
+		for readSeq := range seqChan {
+			if readSeq.Err != nil {
+				log.Fatal(err)
+			}
+			totalSeqs++
 		}
-		totalSeqs += numSeqs
 	}
 
 	return totalSeqs
@@ -427,7 +413,7 @@ func countNumSeqsInFile() int64 {
 func grabPrimeSeqs(primeIds map[int]bool) []starterSeq {
 	starterSeqs := make([]starterSeq, flagNumPrimeSeqs)
 	seqId := 0
-
+	index := 0
 	for _, arg := range flag.Args()[1:] {
 		seqChan, err := neutronium.ReadOriginalSeqs(arg, ignoredResidues)
 		if err != nil {
@@ -442,7 +428,8 @@ func grabPrimeSeqs(primeIds map[int]bool) []starterSeq {
 					oSeq:   readSeq.Seq,
 					oSeqId: seqId,
 				}
-				starterSeqs = append(starterSeqs, sSeq)
+				starterSeqs[index] = sSeq
+				index++
 			}
 			seqId++
 		}

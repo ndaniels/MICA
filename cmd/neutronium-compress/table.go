@@ -28,9 +28,7 @@ func primeCoarseDB(clusterThresh float64, db *neutronium.DB, starterSeqs []start
 	skipTable := make(map[int]bool)
 	coarsedb := db.CoarseDB
 	mem := newMemory()
-
 	sort.Sort(BySeqLength(starterSeqs))
-
 	for rowInd, rowSeq := range starterSeqs {
 		if !skipTable[rowInd] {
 
