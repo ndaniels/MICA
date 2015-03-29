@@ -193,7 +193,18 @@ func main() {
 	}
 	starterSeqs := grabPrimeSeqs(primeSeqIds)
 	primeCoarseDB(dbConf.MaxClusterRadius, db, starterSeqs)
-	neutronium.Vprintln("Database primed...")
+	neutronium.Vprintln("Database primed.")
+	if err = db.Save(); err != nil {
+		fatalf("Could not save database: %s\n", err)
+	}
+	db.WriteClose()
+	neutronium.Vprintln("Saved prime database.")
+	neutronium.Vprintln("Reopening database...")
+	db, err = neutronium.NewWriteDB(true, dbConf, flag.Arg(0))
+	if err != nil {
+		fatalf("%s\n", err)
+	}
+	neutronium.Vprintln("")
 
 	mainQuit := make(chan struct{}, 0)
 	// Start the CPU profile after all of the data has been read.

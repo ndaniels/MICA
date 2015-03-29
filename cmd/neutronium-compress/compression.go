@@ -41,6 +41,7 @@ func startCompressWorkers(db *neutronium.DB) alignPool {
 		closed:        false,
 		allJobsLoaded: false,
 	}
+	neutronium.Vprintln("Starting Aligners...")
 	for i := 0; i < max(1, runtime.GOMAXPROCS(0)); i++ {
 		wg.Add(1)
 		go pool.aligner()
@@ -53,6 +54,7 @@ func startCompressWorkers(db *neutronium.DB) alignPool {
 func (pool *alignPool) align(id int, seq *neutronium.OriginalSeq) {
 	// Still needs seed table optimization
 	coarseDB := pool.db.CoarseDB
+	neutronium.Vprintf("Loading %d jobs...\n", coarseDB.NumSequences())
 	for corSeqId := 0; corSeqId < coarseDB.NumSequences(); corSeqId++ {
 		pool.jobs <- &alignJob{
 			orgSeqId: id,
@@ -62,19 +64,29 @@ func (pool *alignPool) align(id int, seq *neutronium.OriginalSeq) {
 		}
 	}
 	pool.allJobsLoaded = true
+	neutronium.Vprintln("All jobs loaded.")
 }
 
 func (pool *alignPool) aligner() {
 	mem := newMemory()
+	neutronium.Vprintf("There are %d jobs in the queue\n", len(pool.jobs))
 	for job := range pool.jobs {
 		comp := compareSeqs(pool.db.DBConf.MaxClusterRadius, job.corSeqId, job.orgSeqId, job.corSeq, job.orgSeq, mem)
-		pool.results <- &comp
+		pool.results <- comp
 	}
 	pool.wg.Done()
 }
 
 func (pool *alignPool) receiver(maxRadius float64) {
+	neutronium.Vprintln("Starting receiver...")
+	pool.emptyResultsQueue(maxRadius)
+	pool.wg.Done()
+}
+
+func (pool *alignPool) emptyResultsQueue(maxRadius float64) {
+	neutronium.Vprintf("There are %d comparisons in the queue\n", len(pool.results))
 	for comp := range pool.results {
+		neutronium.Vprintln("Reading comparison...")
 		if pool.bestMatch != nil {
 			if math.Abs(comp.distance-pool.bestMatch.distance) < 0.000001 &&
 				len(comp.corSeq.Residues) > len(pool.bestMatch.corSeq.Residues) {
@@ -87,21 +99,22 @@ func (pool *alignPool) receiver(maxRadius float64) {
 			pool.bestMatch = comp
 		}
 	}
-	if !pool.allJobsLoaded {
-		pool.wg.Add(1)
-		pool.receiver(maxRadius)
-	}
-	pool.wg.Done()
+	// if !pool.allJobsLoaded {
+	// 	pool.emptyResultsQueue(maxRadius)
+	// }
 }
 
 func (pool *alignPool) finishAndHandle() {
+	neutronium.Vprintln("Finishing an alignment...")
 	if pool.closed {
 		return
 	}
 	pool.closed = true
 	close(pool.jobs)
+	neutronium.Vprintln("Closed jobs channel...")
 	pool.wg.Wait()
 	pool.wg.Add(1) // Avoid a panic when the receiver decrements the wait group
+	neutronium.Vprintln("Starting final receiver...")
 	pool.receiver(pool.db.DBConf.MaxClusterRadius)
 	close(pool.results)
 	// The bestMatch in pool should now actually be the best match
@@ -162,13 +175,13 @@ type seqComparison struct {
 	orgSeq    *neutronium.OriginalSeq
 }
 
-func compareSeqs(matchThreshold float64, corSeqId, orgSeqId int, corSeq *neutronium.CoarseSeq, orgSeq *neutronium.OriginalSeq, mem *memory) seqComparison {
+func compareSeqs(matchThreshold float64, corSeqId, orgSeqId int, corSeq *neutronium.CoarseSeq, orgSeq *neutronium.OriginalSeq, mem *memory) *seqComparison {
 	cLen := len(corSeq.Residues)
 	oLen := len(orgSeq.Residues)
 	minDistance := 1.0 - float64(min(cLen, oLen))/float64(max(cLen, oLen))
 
 	if minDistance > matchThreshold {
-		return seqComparison{
+		return &seqComparison{
 			distance: 1,
 			corSeqId: corSeqId,
 			corSeq:   corSeq,
@@ -180,7 +193,7 @@ func compareSeqs(matchThreshold float64, corSeqId, orgSeqId int, corSeq *neutron
 	alignment := nwAlign(corSeq.Residues, orgSeq.Residues, mem)
 	distance := alignmentDistance(alignment)
 
-	return seqComparison{
+	return &seqComparison{
 		distance:  distance,
 		alignment: alignment,
 		corSeqId:  corSeqId,
