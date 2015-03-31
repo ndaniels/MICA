@@ -178,6 +178,10 @@ func main() {
 	}
 	neutronium.Vprintln("")
 
+	neutronium.Vprint("Building seed table... ")
+	seedTable := neutronium.NewSeedTable(4, 4)
+	neutronium.Vprintln("Done.")
+
 	// Stock the database with randomly selected coarse sequences
 	primeSeqIds := make(map[int]bool)
 	totalSeqs := countNumSeqsInFile()
@@ -192,7 +196,7 @@ func main() {
 		}
 	}
 	starterSeqs := grabPrimeSeqs(primeSeqIds)
-	primeCoarseDB(dbConf.MaxClusterRadius, db, starterSeqs)
+	primeCoarseDB(dbConf.MaxClusterRadius, db, &seedTable, starterSeqs)
 	neutronium.Vprintln("Database primed.")
 	// if err = db.Save(); err != nil {
 	// 	fatalf("Could not save database: %s\n", err)
@@ -240,7 +244,7 @@ func main() {
 			dbConf.BlastDBSize += uint64(readSeq.Seq.Len())
 			if !primeSeqIds[currentSeqId] {
 				progressBar.ClearAndDisplay()
-				pool := startCompressWorkers(db)
+				pool := startCompressWorkers(db, &seedTable)
 				// If the process is killed, try to clean up elegantly.
 				// The idea is to preserve the integrity of the database.
 				attachSignalHandler(db, mainQuit, &pool)

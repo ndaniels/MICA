@@ -24,7 +24,7 @@ func (s BySeqLength) Less(i, j int) bool {
 	return len(s[i].oSeq.Residues) < len(s[j].oSeq.Residues)
 }
 
-func primeCoarseDB(clusterThresh float64, db *neutronium.DB, starterSeqs []starterSeq) {
+func primeCoarseDB(clusterThresh float64, db *neutronium.DB, seedTable *neutronium.SeedTable, starterSeqs []starterSeq) {
 	skipTable := make(map[int]bool)
 	coarsedb := db.CoarseDB
 	mem := newMemory()
@@ -33,7 +33,7 @@ func primeCoarseDB(clusterThresh float64, db *neutronium.DB, starterSeqs []start
 		if !skipTable[rowInd] {
 
 			comRowSeq := neutronium.NewCompressedSeq(rowSeq.oSeqId, rowSeq.oSeq.Name)
-			addWithoutMatch(&comRowSeq, coarsedb, rowSeq.oSeqId, rowSeq.oSeq)
+			addWithoutMatch(&comRowSeq, coarsedb, rowSeq.oSeqId, rowSeq.oSeq, seedTable)
 			corSeqId := rowInd
 			corSeq := coarsedb.CoarseSeqGet(uint(corSeqId))
 			corLen := uint(len(corSeq.Residues))
@@ -41,7 +41,7 @@ func primeCoarseDB(clusterThresh float64, db *neutronium.DB, starterSeqs []start
 			for colInd, colSeq := range starterSeqs[rowInd:] {
 				if !skipTable[colInd] {
 
-					comp := compareSeqs(clusterThresh, corSeqId, colSeq.oSeqId, corSeq, colSeq.oSeq, mem)
+					comp := compareSeqs(clusterThresh, corSeqId, colSeq.oSeqId, corSeq, colSeq.oSeq, seedTable, mem)
 					if comp.distance <= clusterThresh {
 
 						skipTable[colInd] = true

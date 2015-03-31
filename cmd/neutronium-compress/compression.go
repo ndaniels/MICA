@@ -19,6 +19,7 @@ type alignPool struct {
 	allJobsLoaded bool
 	seqId         int
 	seq           *neutronium.OriginalSeq
+	seedTable     *neutronium.SeedTable
 }
 
 type alignJob struct {
@@ -31,7 +32,7 @@ type alignJob struct {
 // startCompressWorkers initializes a pool of compression workers.
 //
 // The compressPool returned can be used to compress sequences concurrently.
-func startCompressWorkers(db *neutronium.DB) alignPool {
+func startCompressWorkers(db *neutronium.DB, seedTable *neutronium.SeedTable) alignPool {
 	jobWG := &sync.WaitGroup{}
 	recWG := &sync.WaitGroup{}
 	jobs := make(chan *alignJob, 200)
@@ -45,8 +46,9 @@ func startCompressWorkers(db *neutronium.DB) alignPool {
 		recWG:         recWG,
 		closed:        false,
 		allJobsLoaded: false,
+		seedTable:     seedTable,
 	}
-	for i := 0; i < max(1, runtime.GOMAXPROCS(0)-1); i++ {
+	for i := 0; i < max(1, runtime.GOMAXPROCS(0)-12); i++ {
 		jobWG.Add(1)
 		go pool.aligner()
 	}
@@ -56,7 +58,6 @@ func startCompressWorkers(db *neutronium.DB) alignPool {
 }
 
 func (pool *alignPool) align(id int, seq *neutronium.OriginalSeq) {
-	// Still needs seed table optimization
 
 	pool.seqId = id
 	pool.seq = seq
@@ -77,7 +78,7 @@ func (pool *alignPool) align(id int, seq *neutronium.OriginalSeq) {
 func (pool *alignPool) aligner() {
 	mem := newMemory()
 	for job := range pool.jobs {
-		comp := compareSeqs(pool.db.DBConf.MaxClusterRadius, job.corSeqId, job.orgSeqId, job.corSeq, job.orgSeq, mem)
+		comp := compareSeqs(pool.db.DBConf.MaxClusterRadius, job.corSeqId, job.orgSeqId, job.corSeq, job.orgSeq, pool.seedTable, mem)
 		pool.results <- comp
 	}
 	pool.jobWG.Done()
@@ -117,7 +118,7 @@ func (pool *alignPool) finishAndHandle() {
 	newComSeq := neutronium.NewCompressedSeq(pool.seqId, pool.seq.Name)
 	if pool.bestMatch == nil {
 		// Add the input sequence as a new representative
-		addWithoutMatch(&newComSeq, pool.db.CoarseDB, pool.seqId, pool.seq)
+		addWithoutMatch(&newComSeq, pool.db.CoarseDB, pool.seqId, pool.seq, pool.seedTable)
 	} else {
 		// Link the input sequence to the match
 		corLen := uint(len(bestMatch.corSeq.Residues))
@@ -135,8 +136,7 @@ func (pool *alignPool) finishAndHandle() {
 // sequence.
 //
 // An appropriate link is also added to the given compressed sequence.
-func addWithoutMatch(cseq *neutronium.CompressedSeq,
-	coarsedb *neutronium.CoarseDB, orgSeqId int, orgSub *neutronium.OriginalSeq) {
+func addWithoutMatch(cseq *neutronium.CompressedSeq, coarsedb *neutronium.CoarseDB, orgSeqId int, orgSub *neutronium.OriginalSeq, seedTable *neutronium.SeedTable) {
 
 	// Explicitly copy residues to avoid pinning memory.
 	subCpy := make([]byte, len(orgSub.Residues))
@@ -148,6 +148,8 @@ func addWithoutMatch(cseq *neutronium.CompressedSeq,
 
 	cseq.Add(
 		neutronium.NewLinkToCoarseNoDiff(uint(corSeqId), 0, uint(len(subCpy))))
+
+	seedTable.Add(corSeqId, corSeq)
 }
 
 func min(a, b int) int {
@@ -173,12 +175,30 @@ type seqComparison struct {
 	orgSeq    *neutronium.OriginalSeq
 }
 
-func compareSeqs(matchThreshold float64, corSeqId, orgSeqId int, corSeq *neutronium.CoarseSeq, orgSeq *neutronium.OriginalSeq, mem *memory) *seqComparison {
+func compareSeqs(matchThreshold float64, corSeqId, orgSeqId int, corSeq *neutronium.CoarseSeq, orgSeq *neutronium.OriginalSeq, seedTable *neutronium.SeedTable, mem *memory) *seqComparison {
 	cLen := len(corSeq.Residues)
 	oLen := len(orgSeq.Residues)
 	minDistance := 1.0 - float64(min(cLen, oLen))/float64(max(cLen, oLen))
 
 	if minDistance > matchThreshold {
+		return &seqComparison{
+			distance: 1,
+			corSeqId: corSeqId,
+			corSeq:   corSeq,
+			orgSeqId: orgSeqId,
+			orgSeq:   orgSeq,
+		}
+	}
+
+	matchingKmers := 0
+	for i := 0; i < orgSeq.Len()-seedTable.SeedSize; i++ {
+		kmer := orgSeq.Residues[i : i+seedTable.SeedSize]
+		if seedTable.Lookup(kmer, corSeqId) {
+			matchingKmers++
+		}
+	}
+
+	if matchingKmers < 1000 {
 		return &seqComparison{
 			distance: 1,
 			corSeqId: corSeqId,
