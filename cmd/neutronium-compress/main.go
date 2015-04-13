@@ -424,8 +424,9 @@ func countNumSeqsInFile() int64 {
 		for readSeq := range seqChan {
 			if readSeq.Err != nil {
 				log.Fatal(err)
+			} else {
+				totalSeqs++
 			}
-			totalSeqs++
 		}
 	}
 
