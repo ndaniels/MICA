@@ -212,6 +212,7 @@ func main() {
 			fatalf("%s\n", err)
 		}
 		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
 	}
 	neutronium.Vprintln("Compressing Non-Prime Sequences...")
 	numNonPrimeSeqs := uint64(totalSeqs - int64(flagNumPrimeSeqs))

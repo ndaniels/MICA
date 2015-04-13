@@ -48,7 +48,7 @@ func startCompressWorkers(db *neutronium.DB, seedTable *neutronium.SeedTable) al
 		allJobsLoaded: false,
 		seedTable:     seedTable,
 	}
-	for i := 0; i < max(1, runtime.GOMAXPROCS(0)-12); i++ {
+	for i := 0; i < max(1, runtime.GOMAXPROCS(0)); i++ {
 		jobWG.Add(1)
 		go pool.aligner()
 	}
@@ -190,15 +190,20 @@ func compareSeqs(matchThreshold float64, corSeqId, orgSeqId int, corSeq *neutron
 		}
 	}
 
+	matchingKmerBound := 3
+
 	matchingKmers := 0
 	for i := 0; i < orgSeq.Len()-seedTable.SeedSize; i++ {
 		kmer := orgSeq.Residues[i : i+seedTable.SeedSize]
 		if seedTable.Lookup(kmer, corSeqId) {
 			matchingKmers++
+			if matchingKmers >= matchingKmerBound {
+				break
+			}
 		}
 	}
 
-	if matchingKmers < 1000 {
+	if matchingKmers < matchingKmerBound {
 		return &seqComparison{
 			distance: 1,
 			corSeqId: corSeqId,
