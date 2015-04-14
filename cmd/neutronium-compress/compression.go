@@ -136,7 +136,7 @@ func (pool *alignPool) finishAndHandle() {
 // sequence.
 //
 // An appropriate link is also added to the given compressed sequence.
-func addWithoutMatch(cseq *neutronium.CompressedSeq, coarsedb *neutronium.CoarseDB, orgSeqId int, orgSub *neutronium.OriginalSeq, seedTable *neutronium.SeedTable) {
+func addWithoutMatch(cseq *neutronium.CompressedSeq, coarsedb *neutronium.CoarseDB, orgSeqId int, orgSub *neutronium.OriginalSeq, seedTable *neutronium.SeedTable) int {
 
 	// Explicitly copy residues to avoid pinning memory.
 	subCpy := make([]byte, len(orgSub.Residues))
@@ -150,6 +150,8 @@ func addWithoutMatch(cseq *neutronium.CompressedSeq, coarsedb *neutronium.Coarse
 		neutronium.NewLinkToCoarseNoDiff(uint(corSeqId), 0, uint(len(subCpy))))
 
 	seedTable.Add(corSeqId, corSeq)
+
+	return corSeqId
 }
 
 func min(a, b int) int {

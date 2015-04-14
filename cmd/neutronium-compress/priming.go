@@ -33,8 +33,7 @@ func primeCoarseDB(clusterThresh float64, db *neutronium.DB, seedTable *neutroni
 		if !skipTable[rowInd] {
 
 			comRowSeq := neutronium.NewCompressedSeq(rowSeq.oSeqId, rowSeq.oSeq.Name)
-			addWithoutMatch(&comRowSeq, coarsedb, rowSeq.oSeqId, rowSeq.oSeq, seedTable)
-			corSeqId := rowInd
+			corSeqId := addWithoutMatch(&comRowSeq, coarsedb, rowSeq.oSeqId, rowSeq.oSeq, seedTable)
 			corSeq := coarsedb.CoarseSeqGet(uint(corSeqId))
 			corLen := uint(len(corSeq.Residues))
 
