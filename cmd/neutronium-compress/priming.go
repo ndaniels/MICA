@@ -25,11 +25,18 @@ func (s BySeqLength) Less(i, j int) bool {
 }
 
 func primeCoarseDB(clusterThresh float64, db *neutronium.DB, seedTable *neutronium.SeedTable, starterSeqs []starterSeq) {
+	primeProgressBar := neutronium.ProgressBar{
+		Label:   "Priming Database",
+		Total:   len(starterSeqs),
+		Current: uint64(0),
+	}
+
 	skipTable := make(map[int]bool)
 	coarsedb := db.CoarseDB
 	mem := newMemory()
 	sort.Sort(BySeqLength(starterSeqs))
 	for rowInd, rowSeq := range starterSeqs {
+		primeProgressBar.ClearAndDisplay()
 		if !skipTable[rowInd] {
 
 			comRowSeq := neutronium.NewCompressedSeq(rowSeq.oSeqId, rowSeq.oSeq.Name)
@@ -54,6 +61,7 @@ func primeCoarseDB(clusterThresh float64, db *neutronium.DB, seedTable *neutroni
 				}
 			}
 		}
+		primeProgressBar.Increment()
 	}
 
 }
