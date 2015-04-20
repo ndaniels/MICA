@@ -27,7 +27,7 @@ func (s BySeqLength) Less(i, j int) bool {
 func primeCoarseDB(clusterThresh float64, db *neutronium.DB, seedTable *neutronium.SeedTable, starterSeqs []starterSeq) {
 	primeProgressBar := neutronium.ProgressBar{
 		Label:   "Priming Database",
-		Total:   len(starterSeqs),
+		Total:   uint64(len(starterSeqs)),
 		Current: uint64(0),
 	}
 
