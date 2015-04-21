@@ -246,10 +246,10 @@ func main() {
 			dbConf.BlastDBSize += uint64(readSeq.Seq.Len())
 			if !primeSeqIds[currentSeqId] {
 				progressBar.ClearAndDisplay()
-				pool := startCompressWorkers(db, &seedTable)
+				startCompressWorkers(db, &seedTable)
 				// If the process is killed, try to clean up elegantly.
 				// The idea is to preserve the integrity of the database.
-				attachSignalHandler(db, mainQuit, &pool)
+				//attachSignalHandler(db, mainQuit, &pool)
 				//pool.align(currentSeqId, readSeq.Seq)
 				//pool.finishAndHandle()
 				verboseOutput(db, currentSeqId)
