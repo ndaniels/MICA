@@ -260,9 +260,6 @@ func main() {
 				db.CoarseDB.Seeds.MaybeWipe(flagMaxSeedsGB)
 			}
 			currentSeqId++
-      if currentSeqId == 5 {
-        break
-      }
 		}
 	}
 	neutronium.Vprintln("\n")
