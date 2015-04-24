@@ -254,11 +254,15 @@ func main() {
 				pool.finishAndHandle()
 				verboseOutput(db, currentSeqId)
 				progressBar.Increment()
+        runtime.GC()
 			}
 			if flagMaxSeedsGB > 0 && currentSeqId%10000 == 0 {
 				db.CoarseDB.Seeds.MaybeWipe(flagMaxSeedsGB)
 			}
 			currentSeqId++
+      if currentSeqId == 5 {
+        break
+      }
 		}
 	}
 	neutronium.Vprintln("\n")
@@ -270,14 +274,14 @@ func main() {
 	}
 	db.WriteClose()
 
-	//cleanup(db, &pool)
+  cleanup(db)
 }
 
 // When the program ends (either by SIGTERM or when all of the input sequences
 // are compressed), 'cleanup' is executed. It writes all CPU/memory profiles
-// if they're enabled, waits for the compression workers to finish, saves
+// if they're enabled, saves
 // the database to disk and closes all file handles.
-func cleanup(db *neutronium.DB, pool *alignPool) {
+func cleanup(db *neutronium.DB) {
 	if len(flagCpuProfile) > 0 {
 		pprof.StopCPUProfile()
 	}
@@ -287,7 +291,6 @@ func cleanup(db *neutronium.DB, pool *alignPool) {
 	if len(flagMemStats) > 0 {
 		writeMemStats(fmt.Sprintf("%s.last", flagMemStats))
 	}
-	pool.finishAndHandle()
 	if err := db.Save(); err != nil {
 		fatalf("Could not save database: %s\n", err)
 	}
@@ -302,7 +305,7 @@ func attachSignalHandler(db *neutronium.DB, mainQuit chan struct{},
 	go func() {
 		<-sigChan
 		mainQuit <- struct{}{}
-		cleanup(db, pool)
+		cleanup(db)
 		mainQuit <- struct{}{}
 		os.Exit(0)
 	}()
