@@ -422,13 +422,19 @@ func countNumSeqsInFile() int64 {
 		if err != nil {
 			log.Fatal(err)
 		}
+    longest := 0
 		for readSeq := range seqChan {
 			if readSeq.Err != nil {
 				log.Fatal(err)
 			} else {
+        length := len(readSeq.Seq.Residues)
+        if length > longest {
+          longest = length
+        }
 				totalSeqs++
 			}
 		}
+    fmt.Printf("longest: %d\n", longest)
 	}
 
 	return totalSeqs
