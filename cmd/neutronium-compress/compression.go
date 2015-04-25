@@ -32,7 +32,7 @@ type alignJob struct {
 // startCompressWorkers initializes a pool of compression workers.
 //
 // The compressPool returned can be used to compress sequences concurrently.
-func startCompressWorkers(db *neutronium.DB, seedTable *neutronium.SeedTable) alignPool {
+func startCompressWorkers(db *neutronium.DB, seedTable *neutronium.SeedTable, mems []*memory) alignPool {
 	jobWG := &sync.WaitGroup{}
 	recWG := &sync.WaitGroup{}
 	jobs := make(chan *alignJob, 200)
@@ -50,7 +50,7 @@ func startCompressWorkers(db *neutronium.DB, seedTable *neutronium.SeedTable) al
 	}
 	for i := 0; i < max(1, runtime.GOMAXPROCS(0)); i++ {
 		jobWG.Add(1)
-		go pool.aligner()
+		go pool.aligner(mems[i])
 	}
 	recWG.Add(1)
 	go pool.receiver(pool.db.DBConf.MaxClusterRadius)
@@ -75,8 +75,7 @@ func (pool *alignPool) align(id int, seq *neutronium.OriginalSeq) {
 	close(pool.jobs)
 }
 
-func (pool *alignPool) aligner() {
-	mem := newMemory()
+func (pool *alignPool) aligner(mem *memory) {
 	for job := range pool.jobs {
 		comp := compareSeqs(pool.db.DBConf.MaxClusterRadius, job.corSeqId, job.orgSeqId, job.corSeq, job.orgSeq, pool.seedTable, mem)
 		pool.results <- comp

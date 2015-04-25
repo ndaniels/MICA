@@ -223,6 +223,14 @@ func main() {
 		Current: uint64(0),
 	}
 	currentSeqId := 0
+  
+  numJobs := max(1, runtime.GOMAXPROCS(0))
+  mems := make([]*memory, numJobs)
+  
+	for i := 0; i < numJobs; i++ {
+		mems[i] = newMemory()
+	}
+  
 	for _, arg := range flag.Args()[1:] {
 		seqChan, err := neutronium.ReadOriginalSeqs(arg, ignoredResidues)
 		if err != nil {
@@ -246,7 +254,7 @@ func main() {
 			dbConf.BlastDBSize += uint64(readSeq.Seq.Len())
 			if !primeSeqIds[currentSeqId] {
 				progressBar.ClearAndDisplay()
-				pool := startCompressWorkers(db, &seedTable)
+				pool := startCompressWorkers(db, &seedTable, mems)
 				// If the process is killed, try to clean up elegantly.
 				// The idea is to preserve the integrity of the database.
 				attachSignalHandler(db, mainQuit, &pool)
