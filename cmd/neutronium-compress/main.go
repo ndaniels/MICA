@@ -254,6 +254,7 @@ func main() {
 				pool.finishAndHandle()
 				verboseOutput(db, currentSeqId)
 				progressBar.Increment()
+				runtime.GC()
 			}
 			if flagMaxSeedsGB > 0 && currentSeqId%10000 == 0 {
 				db.CoarseDB.Seeds.MaybeWipe(flagMaxSeedsGB)
