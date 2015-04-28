@@ -177,8 +177,8 @@ type seqComparison struct {
 }
 
 func compareSeqs(matchThreshold float64, corSeqId, orgSeqId int, corSeq *neutronium.CoarseSeq, orgSeq *neutronium.OriginalSeq, seedTable *neutronium.SeedTable, mem *memory) *seqComparison {
-	cLen := len(corSeq.Residues)
-	oLen := len(orgSeq.Residues)
+	// cLen := len(corSeq.Residues)
+	// oLen := len(orgSeq.Residues)
 	// minPossibleDistance := 1.0 - float64(min(cLen, oLen))/float64(max(cLen, oLen))
 
 	// if minPossibleDistance > matchThreshold {
