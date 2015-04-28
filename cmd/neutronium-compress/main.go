@@ -276,7 +276,6 @@ func main() {
 	if err := db.Save(); err != nil {
 		fatalf("Could not save database: %s\n", err)
 	}
-	db.WriteClose()
 
 	cleanup(db)
 }
