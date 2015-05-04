@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/BurntSushi/cablastp/blosum"
+	//"github.com/ndaniels/neutronium"
 )
 
 var (
@@ -142,5 +143,7 @@ func alignmentDistance(alignment [2][]byte) float64 {
 		}
 	}
 
-	return 1 - ((aLen - hammingDist) / aLen)
+	dist := 1 - ((aLen - hammingDist) / aLen)
+
+	return dist
 }

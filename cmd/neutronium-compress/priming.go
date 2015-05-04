@@ -24,7 +24,7 @@ func (s BySeqLength) Less(i, j int) bool {
 	return len(s[i].oSeq.Residues) < len(s[j].oSeq.Residues)
 }
 
-func primeCoarseDB(clusterThresh float64, db *neutronium.DB, seedTable *neutronium.SeedTable, starterSeqs []starterSeq) {
+func primeCoarseDB(maxRadius float64, db *neutronium.DB, seedTable *neutronium.SeedTable, starterSeqs []starterSeq) {
 	primeProgressBar := neutronium.ProgressBar{
 		Label:   "Priming Database",
 		Total:   uint64(len(starterSeqs)),
@@ -38,25 +38,28 @@ func primeCoarseDB(clusterThresh float64, db *neutronium.DB, seedTable *neutroni
 	for rowInd, rowSeq := range starterSeqs {
 		primeProgressBar.ClearAndDisplay()
 		if !skipTable[rowInd] {
-
 			comRowSeq := neutronium.NewCompressedSeq(rowSeq.oSeqId, rowSeq.oSeq.Name)
 			corSeqId := addWithoutMatch(&comRowSeq, coarsedb, rowSeq.oSeqId, rowSeq.oSeq, seedTable)
 			corSeq := coarsedb.CoarseSeqGet(uint(corSeqId))
-			corLen := uint(len(corSeq.Residues))
+			// corLen := uint(len(corSeq.Residues))
 
-			for colInd, colSeq := range starterSeqs[rowInd:] {
+			for colPos, colSeq := range starterSeqs[rowInd:] {
+				colInd := colPos + rowInd + 1
 				if !skipTable[colInd] {
 
-					comp := compareSeqs(clusterThresh, corSeqId, colSeq.oSeqId, corSeq, colSeq.oSeq, seedTable, mem)
-					if comp.distance <= clusterThresh {
+					comp := compareSeqs(maxRadius, corSeqId, colSeq.oSeqId, corSeq, colSeq.oSeq, seedTable, mem)
+					//neutronium.Vprintf("%d distance of %f \n", colInd, comp.distance)
+					if comp.distance <= maxRadius {
 
 						skipTable[colInd] = true
 
-						comColSeq := neutronium.NewCompressedSeq(colSeq.oSeqId, colSeq.oSeq.Name)
-						comColSeq.Add(neutronium.NewLinkToCoarse(
-							uint(corSeqId), 0, corLen, comp.alignment))
-						corSeq.AddLink(neutronium.NewLinkToCompressed(
-							uint32(colSeq.oSeqId), 0, uint16(corLen)))
+						addWithMatch(colSeq.oSeq, corSeq, comp.alignment, colSeq.oSeqId, corSeqId)
+
+						// comColSeq := neutronium.NewCompressedSeq(colSeq.oSeqId, colSeq.oSeq.Name)
+						// comColSeq.Add(neutronium.NewLinkToCoarse(
+						// 	uint(corSeqId), 0, corLen, comp.alignment))
+						// corSeq.AddLink(neutronium.NewLinkToCompressed(
+						// 	uint32(colSeq.oSeqId), 0, uint16(corLen)))
 					}
 				}
 			}
