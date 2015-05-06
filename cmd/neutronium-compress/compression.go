@@ -15,7 +15,6 @@ type alignPool struct {
 	results       chan *seqComparison
 	bestMatch     *seqComparison
 	jobWG         *sync.WaitGroup
-	recWG         *sync.WaitGroup
 	closed        bool
 	allJobsLoaded bool
 	seqId         int
@@ -35,16 +34,15 @@ type alignJob struct {
 // The compressPool returned can be used to compress sequences concurrently.
 func startCompressWorkers(db *neutronium.DB, seedTable *neutronium.SeedTable, mems []*memory) alignPool {
 	jobWG := &sync.WaitGroup{}
-	recWG := &sync.WaitGroup{}
 	jobs := make(chan *alignJob, 200)
 	results := make(chan *seqComparison, 10*1000)
+
 	pool := alignPool{
 		db:            db,
 		jobs:          jobs,
 		results:       results,
 		bestMatch:     nil,
 		jobWG:         jobWG,
-		recWG:         recWG,
 		closed:        false,
 		allJobsLoaded: false,
 		seedTable:     seedTable,
@@ -53,8 +51,7 @@ func startCompressWorkers(db *neutronium.DB, seedTable *neutronium.SeedTable, me
 		jobWG.Add(1)
 		go pool.aligner(mems[i])
 	}
-	// recWG.Add(1)
-	// go pool.receiver()
+
 	return pool
 }
 
@@ -80,17 +77,11 @@ func (pool *alignPool) aligner(mem *memory) {
 	maxRadius := pool.db.DBConf.MaxClusterRadius
 	for job := range pool.jobs {
 		comp := compareSeqs(maxRadius, job.corSeqId, job.orgSeqId, job.corSeq, job.orgSeq, pool.seedTable, mem)
-		// pool.results <- comp
 		if comp.distance <= maxRadius {
 			pool.results <- comp
 		}
 	}
 	pool.jobWG.Done()
-}
-
-func (pool *alignPool) receiver() {
-	pool.emptyResultsQueue()
-	pool.recWG.Done()
 }
 
 func (pool *alignPool) emptyResultsQueue() {
@@ -121,34 +112,13 @@ func (pool *alignPool) finishAndHandle() {
 	// The bestMatch in pool should now actually be the best match, if it exists
 	pool.emptyResultsQueue()
 	bestMatch := pool.bestMatch
-	newComSeq := neutronium.NewCompressedSeq(pool.seqId, pool.seq.Name)
 
-	if bestMatch == nil { //|| bestMatch.distance > pool.db.DBConf.MaxClusterRadius {
+	if bestMatch == nil || bestMatch.distance > pool.db.DBConf.MaxClusterRadius {
+		newComSeq := neutronium.NewCompressedSeq(pool.seqId, pool.seq.Name)
 		addWithoutMatch(&newComSeq, pool.db.CoarseDB, pool.seqId, pool.seq, pool.seedTable)
 	} else {
 		addWithMatch(bestMatch.orgSeq, bestMatch.corSeq, bestMatch.alignment, bestMatch.orgSeqId, bestMatch.corSeqId)
 	}
-
-	// if bestMatch == nil {
-	// 	neutronium.Vprintln(" NIL comparison!")
-	// 	// Add the input sequence as a new representative
-	// 	addWithoutMatch(&newComSeq, pool.db.CoarseDB, pool.seqId, pool.seq, pool.seedTable)
-	// } else {
-
-	// if bestMatch.distance > pool.db.DBConf.MaxClusterRadius {
-	// 	addWithoutMatch(&newComSeq, pool.db.CoarseDB, pool.seqId, pool.seq, pool.seedTable)
-	// } else {
-	// 	addWithMatch(bestMatch.orgSeq, bestMatch.corSeq, bestMatch.alignment, bestMatch.orgSeqId, bestMatch.corSeqId)
-	// }
-	// 	// Link the input sequence to the match
-	// 	addWithMatch(bestMatch.orgSeq, bestMatch.corSeq, bestMatch.alignment, bestMatch.orgSeqId, bestMatch.corSeqId)
-
-	// 	// corLen := uint(len(bestMatch.corSeq.Residues))
-	// 	// newComSeq.Add(neutronium.NewLinkToCoarse(
-	// 	// 	uint(bestMatch.corSeqId), 0, corLen, bestMatch.alignment))
-	// 	// bestMatch.corSeq.AddLink(neutronium.NewLinkToCompressed(
-	// 	// 	uint32(bestMatch.orgSeqId), 0, uint16(corLen)))
-	// }
 
 }
 
@@ -159,7 +129,6 @@ func (pool *alignPool) finishAndHandle() {
 //
 // An appropriate link is also added to the given compressed sequence.
 func addWithoutMatch(cseq *neutronium.CompressedSeq, coarsedb *neutronium.CoarseDB, orgSeqId int, orgSub *neutronium.OriginalSeq, seedTable *neutronium.SeedTable) int {
-
 	// Explicitly copy residues to avoid pinning memory.
 	subCpy := make([]byte, len(orgSub.Residues))
 	copy(subCpy, orgSub.Residues)

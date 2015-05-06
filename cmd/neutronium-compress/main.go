@@ -223,14 +223,14 @@ func main() {
 		Current: uint64(0),
 	}
 	currentSeqId := 0
-  
-  numJobs := max(1, runtime.GOMAXPROCS(0))
-  mems := make([]*memory, numJobs)
-  
+
+	numJobs := max(1, runtime.GOMAXPROCS(0))
+	mems := make([]*memory, numJobs)
+
 	for i := 0; i < numJobs; i++ {
 		mems[i] = newMemory()
 	}
-  
+
 	for _, arg := range flag.Args()[1:] {
 		seqChan, err := neutronium.ReadOriginalSeqs(arg, ignoredResidues)
 		if err != nil {
@@ -273,9 +273,9 @@ func main() {
 	neutronium.Vprintf("Wrote %s.\n", neutronium.FileCompressed)
 	neutronium.Vprintf("Wrote %s.\n", neutronium.FileIndex)
 
-	if err := db.Save(); err != nil {
-		fatalf("Could not save database: %s\n", err)
-	}
+	// if err := db.Save(); err != nil {
+	// 	fatalf("Could not save database: %s\n", err)
+	// }
 
 	cleanup(db)
 }
