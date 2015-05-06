@@ -37,7 +37,7 @@ func startCompressWorkers(db *neutronium.DB, seedTable *neutronium.SeedTable, me
 	jobWG := &sync.WaitGroup{}
 	recWG := &sync.WaitGroup{}
 	jobs := make(chan *alignJob, 200)
-	results := make(chan *seqComparison, 200)
+	results := make(chan *seqComparison, 10*1000)
 	pool := alignPool{
 		db:            db,
 		jobs:          jobs,
@@ -77,9 +77,13 @@ func (pool *alignPool) align(id int, seq *neutronium.OriginalSeq) {
 }
 
 func (pool *alignPool) aligner(mem *memory) {
+	maxRadius := pool.db.DBConf.MaxClusterRadius
 	for job := range pool.jobs {
-		comp := compareSeqs(pool.db.DBConf.MaxClusterRadius, job.corSeqId, job.orgSeqId, job.corSeq, job.orgSeq, pool.seedTable, mem)
-		pool.results <- comp
+		comp := compareSeqs(maxRadius, job.corSeqId, job.orgSeqId, job.corSeq, job.orgSeq, pool.seedTable, mem)
+		// pool.results <- comp
+		if comp.distance <= maxRadius {
+			pool.results <- comp
+		}
 	}
 	pool.jobWG.Done()
 }
@@ -100,7 +104,6 @@ func (pool *alignPool) emptyResultsQueue() {
 			}
 		} else {
 			pool.bestMatch = comp
-
 		}
 
 	}
@@ -120,7 +123,7 @@ func (pool *alignPool) finishAndHandle() {
 	bestMatch := pool.bestMatch
 	newComSeq := neutronium.NewCompressedSeq(pool.seqId, pool.seq.Name)
 
-	if bestMatch.distance > pool.db.DBConf.MaxClusterRadius {
+	if bestMatch == nil { //|| bestMatch.distance > pool.db.DBConf.MaxClusterRadius {
 		addWithoutMatch(&newComSeq, pool.db.CoarseDB, pool.seqId, pool.seq, pool.seedTable)
 	} else {
 		addWithMatch(bestMatch.orgSeq, bestMatch.corSeq, bestMatch.alignment, bestMatch.orgSeqId, bestMatch.corSeqId)
