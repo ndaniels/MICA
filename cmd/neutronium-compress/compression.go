@@ -212,7 +212,7 @@ func compareSeqs(matchThreshold float64, corSeqId, orgSeqId int, corSeq *neutron
 			if matchingKmers >= matchingKmerLowerBound {
 				break
 			}
-		} else if orgSeq.Len()-k-i < matchingKmerLowerBound {
+		} else if (orgSeq.Len()-k-i)+matchingKmers < matchingKmerLowerBound {
 			break
 		}
 	}
