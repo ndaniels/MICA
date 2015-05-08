@@ -202,20 +202,22 @@ func compareSeqs(matchThreshold float64, corSeqId, orgSeqId int, corSeq *neutron
 	allowableMismatches := int((float64(m) * matchThreshold)) - gaps
 	maxMissingMers := allowableMismatches * k
 	numberMersWithoutMisses := m - k + 1
-	matchingKmerBound := numberMersWithoutMisses - maxMissingMers
+	matchingKmerLowerBound := numberMersWithoutMisses - maxMissingMers
 
 	matchingKmers := 0
 	for i := 0; i < orgSeq.Len()-k; i++ {
 		kmer := orgSeq.Residues[i : i+k]
 		if seedTable.Lookup(kmer, corSeqId) {
 			matchingKmers++
-			if matchingKmers >= matchingKmerBound {
+			if matchingKmers >= matchingKmerLowerBound {
 				break
 			}
+		} else if orgSeq.Len()-k-i < matchingKmerLowerBound {
+			break
 		}
 	}
 
-	if matchingKmers < matchingKmerBound {
+	if matchingKmers < matchingKmerLowerBound {
 		return &seqComparison{
 			distance: 1,
 			corSeqId: corSeqId,
