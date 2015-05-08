@@ -182,42 +182,42 @@ type seqComparison struct {
 }
 
 func compareSeqs(matchThreshold float64, corSeqId, orgSeqId int, corSeq *neutronium.CoarseSeq, orgSeq *neutronium.OriginalSeq, seedTable *neutronium.SeedTable, mem *memory) *seqComparison {
-	// cLen := len(corSeq.Residues)
-	// oLen := len(orgSeq.Residues)
-	// minPossibleDistance := 1.0 - float64(min(cLen, oLen))/float64(max(cLen, oLen))
+	cLen := len(corSeq.Residues)
+	oLen := len(orgSeq.Residues)
+	minPossibleDistance := 1.0 - float64(min(cLen, oLen))/float64(max(cLen, oLen))
 
-	// if minPossibleDistance > matchThreshold {
-	// 	return &seqComparison{
-	// 		distance: 1,
-	// 		corSeqId: corSeqId,
-	// 		corSeq:   corSeq,
-	// 		orgSeqId: orgSeqId,
-	// 		orgSeq:   orgSeq,
-	// 	}
-	// }
+	if minPossibleDistance > matchThreshold {
+		return &seqComparison{
+			distance: 1,
+			corSeqId: corSeqId,
+			corSeq:   corSeq,
+			orgSeqId: orgSeqId,
+			orgSeq:   orgSeq,
+		}
+	}
 
-	// matchingKmerBound := 3
+	matchingKmerBound := 3
 
-	// matchingKmers := 0
-	// for i := 0; i < orgSeq.Len()-seedTable.SeedSize; i++ {
-	// 	kmer := orgSeq.Residues[i : i+seedTable.SeedSize]
-	// 	if seedTable.Lookup(kmer, corSeqId) {
-	// 		matchingKmers++
-	// 		if matchingKmers >= matchingKmerBound {
-	// 			break
-	// 		}
-	// 	}
-	// }
+	matchingKmers := 0
+	for i := 0; i < orgSeq.Len()-seedTable.SeedSize; i++ {
+		kmer := orgSeq.Residues[i : i+seedTable.SeedSize]
+		if seedTable.Lookup(kmer, corSeqId) {
+			matchingKmers++
+			if matchingKmers >= matchingKmerBound {
+				break
+			}
+		}
+	}
 
-	// if matchingKmers < matchingKmerBound {
-	// 	return &seqComparison{
-	// 		distance: 1,
-	// 		corSeqId: corSeqId,
-	// 		corSeq:   corSeq,
-	// 		orgSeqId: orgSeqId,
-	// 		orgSeq:   orgSeq,
-	// 	}
-	// }
+	if matchingKmers < matchingKmerBound {
+		return &seqComparison{
+			distance: 1,
+			corSeqId: corSeqId,
+			corSeq:   corSeq,
+			orgSeqId: orgSeqId,
+			orgSeq:   orgSeq,
+		}
+	}
 
 	alignment := nwAlign(corSeq.Residues, orgSeq.Residues, mem)
 	distance := alignmentDistance(alignment)
