@@ -262,6 +262,10 @@ func main() {
 				pool.finishAndHandle()
 				verboseOutput(db, currentSeqId)
 				progressBar.Increment()
+
+				if progressBar.Current%10*1000 == 0 {
+					neutronium.Vprintf("\n Currently there are %d coarse sequences \n", len(db.CoarseDB.Seqs))
+				}
 			}
 			if flagMaxSeedsGB > 0 && currentSeqId%10000 == 0 {
 				db.CoarseDB.Seeds.MaybeWipe(flagMaxSeedsGB)

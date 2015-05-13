@@ -200,6 +200,9 @@ func compareSeqs(matchThreshold float64, corSeqId, orgSeqId int, corSeq *neutron
 	k := seedTable.SeedSize
 	gaps := m - min(cLen, oLen)
 	allowableMismatches := int((float64(m) * matchThreshold)) - gaps
+
+	// Histogram of residues?
+
 	maxMissingMers := allowableMismatches * k
 	numberMersWithoutMisses := m - k + 1
 	matchingKmerLowerBound := numberMersWithoutMisses - maxMissingMers
