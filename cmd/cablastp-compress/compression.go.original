@@ -11,7 +11,7 @@ import (
 // compressPool represents a pool of workers where each worker is responsible
 // for compressing a single sequence at a time.
 type compressPool struct {
-	db     *neutronium.DB
+	db     *cablastp.DB
 	jobs   chan compressJob
 	wg     *sync.WaitGroup
 	closed bool
@@ -21,13 +21,13 @@ type compressPool struct {
 // sequence should be compressed.
 type compressJob struct {
 	orgSeqId int
-	orgSeq   *neutronium.OriginalSeq
+	orgSeq   *cablastp.OriginalSeq
 }
 
 // startCompressWorkers initializes a pool of compression workers.
 //
 // The compressPool returned can be used to compress sequences concurrently.
-func startCompressWorkers(db *neutronium.DB) compressPool {
+func startCompressWorkers(db *cablastp.DB) compressPool {
 
 	wg := &sync.WaitGroup{}
 	jobs := make(chan compressJob, 200)
@@ -47,7 +47,7 @@ func startCompressWorkers(db *neutronium.DB) compressPool {
 // compress will construct a compressJob and send it to the worker pool.
 //
 // compress returns the next original sequence id to be used.
-func (pool compressPool) compress(id int, seq *neutronium.OriginalSeq) int {
+func (pool compressPool) compress(id int, seq *cablastp.OriginalSeq) int {
 	pool.jobs <- compressJob{
 		orgSeqId: id,
 		orgSeq:   seq,
@@ -86,8 +86,8 @@ func (pool *compressPool) done() {
 //
 // N.B. `mem` is used in alignment and seed lookups to prevent allocation.
 // Think of them as goroutine-specific memory arenas.
-func compress(db *neutronium.DB, orgSeqId int,
-	orgSeq *neutronium.OriginalSeq, mem *memory) neutronium.CompressedSeq {
+func compress(db *cablastp.DB, orgSeqId int,
+	orgSeq *cablastp.OriginalSeq, mem *memory) cablastp.CompressedSeq {
 
 	// cseqExt and oseqExt will contain `extSeedSize` residues after the end
 	// of any particular seed in coarse and original sequences, respectively.
@@ -95,7 +95,7 @@ func compress(db *neutronium.DB, orgSeqId int,
 	var cseqExt, oseqExt []byte
 
 	// Start the creation of a compressed sequence.
-	cseq := neutronium.NewCompressedSeq(orgSeqId, orgSeq.Name)
+	cseq := cablastp.NewCompressedSeq(orgSeqId, orgSeq.Name)
 
 	// Convenient aliases.
 	coarsedb := db.CoarseDB
@@ -168,7 +168,7 @@ func compress(db *neutronium.DB, orgSeqId int,
 			}
 
 			alignment := nwAlign(corMatch, orgMatch, mem)
-			id := neutronium.SeqIdentity(alignment[0], alignment[1])
+			id := cablastp.SeqIdentity(alignment[0], alignment[1])
 			if id < db.MatchSeqIdThreshold {
 				continue
 			}
@@ -224,9 +224,9 @@ func compress(db *neutronium.DB, orgSeqId int,
 			// LinkToCompressed to the coarse sequence matched. This
 			// serves as a bridge to expand coarse sequences into their
 			// original sequences.
-			cseq.Add(neutronium.NewLinkToCoarse(
+			cseq.Add(cablastp.NewLinkToCoarse(
 				uint(corSeqId), uint(corStart), uint(corEnd), alignment))
-			corSeq.AddLink(neutronium.NewLinkToCompressed(
+			corSeq.AddLink(cablastp.NewLinkToCompressed(
 				uint32(orgSeqId), uint16(corStart), uint16(corEnd)))
 
 			// Skip the current pointer ahead to the end of this match.
@@ -300,7 +300,7 @@ func extendMatch(corRes, orgRes []byte,
 		// threshold, then gapped extension has failed. We therefore
 		// quit and are forced to be satisfied with whatever
 		// corMatchLen and orgMatchLen are set to.
-		id := neutronium.SeqIdentity(alignment[0], alignment[1])
+		id := cablastp.SeqIdentity(alignment[0], alignment[1])
 		if id < idThreshold {
 			break
 		}
@@ -367,8 +367,8 @@ func skipLowComplexity(seq []byte, windowSize, regionSize int) int {
 // sequence.
 //
 // An appropriate link is also added to the given compressed sequence.
-func addWithoutMatch(cseq *neutronium.CompressedSeq,
-	coarsedb *neutronium.CoarseDB, orgSeqId int, orgSub *neutronium.OriginalSeq) {
+func addWithoutMatch(cseq *cablastp.CompressedSeq,
+	coarsedb *cablastp.CoarseDB, orgSeqId int, orgSub *cablastp.OriginalSeq) {
 
 	// Explicitly copy residues to avoid pinning memory.
 	subCpy := make([]byte, len(orgSub.Residues))
@@ -376,10 +376,10 @@ func addWithoutMatch(cseq *neutronium.CompressedSeq,
 
 	corSeqId, corSeq := coarsedb.Add(subCpy)
 	corSeq.AddLink(
-		neutronium.NewLinkToCompressed(uint32(orgSeqId), 0, uint16(len(subCpy))))
+		cablastp.NewLinkToCompressed(uint32(orgSeqId), 0, uint16(len(subCpy))))
 
 	cseq.Add(
-		neutronium.NewLinkToCoarseNoDiff(uint(corSeqId), 0, uint(len(subCpy))))
+		cablastp.NewLinkToCoarseNoDiff(uint(corSeqId), 0, uint(len(subCpy))))
 }
 
 func min(a, b int) int {

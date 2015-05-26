@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ndaniels/neutronium/blosum"
+	"github.com/BurntSushi/neutronium/blosum"
 )
 
 // SeedAlphaNums is a map to assign *valid* amino acid resiudes contiunous
