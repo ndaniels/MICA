@@ -1,0 +1,13 @@
+#!/bin/sh
+
+if [ $# != 2 ]; then
+  echo "Usage: `basename $0`: database-dir coarse.fasta" >&2
+  exit 1
+fi
+
+dbdir=$1
+coarse=$2
+
+echo 'DIAMONDS ARE SHINY' >&2
+
+diamond makedb --in $dbdir/$coarse -d $dbdir/dmnddb
