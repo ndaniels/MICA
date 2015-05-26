@@ -11,7 +11,7 @@ import (
 	"runtime/pprof"
 	"time"
 
-	"github.com/BurntSushi/cablastp"
+	"github.com/ndaniels/neutronium"
 )
 
 // makeblastdb -dbtype prot -input_type fasta
@@ -100,6 +100,9 @@ func init() {
 	flag.StringVar(&dbConf.BlastMakeBlastDB, "makeblastdb",
 		dbConf.BlastMakeBlastDB,
 		"The location of the 'makeblastdb' executable.")
+	flag.StringVar(&dbConf.DmndMakeDmndDB, "makedmnddb",
+		dbConf.DmndMakeDmndDB,
+		"The location of the 'makedmnddb' executable.")
 
 	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
 		"The maximum number of CPUs that can be executing simultaneously.")
@@ -257,6 +260,7 @@ func attachSignalHandler(db *cablastp.DB, mainQuit chan struct{},
 // The output generated after each sequence is compressed (or more precisely,
 // after some interval of sequences has been compressed).
 func verboseOutput(db *cablastp.DB, orgSeqId int) {
+
 	if orgSeqId%interval == 0 {
 		if !flagQuiet {
 			secElapsed := time.Since(timer).Seconds()

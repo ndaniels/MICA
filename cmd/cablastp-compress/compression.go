@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/BurntSushi/cablastp"
+	"github.com/ndaniels/neutronium"
 )
 
 // compressPool represents a pool of workers where each worker is responsible
@@ -28,6 +28,7 @@ type compressJob struct {
 //
 // The compressPool returned can be used to compress sequences concurrently.
 func startCompressWorkers(db *cablastp.DB) compressPool {
+
 	wg := &sync.WaitGroup{}
 	jobs := make(chan compressJob, 200)
 	pool := compressPool{

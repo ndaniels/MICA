@@ -11,6 +11,7 @@ import (
 const (
 	FileParams      = "params"
 	FileBlastCoarse = "blastdb-coarse"
+	FileDmndCoarse  = "blastdb-dmnd"
 	FileBlastFine   = "blastdb-fine"
 )
 
@@ -278,16 +279,29 @@ func (db *DB) Save() error {
 
 	// Now we need to construct a blastp database from the coarse fasta file.
 	// e.g., `makeblastdb -dbtype prot -in coarse.fasta`
-	cmd := exec.Command(
+	blastdbCmd := exec.Command(
 		db.BlastMakeBlastDB, "-dbtype", "prot",
 		"-in", FileCoarseFasta, "-out", FileBlastCoarse)
-	cmd.Dir = db.Path
+	blastdbCmd.Dir = db.Path
 
 	Vprintf("Creating %s...\n", FileBlastCoarse)
-	if err = Exec(cmd); err != nil {
+	if err = Exec(blastdbCmd); err != nil {
 		return err
 	}
 	Vprintf("Done creating %s.\n", FileBlastCoarse)
+
+	// For neutronium we also need to construct a dmnd database from the coarse fasta file
+	dmnddbCmd := exec.Command(
+		db.DmndMakeDmndDB,
+		"--in", FileCoarseFasta, "-d", FileDmndCoarse)
+	dmnddbCmd.Dir = db.Path
+
+	Vprintf("Creating %s...\n", FileDmndCoarse)
+	if err = Exec(dmnddbCmd); err != nil {
+		return err
+	}
+	Vprintf("Done creating %s.\n", FileDmndCoarse)
+
 	return nil
 }
 
