@@ -1,7 +1,7 @@
 package main
 
 const (
-	memSeqSize       = 6000
+	memSeqSize       = 10000
 	dynamicTableSize = memSeqSize * memSeqSize
 	numSeeds         = 100
 )

@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/BurntSushi/cablastp/blosum"
-	//"github.com/ndaniels/neutronium"
 )
 
 var (
@@ -131,19 +130,4 @@ func nwAlign(rseq, oseq []byte, mem *memory) [2][]byte {
 	}
 
 	return [2][]byte{refAln, orgAln}
-}
-
-func alignmentDistance(alignment [2][]byte) float64 {
-	hammingDist := float64(0)
-	aLen := float64(len(alignment[0]))
-
-	for i := int(aLen - 1); i >= 0; i-- {
-		if alignment[0][i] != alignment[1][i] {
-			hammingDist += 1
-		}
-	}
-
-	dist := 1 - ((aLen - hammingDist) / aLen)
-
-	return dist
 }

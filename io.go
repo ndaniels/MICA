@@ -1,4 +1,4 @@
-package neutronium
+package cablastp
 
 import (
 	"bytes"
@@ -50,6 +50,7 @@ func (coarsedb *CoarseDB) saveFasta() (err error) {
 		}
 		byteOff = info.Size()
 	}
+
 	for i := coarsedb.seqsRead; i < len(coarsedb.Seqs); i++ {
 		buf.Reset()
 		fmt.Fprintf(buf, "> %d\n%s\n", i, string(coarsedb.Seqs[i].Residues))

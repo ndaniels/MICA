@@ -4,16 +4,14 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
-
 	"os/signal"
 	"path"
 	"runtime"
 	"runtime/pprof"
 	"time"
 
-	"github.com/ndaniels/neutronium"
+	"github.com/BurntSushi/cablastp"
 )
 
 // makeblastdb -dbtype prot -input_type fasta
@@ -29,7 +27,7 @@ var (
 	ignoredResidues = []byte{'J', 'O', 'U'}
 
 	// A default configuration.
-	dbConf = neutronium.DefaultDBConf
+	dbConf = cablastp.DefaultDBConf
 
 	// Flags that affect the higher level operation of compression.
 	// Flags that control algorithmic parameters are stored in `dbConf`.
@@ -42,8 +40,6 @@ var (
 	flagMemProfile  = ""
 	flagMemStats    = ""
 	flagMemInterval = false
-
-	flagNumPrimeSeqs = 10 * 1000
 )
 
 func init() {
@@ -105,13 +101,6 @@ func init() {
 		dbConf.BlastMakeBlastDB,
 		"The location of the 'makeblastdb' executable.")
 
-	flag.Float64Var(&dbConf.MaxClusterRadius, "max-cluster-radius",
-		dbConf.MaxClusterRadius,
-		"Set the maximum radius for clusters")
-
-	flag.IntVar(&flagNumPrimeSeqs, "num-prime-seqs", flagNumPrimeSeqs,
-		"Set the number of sequences to prime the coarse database with")
-
 	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
 		"The maximum number of CPUs that can be executing simultaneously.")
 	flag.BoolVar(&flagAppend, "append", flagAppend,
@@ -158,7 +147,7 @@ func main() {
 
 	// If the quiet flag isn't set, enable verbose output.
 	if !flagQuiet {
-		neutronium.Verbose = true
+		cablastp.Verbose = true
 	}
 
 	// If the overwrite flag is set, remove whatever directory that may
@@ -172,39 +161,20 @@ func main() {
 
 	// Create a new database for writing. If we're appending, we load
 	// the coarse database into memory, and setup the database for writing.
-	db, err := neutronium.NewWriteDB(flagAppend, dbConf, flag.Arg(0))
+	db, err := cablastp.NewWriteDB(flagAppend, dbConf, flag.Arg(0))
 	if err != nil {
 		fatalf("%s\n", err)
 	}
-	neutronium.Vprintln("")
+	cablastp.Vprintln("")
 
-	neutronium.Vprint("Building seed table... ")
-	seedTable := neutronium.NewSeedTable(4, 4)
-	neutronium.Vprintln("Done.")
-
-	// Stock the database with randomly selected coarse sequences
-	primeSeqIds := make(map[int]bool)
-	totalSeqs := countNumSeqsInFile()
-	neutronium.Vprintf("Preparing to compress %d sequences...\n", totalSeqs)
-
-	for i := 0; i < flagNumPrimeSeqs; i++ {
-		primeId := rand.Intn(int(totalSeqs))
-		if !primeSeqIds[primeId] {
-			primeSeqIds[primeId] = true
-		} else {
-			i--
-		}
-	}
-	starterSeqs := grabPrimeSeqs(primeSeqIds)
-	primeCoarseDB(dbConf.MaxClusterRadius, db, &seedTable, starterSeqs)
-	neutronium.Vprintln("Database primed.")
-	// if err = db.Save(); err != nil {
-	// 	fatalf("Could not save database: %s\n", err)
-	// }
-
-	neutronium.Vprintln("")
-
+	pool := startCompressWorkers(db)
+	orgSeqId := db.ComDB.NumSequences()
 	mainQuit := make(chan struct{}, 0)
+
+	// If the process is killed, try to clean up elegantly.
+	// The idea is to preserve the integrity of the database.
+	attachSignalHandler(db, mainQuit, &pool)
+
 	// Start the CPU profile after all of the data has been read.
 	if len(flagCpuProfile) > 0 {
 		f, err := os.Create(flagCpuProfile)
@@ -212,31 +182,13 @@ func main() {
 			fatalf("%s\n", err)
 		}
 		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
 	}
-
-	neutronium.Vprintln("Compressing Non-Prime Sequences...")
-	numNonPrimeSeqs := uint64(totalSeqs - int64(flagNumPrimeSeqs))
-	progressBar := neutronium.ProgressBar{
-		Label:   "Compressing Non-Primes",
-		Total:   numNonPrimeSeqs,
-		Current: uint64(0),
-	}
-	currentSeqId := 0
-
-	numJobs := max(1, runtime.GOMAXPROCS(0))
-	mems := make([]*memory, numJobs)
-
-	for i := 0; i < numJobs; i++ {
-		mems[i] = newMemory()
-	}
-
 	for _, arg := range flag.Args()[1:] {
-		seqChan, err := neutronium.ReadOriginalSeqs(arg, ignoredResidues)
+		seqChan, err := cablastp.ReadOriginalSeqs(arg, ignoredResidues)
 		if err != nil {
 			log.Fatal(err)
 		}
-		if currentSeqId == 0 {
+		if orgSeqId == 0 {
 			timer = time.Now()
 		}
 		for readSeq := range seqChan {
@@ -252,43 +204,25 @@ func main() {
 				log.Fatal(err)
 			}
 			dbConf.BlastDBSize += uint64(readSeq.Seq.Len())
-			if !primeSeqIds[currentSeqId] {
-				progressBar.ClearAndDisplay()
-				pool := startCompressWorkers(db, &seedTable, mems)
-				// If the process is killed, try to clean up elegantly.
-				// The idea is to preserve the integrity of the database.
-				attachSignalHandler(db, mainQuit, &pool)
-				pool.align(currentSeqId, readSeq.Seq)
-				pool.finishAndHandle()
-				verboseOutput(db, currentSeqId)
-				progressBar.Increment()
-
-				if progressBar.Current%10*1000 == 0 {
-					neutronium.Vprintf("\n Currently there are %d coarse sequences \n", len(db.CoarseDB.Seqs))
-				}
-			}
-			if flagMaxSeedsGB > 0 && currentSeqId%10000 == 0 {
+			orgSeqId = pool.compress(orgSeqId, readSeq.Seq)
+			verboseOutput(db, orgSeqId)
+			if flagMaxSeedsGB > 0 && orgSeqId%10000 == 0 {
 				db.CoarseDB.Seeds.MaybeWipe(flagMaxSeedsGB)
 			}
-			currentSeqId++
 		}
 	}
-	neutronium.Vprintln("\n")
-	neutronium.Vprintf("Wrote %s.\n", neutronium.FileCompressed)
-	neutronium.Vprintf("Wrote %s.\n", neutronium.FileIndex)
+	cablastp.Vprintln("\n")
+	cablastp.Vprintf("Wrote %s.\n", cablastp.FileCompressed)
+	cablastp.Vprintf("Wrote %s.\n", cablastp.FileIndex)
 
-	// if err := db.Save(); err != nil {
-	// 	fatalf("Could not save database: %s\n", err)
-	// }
-
-	cleanup(db)
+	cleanup(db, &pool)
 }
 
 // When the program ends (either by SIGTERM or when all of the input sequences
 // are compressed), 'cleanup' is executed. It writes all CPU/memory profiles
-// if they're enabled, saves
+// if they're enabled, waits for the compression workers to finish, saves
 // the database to disk and closes all file handles.
-func cleanup(db *neutronium.DB) {
+func cleanup(db *cablastp.DB, pool *compressPool) {
 	if len(flagCpuProfile) > 0 {
 		pprof.StopCPUProfile()
 	}
@@ -298,6 +232,7 @@ func cleanup(db *neutronium.DB) {
 	if len(flagMemStats) > 0 {
 		writeMemStats(fmt.Sprintf("%s.last", flagMemStats))
 	}
+	pool.done()
 	if err := db.Save(); err != nil {
 		fatalf("Could not save database: %s\n", err)
 	}
@@ -305,14 +240,14 @@ func cleanup(db *neutronium.DB) {
 }
 
 // Runs a goroutine to listen for SIGTERM and SIGKILL.
-func attachSignalHandler(db *neutronium.DB, mainQuit chan struct{},
-	pool *alignPool) {
+func attachSignalHandler(db *cablastp.DB, mainQuit chan struct{},
+	pool *compressPool) {
 
 	sigChan := make(chan os.Signal, 1)
 	go func() {
 		<-sigChan
 		mainQuit <- struct{}{}
-		cleanup(db)
+		cleanup(db, pool)
 		mainQuit <- struct{}{}
 		os.Exit(0)
 	}()
@@ -321,7 +256,7 @@ func attachSignalHandler(db *neutronium.DB, mainQuit chan struct{},
 
 // The output generated after each sequence is compressed (or more precisely,
 // after some interval of sequences has been compressed).
-func verboseOutput(db *neutronium.DB, orgSeqId int) {
+func verboseOutput(db *cablastp.DB, orgSeqId int) {
 	if orgSeqId%interval == 0 {
 		if !flagQuiet {
 			secElapsed := time.Since(timer).Seconds()
@@ -365,7 +300,7 @@ func usage() {
 			"database-directory "+
 			"fasta-file [fasta-file ...]\n",
 		path.Base(os.Args[0]))
-	neutronium.PrintFlagDefaults()
+	cablastp.PrintFlagDefaults()
 	os.Exit(1)
 }
 
@@ -422,57 +357,4 @@ NumGC: %d
 		ms.PauseNs, ms.NumGC)
 
 	f.Close()
-}
-
-func countNumSeqsInFile() int64 {
-	totalSeqs := int64(0)
-
-	for _, arg := range flag.Args()[1:] {
-		seqChan, err := neutronium.ReadOriginalSeqs(arg, ignoredResidues)
-		if err != nil {
-			log.Fatal(err)
-		}
-		longest := 0
-		for readSeq := range seqChan {
-			if readSeq.Err != nil {
-				log.Fatal(err)
-			} else {
-				length := len(readSeq.Seq.Residues)
-				if length > longest {
-					longest = length
-				}
-				totalSeqs++
-			}
-		}
-		fmt.Printf("longest: %d\n", longest)
-	}
-
-	return totalSeqs
-}
-
-func grabPrimeSeqs(primeIds map[int]bool) []starterSeq {
-	starterSeqs := make([]starterSeq, flagNumPrimeSeqs)
-	seqId := 0
-	index := 0
-	for _, arg := range flag.Args()[1:] {
-		seqChan, err := neutronium.ReadOriginalSeqs(arg, ignoredResidues)
-		if err != nil {
-			log.Fatal(err)
-		}
-		for readSeq := range seqChan {
-			if readSeq.Err != nil {
-				log.Fatal(err)
-			}
-			if primeIds[seqId] {
-				sSeq := starterSeq{
-					oSeq:   readSeq.Seq,
-					oSeqId: seqId,
-				}
-				starterSeqs[index] = sSeq
-				index++
-			}
-			seqId++
-		}
-	}
-	return starterSeqs
 }

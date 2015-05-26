@@ -1,4 +1,4 @@
-package neutronium
+package cablastp
 
 import (
 	"encoding/csv"
@@ -25,8 +25,6 @@ type DBConf struct {
 	ReadOnly            bool
 	BlastMakeBlastDB    string
 	BlastDBSize         uint64
-
-	MaxClusterRadius float64
 }
 
 var DefaultDBConf = &DBConf{
@@ -45,8 +43,6 @@ var DefaultDBConf = &DBConf{
 	ReadOnly:            true,
 	BlastMakeBlastDB:    "makeblastdb",
 	BlastDBSize:         0,
-
-	MaxClusterRadius: 0.5,
 }
 
 func LoadDBConf(r io.Reader) (conf *DBConf, err error) {
