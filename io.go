@@ -53,7 +53,7 @@ func (coarsedb *CoarseDB) saveFasta() (err error) {
 
 	for i := coarsedb.seqsRead; i < len(coarsedb.Seqs); i++ {
 		buf.Reset()
-		fmt.Fprintf(buf, "> %d\n%s\n", i, string(coarsedb.Seqs[i].Residues))
+		fmt.Fprintf(buf, ">%d\n%s\n", i, string(coarsedb.Seqs[i].Residues))
 
 		if _, err = coarsedb.FileFasta.Write(buf.Bytes()); err != nil {
 			return
