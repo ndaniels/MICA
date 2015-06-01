@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/xml"
 	"flag"
@@ -12,6 +13,8 @@ import (
 	"path"
 	"runtime"
 	"runtime/pprof"
+	"strconv"
+	"strings"
 
 	"github.com/ndaniels/neutronium"
 )
@@ -32,6 +35,7 @@ var (
 	// Flags that control algorithmic parameters are stored in `dbConf`.
 	flagMakeBlastDB = "makeblastdb"
 	flagBlastp      = "blastp"
+	flagDmndBlastp  = "diamond blastp"
 	flagGoMaxProcs  = runtime.NumCPU()
 	flagQuiet       = false
 	flagCpuProfile  = ""
@@ -52,6 +56,9 @@ func init() {
 	flag.StringVar(&flagBlastp, "blastp",
 		flagBlastp,
 		"The location of the 'blastp' executable.")
+	flag.StringVar(&flagDmndBlastp, "dmnd-blastp",
+		flagDmndBlastp,
+		"The location of the 'diamond-blastp' executable.")
 	flag.Float64Var(&flagCoarseEval, "coarse-eval", flagCoarseEval,
 		"The e-value threshold for the coarse search. This will NOT\n"+
 			"\tbe used on the fine search. The fine search e-value threshold\n"+
@@ -85,7 +92,6 @@ func init() {
 }
 
 func main() {
-	buf := new(bytes.Buffer)
 
 	if flag.NArg() != 2 {
 		flag.Usage()
@@ -96,9 +102,9 @@ func main() {
 		neutronium.Verbose = true
 	}
 
-	inputFastaQuery, err := getInputFasta()
+	inputFastaQueryFile, err := getInputFastaFile()
 	if err != nil {
-		fatalf("Could not read input fasta query: %s\n", err)
+		fatalf("Could not open input fasta query: %s\n", err)
 	}
 
 	db, err := neutronium.NewReadDB(flag.Arg(0))
@@ -106,20 +112,26 @@ func main() {
 		fatalf("Could not open '%s' database: %s\n", flag.Arg(0), err)
 	}
 
-	neutronium.Vprintln("\nBlasting query on coarse database...")
-	if err := blastCoarse(db, inputFastaQuery, buf); err != nil {
-		fatalf("Error blasting coarse database: %s\n", err)
+	neutronium.Vprintln("\nBlasting with diamond query on coarse database...")
+	dmndOutFile, err := dmndCoarse(db, inputFastaQueryFile)
+	if err != nil {
+		fatalf("Error blasting with diamond on coarse database: %s\n", err)
 	}
 
-	neutronium.Vprintln("Decompressing blast hits...")
-	expandedSequences, err := expandBlastHits(db, buf)
+	neutronium.Vprintln("Decompressing diamond hits...")
+	dmndOutArr, err := ioutil.ReadAll(dmndOutFile)
+	if err != nil {
+		fatalf("Could not read diamond output: %s", err)
+	}
+	dmndOut := bytes.NewBuffer(dmndOutArr)
+	expandedSequences, err := expandDmndHits(db, dmndOut)
 	if err != nil {
 		fatalf("%s\n", err)
 	}
 
 	// Write the contents of the expanded sequences to a fasta file.
 	// It is then indexed using makeblastdb.
-	buf.Reset()
+	buf := new(bytes.Buffer)
 	if err := writeFasta(expandedSequences, buf); err != nil {
 		fatalf("Could not create FASTA input from coarse hits: %s\n", err)
 	}
@@ -133,6 +145,10 @@ func main() {
 
 	// Finally, run the query against the fine fasta database and pass on the
 	// stdout and stderr...
+	inputFastaQuery, err := getInputFasta()
+	if err != nil {
+		fatalf("Could not read input fasta query: %s\n", err)
+	}
 	neutronium.Vprintln("Blasting query on fine database...")
 	if _, err := inputFastaQuery.Seek(0, os.SEEK_SET); err != nil {
 		fatalf("Could not seek to start of query fasta input: %s\n", err)
@@ -207,8 +223,81 @@ func writeFasta(oseqs []neutronium.OriginalSeq, buf *bytes.Buffer) error {
 	return nil
 }
 
-func expandBlastHits(
-	db *neutronium.DB, blastOut *bytes.Buffer) ([]neutronium.OriginalSeq, error) {
+func expandDmndHits(db *neutronium.DB, dmndOut *bytes.Buffer) ([]neutronium.OriginalSeq, error) {
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		fmt.Println(scanner.Text()) // Println will add back the final '\n'
+	}
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintln(os.Stderr, "reading standard input:", err)
+	}
+
+	used := make(map[int]bool, 100) // prevent original sequence duplicates
+	oseqs := make([]neutronium.OriginalSeq, 0, 100)
+
+	dmndScanner := bufio.NewScanner(dmndOut)
+	for dmndScanner.Scan() {
+		line := dmndScanner.Text()
+		if err := dmndScanner.Err(); err != nil {
+			return nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+
+		coarseID := -1
+		hitFrom := -1
+		hitTo := -1
+		eval := -1.0
+
+		for i, word := range strings.Split(line, "\t") {
+			if i == 1 {
+				_coarseID, err := strconv.Atoi(word)
+				if err != nil {
+					return nil, fmt.Errorf("Error reading from diamond output: %s", err)
+				}
+				coarseID = _coarseID
+			} else if i == 8 {
+				_hitFrom, err := strconv.Atoi(word)
+				if err != nil {
+					return nil, fmt.Errorf("Error reading from diamond output: %s", err)
+				}
+				hitFrom = _hitFrom
+			} else if i == 9 {
+				_hitTo, err := strconv.Atoi(word)
+				if err != nil {
+					return nil, fmt.Errorf("Error reading from diamond output: %s", err)
+				}
+				hitTo = _hitTo
+			} else if i == 10 {
+				_eval, err := strconv.ParseFloat(word, 64)
+				if err != nil {
+					return nil, fmt.Errorf("Error reading from diamond output: %s", err)
+				}
+				eval = _eval
+			}
+		}
+
+		someOseqs, err := db.CoarseDB.Expand(db.ComDB, coarseID, hitFrom, hitTo)
+		if err != nil {
+			errorf("Could not decompress coarse sequence %d (%d, %d): %s\n", coarseID, hitFrom, hitTo, err)
+			continue
+		}
+
+		// Make sure this hit is below the coarse e-value threshold.
+		if eval > flagCoarseEval {
+			continue
+		}
+
+		for _, oseq := range someOseqs {
+			if used[oseq.Id] {
+				continue
+			}
+			used[oseq.Id] = true
+			oseqs = append(oseqs, oseq)
+		}
+	}
+	return oseqs, nil
+}
+
+func expandBlastHits(db *neutronium.DB, blastOut *bytes.Buffer) ([]neutronium.OriginalSeq, error) {
 
 	results := blast{}
 	if err := xml.NewDecoder(blastOut).Decode(&results); err != nil {
@@ -257,6 +346,31 @@ func blastCoarse(
 	return neutronium.Exec(cmd)
 }
 
+func dmndCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
+	// diamond blastx -d nr -q reads.fna -a matches -t <temporary directory>
+
+	dmndOutFile, err := ioutil.TempFile(".", "dmnd-out-")
+	if err != nil {
+		return nil, fmt.Errorf("Could not build temporary file for diamond output: %s", err)
+	}
+
+	cmd := exec.Command(
+		flagDmndBlastp,
+		"-d", path.Join(db.Path, neutronium.FileDmndCoarse),
+		"-q", queries.Name(),
+		"--threads", s(flagGoMaxProcs),
+		"-o", dmndOutFile.Name())
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+
+	err = neutronium.Exec(cmd)
+	if err != nil {
+		return nil, fmt.Errorf("Error using diamond to blast coarse db: %s", err)
+	}
+
+	return dmndOutFile, nil
+}
+
 func getInputFasta() (*bytes.Reader, error) {
 	queryFasta, err := os.Open(flag.Arg(1))
 	if err != nil {
@@ -267,6 +381,14 @@ func getInputFasta() (*bytes.Reader, error) {
 		return nil, fmt.Errorf("Could not read input fasta query: %s", err)
 	}
 	return bytes.NewReader(bs), nil
+}
+
+func getInputFastaFile() (*os.File, error) {
+	queryFasta, err := os.Open(flag.Arg(1))
+	if err != nil {
+		return nil, fmt.Errorf("Could not open '%s': %s.", flag.Arg(1), err)
+	}
+	return queryFasta, nil
 }
 
 func cleanup(db *neutronium.DB) {
