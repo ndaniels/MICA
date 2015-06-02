@@ -296,8 +296,7 @@ func (db *DB) Save() error {
 		"--in",
 		db.coarseFasta.Name(),
 		"-d",
-		db.Path + FileDmndCoarse
-		)
+		(db.Path + FileDmndCoarse))
 	dmnddbCmd.Dir = db.Path
 
 	Vprintf("Creating %s...\n", FileDmndCoarse)
