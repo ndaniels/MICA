@@ -100,7 +100,7 @@ func init() {
 	flag.StringVar(&dbConf.BlastMakeBlastDB, "makeblastdb",
 		dbConf.BlastMakeBlastDB,
 		"The location of the 'makeblastdb' executable.")
-	flag.StringVar(&dbConf.DmndMakeDmndDB, "makedmnddb",
+	flag.StringVar(&dbConf.DmndMakeDmndDB, "diamond compress",
 		dbConf.DmndMakeDmndDB,
 		"The location of the 'makedmnddb' executable.")
 

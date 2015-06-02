@@ -293,8 +293,11 @@ func (db *DB) Save() error {
 	// For neutronium we also need to construct a dmnd database from the coarse fasta file
 	dmnddbCmd := exec.Command(
 		db.DmndMakeDmndDB,
-		db.Path,
-		FileCoarseFasta)
+		"--in",
+		db.coarseFasta.Name(),
+		"-d",
+		db.Path + FileDmndCoarse
+		)
 	dmnddbCmd.Dir = db.Path
 
 	Vprintf("Creating %s...\n", FileDmndCoarse)
