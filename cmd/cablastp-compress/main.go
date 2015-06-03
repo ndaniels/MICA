@@ -226,6 +226,7 @@ func main() {
 // if they're enabled, waits for the compression workers to finish, saves
 // the database to disk and closes all file handles.
 func cleanup(db *neutronium.DB, pool *compressPool) {
+	neutronium.Vprintln("Cleaning up and saving.")
 	if len(flagCpuProfile) > 0 {
 		pprof.StopCPUProfile()
 	}
