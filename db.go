@@ -284,7 +284,7 @@ func (db *DB) Save() error {
 		"-in", FileCoarseFasta, "-out", FileBlastCoarse)
 	blastdbCmd.Dir = db.Path
 
-	Vprintf("Creating %s...\n", FileBlastCoarse)
+	Vprintf("Creating coarse blast db at %s...\n", FileBlastCoarse)
 	if err = Exec(blastdbCmd); err != nil {
 		return err
 	}
@@ -299,7 +299,7 @@ func (db *DB) Save() error {
 		(db.Path + FileDmndCoarse))
 	dmnddbCmd.Dir = db.Path
 
-	Vprintf("Creating %s...\n", FileDmndCoarse)
+	Vprintf("Creating coarse diamond file at %s...\n", FileDmndCoarse)
 	if err = Exec(dmnddbCmd); err != nil {
 		return err
 	}
