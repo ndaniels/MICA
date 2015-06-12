@@ -229,13 +229,6 @@ func writeFasta(oseqs []neutronium.OriginalSeq, buf *bytes.Buffer) error {
 }
 
 func expandDmndHits(db *neutronium.DB, dmndOut *bytes.Buffer) ([]neutronium.OriginalSeq, error) {
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		fmt.Println(scanner.Text()) // Println will add back the final '\n'
-	}
-	if err := scanner.Err(); err != nil {
-		fmt.Fprintln(os.Stderr, "reading standard input:", err)
-	}
 
 	used := make(map[int]bool, 100) // prevent original sequence duplicates
 	oseqs := make([]neutronium.OriginalSeq, 0, 100)
