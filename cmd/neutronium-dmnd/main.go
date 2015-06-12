@@ -355,6 +355,8 @@ func dmndCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
 	}
 
 	cmd := exec.Command(
+		"sh",
+		"-c",
 		flagDmndBlastp,
 		"-d", path.Join(db.Path, neutronium.FileDmndCoarse),
 		"-q", queries.Name(),
