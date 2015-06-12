@@ -123,6 +123,11 @@ func main() {
 	if err != nil {
 		fatalf("Could not read diamond output: %s", err)
 	}
+	if len(dmndOutArr) == 0 {
+		neutronium.Vprintln("No coarse hits. Aborting.")
+		return
+	}
+	neutronium.Vprintln("Expanding diamond hits...")
 	dmndOut := bytes.NewBuffer(dmndOutArr)
 	expandedSequences, err := expandDmndHits(db, dmndOut)
 	if err != nil {
