@@ -35,7 +35,7 @@ var (
 	// Flags that control algorithmic parameters are stored in `dbConf`.
 	flagMakeBlastDB = "makeblastdb"
 	flagBlastp      = "blastp"
-	flagDmndBlastp  = "diamond blastp"
+	flagDmndBlastp  = "diamondblastp"
 	flagGoMaxProcs  = runtime.NumCPU()
 	flagQuiet       = false
 	flagCpuProfile  = ""
