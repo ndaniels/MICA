@@ -35,7 +35,7 @@ var (
 	// Flags that control algorithmic parameters are stored in `dbConf`.
 	flagMakeBlastDB = "makeblastdb"
 	flagBlastp      = "blastp"
-	flagDmndBlastp  = "diamondblastp"
+	flagDmnd        = "diamond"
 	flagGoMaxProcs  = runtime.NumCPU()
 	flagQuiet       = false
 	flagCpuProfile  = ""
@@ -56,8 +56,8 @@ func init() {
 	flag.StringVar(&flagBlastp, "blastp",
 		flagBlastp,
 		"The location of the 'blastp' executable.")
-	flag.StringVar(&flagDmndBlastp, "dmnd-blastp",
-		flagDmndBlastp,
+	flag.StringVar(&flagDmnd, "dmnd-blastp",
+		flagDmnd,
 		"The location of the 'diamond-blastp' executable.")
 	flag.Float64Var(&flagCoarseEval, "coarse-eval", flagCoarseEval,
 		"The e-value threshold for the coarse search. This will NOT\n"+
@@ -357,7 +357,8 @@ func dmndCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
 	cmd := exec.Command(
 		"sh",
 		"-c",
-		flagDmndBlastp,
+		flagDmnd,
+		"blastp",
 		"-d", path.Join(db.Path, neutronium.FileDmndCoarse),
 		"-q", queries.Name(),
 		"--threads", s(flagGoMaxProcs),
