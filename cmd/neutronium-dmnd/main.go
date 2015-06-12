@@ -357,12 +357,14 @@ func dmndCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
 	cmd := exec.Command(
 		"sh",
 		"-c",
+		"'",
 		flagDmnd,
 		"blastp",
 		"-d", path.Join(db.Path, neutronium.FileDmndCoarse),
 		"-q", queries.Name(),
 		"--threads", s(flagGoMaxProcs),
-		"-o", dmndOutFile.Name())
+		"-o", dmndOutFile.Name(),
+		"'")
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 
