@@ -367,7 +367,9 @@ func dmndCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
 		"-d", path.Join(db.Path, neutronium.FileDmndCoarse),
 		"-q", queries.Name(),
 		"--threads", s(flagGoMaxProcs),
-		"-o", dmndOutFile.Name())
+		"-o", dmndOutFile.Name()
+		"--compress", 0
+		"--top", 90)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 
