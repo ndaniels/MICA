@@ -354,14 +354,14 @@ func dmndCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
 		return nil, fmt.Errorf("Could not build temporary file for diamond output: %s", err)
 	}
 
-	// dmndCmd := fmt.Sprintf("%s blastp -d %s -q %s --threads %d -o %s ", 
-	// 						flagDmnd, 
+	// dmndCmd := fmt.Sprintf("%s blastp -d %s -q %s --threads %d -o %s ",
+	// 						flagDmnd,
 	// 						path.Join(db.Path, neutronium.FileDmndCoarse),
 	// 						queries.Name(),
 	// 						s(flagGoMaxProcs),
 	// 						)
 
-	cmd := exec.Command()
+	cmd := exec.Command(
 		flagDmnd,
 		"blastp",
 		"-d", path.Join(db.Path, neutronium.FileDmndCoarse),
