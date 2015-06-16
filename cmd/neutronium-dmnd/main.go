@@ -246,6 +246,10 @@ func expandDmndHits(db *neutronium.DB, dmndOut *bytes.Buffer) ([]neutronium.Orig
 		eval := -1.0
 
 		for i, word := range strings.Split(line, " ") {
+			// Example line:
+			// 0        1          2             3          4              5             6           7         8             9           10    11
+			// queryId, subjectId, percIdentity, alnLength, mismatchCount, gapOpenCount, queryStart, queryEnd, subjectStart, subjectEnd, eVal, bitScore
+			// YAL001C  897745     96.12         1160       45             0             1           1160      1             1160        0e+00 2179.8
 			if i == 1 {
 				_coarseID, err := strconv.Atoi(word)
 				if err != nil {
@@ -274,8 +278,12 @@ func expandDmndHits(db *neutronium.DB, dmndOut *bytes.Buffer) ([]neutronium.Orig
 
 		}
 
-		if coarseID == -1 || hitFrom == -1 || hitTo == -1 || eval == -1.0 {
-			return nil, fmt.Errorf("Error reading from diamond output: %s", line)
+		if coarseID == -1 ||
+			hitFrom == -1 ||
+			hitTo == -1 ||
+			eval == -1.0 {
+
+			return nil, fmt.Errorf("Failed to read all necessary info from diamond output: %s", line)
 		}
 
 		someOseqs, err := db.CoarseDB.Expand(db.ComDB, coarseID, hitFrom, hitTo)
