@@ -240,50 +240,32 @@ func expandDmndHits(db *neutronium.DB, dmndOut *bytes.Buffer) ([]neutronium.Orig
 			return nil, fmt.Errorf("Error reading from diamond output: %s", err)
 		}
 
-		coarseID := -1
-		hitFrom := -1
-		hitTo := -1
-		eval := -1.0
+		// Example line:
+		// 0        1          2             3          4              5             6           7         8             9           10    11
+		// queryId, subjectId, percIdentity, alnLength, mismatchCount, gapOpenCount, queryStart, queryEnd, subjectStart, subjectEnd, eVal, bitScore
+		// YAL001C  897745     96.12         1160       45             0             1           1160      1             1160        0e+00 2179.8
 
-		for i, word := range strings.Split(line, " ") {
-			// Example line:
-			// 0        1          2             3          4              5             6           7         8             9           10    11
-			// queryId, subjectId, percIdentity, alnLength, mismatchCount, gapOpenCount, queryStart, queryEnd, subjectStart, subjectEnd, eVal, bitScore
-			// YAL001C  897745     96.12         1160       45             0             1           1160      1             1160        0e+00 2179.8
-			if i == 1 {
-				_coarseID, err := strconv.Atoi(word)
-				if err != nil {
-					return nil, fmt.Errorf("Error reading from diamond output: %s", err)
-				}
-				coarseID = _coarseID
-			} else if i == 8 {
-				_hitFrom, err := strconv.Atoi(word)
-				if err != nil {
-					return nil, fmt.Errorf("Error reading from diamond output: %s", err)
-				}
-				hitFrom = _hitFrom
-			} else if i == 9 {
-				_hitTo, err := strconv.Atoi(word)
-				if err != nil {
-					return nil, fmt.Errorf("Error reading from diamond output: %s", err)
-				}
-				hitTo = _hitTo
-			} else if i == 10 {
-				_eval, err := strconv.ParseFloat(word, 64)
-				if err != nil {
-					return nil, fmt.Errorf("Error reading from diamond output: %s", err)
-				}
-				eval = _eval
-			}
+		splitLine := strings.Split(line, " ")
 
+		if len(splitLine) < 12 {
+			return nil, fmt.Errorf("Line in diamond output is too short: %s", line)
 		}
 
-		if coarseID == -1 ||
-			hitFrom == -1 ||
-			hitTo == -1 ||
-			eval == -1.0 {
-
-			return nil, fmt.Errorf("Failed to read all necessary info from diamond output: %s ~~~ %d %d %d %f", line, coarseID, hitFrom, hitTo, eval)
+		coarseID, err := strconv.Atoi(splitLine[1])
+		if err != nil {
+			return nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+		hitFrom, err := strconv.Atoi(splitLine[8])
+		if err != nil {
+			return nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+		hitTo, err := strconv.Atoi(splitLine[9])
+		if err != nil {
+			return nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+		eval, err := strconv.ParseFloat(splitLine[10], 64)
+		if err != nil {
+			return nil, fmt.Errorf("Error reading from diamond output: %s", err)
 		}
 
 		someOseqs, err := db.CoarseDB.Expand(db.ComDB, coarseID, hitFrom, hitTo)
