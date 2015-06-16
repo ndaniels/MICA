@@ -270,8 +270,7 @@ func expandDmndHits(db *neutronium.DB, dmndOut *bytes.Buffer) ([]neutronium.Orig
 
 		someOseqs, err := db.CoarseDB.Expand(db.ComDB, coarseID, hitFrom, hitTo)
 		if err != nil {
-			errorf("Could not decompress coarse sequence %d (%d, %d): %s\n", coarseID, hitFrom, hitTo, err)
-			continue
+			return nil, errorf("Could not decompress coarse sequence %d (%d, %d): %s\n", coarseID, hitFrom, hitTo, err)
 		}
 
 		// Make sure this hit is below the coarse e-value threshold.

@@ -341,7 +341,7 @@ func (coarsedb *CoarseDB) ReadCoarseSeq(id int) (*CoarseSeq, error) {
 	// Read in the sequence.
 	var corSeqId int
 	var residues string
-	n, err := fmt.Fscanf(coarsedb.FileFasta, "> %d\n%s\n", &corSeqId, &residues)
+	n, err := fmt.Fscanf(coarsedb.FileFasta, ">%d\n%s\n", &corSeqId, &residues)
 	if err != nil {
 		return nil, fmt.Errorf("Could not scan coarse sequence %d: %s", id, err)
 	} else if n != 2 {
