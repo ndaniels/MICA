@@ -271,6 +271,11 @@ func expandDmndHits(db *neutronium.DB, dmndOut *bytes.Buffer) ([]neutronium.Orig
 				}
 				eval = _eval
 			}
+
+		}
+
+		if coarseID == -1 || hitFrom == -1 || hitTo == -1 || eval == -1.0 {
+			return nil, fmt.Errorf("Error reading from diamond output: %s", line)
 		}
 
 		someOseqs, err := db.CoarseDB.Expand(db.ComDB, coarseID, hitFrom, hitTo)
