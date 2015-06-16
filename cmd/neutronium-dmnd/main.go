@@ -245,7 +245,7 @@ func expandDmndHits(db *neutronium.DB, dmndOut *bytes.Buffer) ([]neutronium.Orig
 		hitTo := -1
 		eval := -1.0
 
-		for i, word := range strings.Split(line, "\t") {
+		for i, word := range strings.Split(line, " ") {
 			if i == 1 {
 				_coarseID, err := strconv.Atoi(word)
 				if err != nil {
