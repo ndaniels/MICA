@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -339,18 +341,19 @@ func (coarsedb *CoarseDB) ReadCoarseSeq(id int) (*CoarseSeq, error) {
 	}
 
 	// Read in the sequence.
-	var corSeqId int
+	var rawCorSeqId string
 	var residues string
-	n1, err := fmt.Fscanln(coarsedb.FileFasta, &corSeqId)
+	n1, err := fmt.Fscanln(coarsedb.FileFasta, &rawCorSeqId)
+	corSeqId, err := strconv.Atoi(strings.TrimPrefix(rawCorSeqId, ">"))
 	if err != nil {
-		return nil, fmt.Errorf("Could not scan coarse sequence id from file %d: %s", id, err)
+		return nil, fmt.Errorf("Could not scan coarse sequence id of %d from coarse file: %s", id, err)
 	}
 
 	n2, err := fmt.Fscanln(coarsedb.FileFasta, &residues)
 	n := n1 + n2
 	// n, err := fmt.Fscanf(coarsedb.FileFasta, ">%d\n%s\n", &corSeqId, &residues)
 	if err != nil {
-		return nil, fmt.Errorf("Could not scan coarse sequence residues from file%d: %s", id, err)
+		return nil, fmt.Errorf("Could not scan coarse sequence residues of %d from coarse file: %s", id, err)
 	} else if n != 2 {
 		return nil, fmt.Errorf("Expected to read in two values for coarse "+
 			"sequence %d, but read %d values instead.", id, n)
