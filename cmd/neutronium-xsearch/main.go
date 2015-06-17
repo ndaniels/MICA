@@ -47,6 +47,7 @@ var (
 	flagCompressQuery  = false
 	flagBatchQueries   = false
 	flagIterativeQuery = false
+	flagDmndFine       = false
 )
 
 // blastArgs are all the arguments after "--blast-args".
@@ -89,6 +90,8 @@ func init() {
 		"When set, will process queries one at a time instead of as a batch.")
 	flag.BoolVar(&flagCompressQuery, "compress-query", flagCompressQuery,
 		"When set, will process compress queries before search.")
+	flag.BoolVar(&flagDmndFine, "dmnd-fine", flagDmndFine,
+		"When set, will use diamond for fine search.")
 
 	// compress options
 
@@ -201,7 +204,7 @@ func processQueries(db *neutronium.DB, nuclQueryFile *os.File) error {
 	dmndOut := bytes.NewBuffer(dmndOutArr)
 	expandedSequences, err := expandDmndHits(db, dmndOut)
 	if err != nil {
-		fatalf("%s\n", err)
+		return fmt.Errorf("%s\n", err)
 	}
 
 	// Write the contents of the expanded sequences to a fasta file.
@@ -211,31 +214,50 @@ func processQueries(db *neutronium.DB, nuclQueryFile *os.File) error {
 		fatalf("Could not create FASTA input from coarse hits: %s\n", err)
 	}
 
-	// Create the fine blast db in a temporary directory
-	neutronium.Vprintln("Building fine BLAST database...")
-	tmpFineDB, err := makeFineBlastDB(db, searchBuf)
-	handleFatalError("Could not create fine database to search on", err)
+	if flagDmndFine {
 
-	// retrieve the cluster members for the original representative query seq
+		neutronium.Vprintln("Building fine DIAMOND database...")
+		tmpFineDB, err := makeFineDmndDB(searchBuf)
+		handleFatalError("Could not create fine diamond database to search on", err)
 
-	// pass them to blastx on the expanded (fine) db
+		err = dmndBlastXFine(nuclQueryFile, "neutronium-xsearch-fine-dmnd-output", tmpFineDB)
+		handleFatalError("Error diamond-blasting fine database", err)
 
-	// Finally, run the query against the fine fasta database and pass on the
-	// stdout and stderr...
-	bs, err := ioutil.ReadAll(nuclQueryFile)
-	if err != nil {
-		return fmt.Errorf("Could not read input fasta query: %s", err)
+		// Delete the temporary fine database.
+		if !flagNoCleanup {
+			err := os.RemoveAll(tmpFineDB)
+			handleFatalError("Could not delete fine DIAMOND database", err)
+		}
+
+	} else {
+
+		// Create the fine blast db in a temporary directory
+		neutronium.Vprintln("Building fine BLAST database...")
+		tmpFineDB, err := makeFineBlastDB(db, searchBuf)
+		handleFatalError("Could not create fine blast database to search on", err)
+
+		// retrieve the cluster members for the original representative query seq
+
+		// pass them to blastx on the expanded (fine) db
+
+		// Finally, run the query against the fine fasta database and pass on the
+		// stdout and stderr...
+		bs, err := ioutil.ReadAll(nuclQueryFile)
+		if err != nil {
+			return fmt.Errorf("Could not read input fasta query: %s", err)
+		}
+		nuclQueryReader := bytes.NewReader(bs)
+
+		err = blastFine(db, tmpFineDB, nuclQueryReader)
+		handleFatalError("Error blasting fine database", err)
+
+		// Delete the temporary fine database.
+		if !flagNoCleanup {
+			err := os.RemoveAll(tmpFineDB)
+			handleFatalError("Could not delete fine BLAST database", err)
+		}
 	}
-	nuclQueryReader := bytes.NewReader(bs)
 
-	err = blastFine(db, tmpFineDB, nuclQueryReader)
-	handleFatalError("Error blasting fine database", err)
-
-	// Delete the temporary fine database.
-	if !flagNoCleanup {
-		err := os.RemoveAll(tmpFineDB)
-		handleFatalError("Could not delete fine BLAST database", err)
-	}
 	return nil
 }
 
@@ -325,6 +347,39 @@ func blastFine(
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return neutronium.Exec(cmd)
+}
+
+func makeFineDmndDB(seqBuf *bytes.Buffer) (string, error) {
+	tmpSeqFile, err := ioutil.TempFile(".", "fine-sequences-")
+	if err != nil {
+		return "", fmt.Errorf("Could not create temporary sequence file: %s\n", err)
+	}
+	err = ioutil.WriteFile(tmpSeqFile.Name(), seqBuf.Bytes(), 0666)
+	if err != nil {
+		return "", fmt.Errorf("Could not write to temporary sequence file: %s\n", err)
+	}
+	tmpDmndFile, err := ioutil.TempFile(".", "fine-dmnd-db-")
+	if err != nil {
+		return "", fmt.Errorf("Could not create temporary diamond file: %s\n", err)
+	}
+	cmd := exec.Command(
+		flagDmnd,
+		"makedb",
+		"--in", tmpSeqFile.Name(),
+		"-d", tmpDmndFile.Name())
+
+	err = neutronium.Exec(cmd)
+	if err != nil {
+		return "", fmt.Errorf("Could not create fine diamond database: %s\n", err)
+	}
+
+	err = os.RemoveAll(tmpSeqFile.Name())
+	if err != nil {
+		return "", fmt.Errorf("Could not remove temporary sequence file: %s\n", err)
+	}
+
+	return tmpDmndFile.Name(), nil
+
 }
 
 func makeFineBlastDB(db *neutronium.DB, stdin *bytes.Buffer) (string, error) {
@@ -445,6 +500,28 @@ func dmndBlastXCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
 	}
 
 	return dmndOutFile, nil
+}
+
+func dmndBlastXFine(queries *os.File, outFilename, fineFilename string) error {
+
+	cmd := exec.Command(
+		flagDmnd,
+		"blastx",
+		"-d", fineFilename,
+		"-q", queries.Name(),
+		"--threads", s(flagGoMaxProcs),
+		"-o", outFilename,
+		"--compress", "0",
+		"--top", "90")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+
+	err := neutronium.Exec(cmd)
+	if err != nil {
+		return fmt.Errorf("Error using diamond to blast coarse db: %s", err)
+	}
+
+	return nil
 }
 
 func getInputFasta(inputFilename string) (*bytes.Reader, error) {
