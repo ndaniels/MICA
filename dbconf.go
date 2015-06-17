@@ -47,6 +47,29 @@ var DefaultDBConf = &DBConf{
 	BlastDBSize:         0,
 }
 
+func (conf *DBConf) DeepCopy() *DBConf {
+	copied := DBConf{
+
+		MinMatchLen:         conf.MinMatchLen,
+		MatchKmerSize:       conf.MatchKmerSize,
+		GappedWindowSize:    conf.GappedWindowSize,
+		UngappedWindowSize:  conf.UngappedWindowSize,
+		ExtSeqIdThreshold:   conf.ExtSeqIdThreshold,
+		MatchSeqIdThreshold: conf.MatchSeqIdThreshold,
+		MatchExtend:         conf.MatchExtend,
+		MapSeedSize:         conf.MapSeedSize,
+		ExtSeedSize:         conf.ExtSeedSize,
+		LowComplexity:       conf.LowComplexity,
+		SeedLowComplexity:   conf.SeedLowComplexity,
+		SavePlain:           conf.SavePlain,
+		ReadOnly:            conf.ReadOnly,
+		BlastMakeBlastDB:    conf.BlastMakeBlastDB,
+		Dmnd:                conf.Dmnd,
+		BlastDBSize:         conf.BlastDBSize,
+	}
+	return &copied
+}
+
 func LoadDBConf(r io.Reader) (conf *DBConf, err error) {
 	defer func() {
 		if perr := recover(); perr != nil {

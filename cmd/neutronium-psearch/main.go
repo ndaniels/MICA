@@ -56,9 +56,9 @@ func init() {
 	flag.StringVar(&flagBlastp, "blastp",
 		flagBlastp,
 		"The location of the 'blastp' executable.")
-	flag.StringVar(&flagDmnd, "dmnd-blastp",
+	flag.StringVar(&flagDmnd, "diamond",
 		flagDmnd,
-		"The location of the 'diamond-blastp' executable.")
+		"The location of the 'diamond' executable.")
 	flag.Float64Var(&flagCoarseEval, "coarse-eval", flagCoarseEval,
 		"The e-value threshold for the coarse search. This will NOT\n"+
 			"\tbe used on the fine search. The fine search e-value threshold\n"+
@@ -164,6 +164,9 @@ func main() {
 
 	// Delete the temporary fine database.
 	if !flagNoCleanup {
+		if err := os.RemoveAll(dmndOutFile.Name()); err != nil {
+			fatalf("Could not delete output from diamond: %s\n", err)
+		}
 		if err := os.RemoveAll(tmpDir); err != nil {
 			fatalf("Could not delete fine BLAST database: %s\n", err)
 		}
@@ -339,19 +342,12 @@ func blastCoarse(
 }
 
 func dmndCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
-	// diamond blastx -d nr -q reads.fna -a matches -t <temporary directory>
+	// diamond blastp -d nr -q reads.fna -a matches -t <temporary directory>
 
 	dmndOutFile, err := ioutil.TempFile(".", "dmnd-out-")
 	if err != nil {
 		return nil, fmt.Errorf("Could not build temporary file for diamond output: %s", err)
 	}
-
-	// dmndCmd := fmt.Sprintf("%s blastp -d %s -q %s --threads %d -o %s ",
-	// 						flagDmnd,
-	// 						path.Join(db.Path, neutronium.FileDmndCoarse),
-	// 						queries.Name(),
-	// 						s(flagGoMaxProcs),
-	// 						)
 
 	cmd := exec.Command(
 		flagDmnd,
