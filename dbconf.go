@@ -24,7 +24,7 @@ type DBConf struct {
 	SavePlain           bool
 	ReadOnly            bool
 	BlastMakeBlastDB    string
-	DmndMakeDmndDB      string
+	Dmnd                string
 	BlastDBSize         uint64
 }
 
@@ -43,7 +43,7 @@ var DefaultDBConf = &DBConf{
 	SavePlain:           false,
 	ReadOnly:            true,
 	BlastMakeBlastDB:    "makeblastdb",
-	DmndMakeDmndDB:      "makedmnddb",
+	Dmnd:                "diamond",
 	BlastDBSize:         0,
 }
 
@@ -120,8 +120,8 @@ func LoadDBConf(r io.Reader) (conf *DBConf, err error) {
 			}
 		case "BlastMakeBlastDB":
 			conf.BlastMakeBlastDB = strings.TrimSpace(line[1])
-		case "DmndMakeDmndDB":
-			conf.DmndMakeDmndDB = strings.TrimSpace(line[1])
+		case "Dmnd":
+			conf.Dmnd = strings.TrimSpace(line[1])
 		case "BlastDBSize":
 			conf.BlastDBSize = atoui()
 		default:
@@ -184,8 +184,8 @@ func (flagConf *DBConf) FlagMerge(fileConf *DBConf) (*DBConf, error) {
 	if !only["makeblastdb"] {
 		flagConf.BlastMakeBlastDB = fileConf.BlastMakeBlastDB
 	}
-	if !only["makedmnddb"] {
-		flagConf.DmndMakeDmndDB = fileConf.DmndMakeDmndDB
+	if !only["diamond"] {
+		flagConf.Dmnd = fileConf.Dmnd
 	}
 	if !only["dbsize"] {
 		flagConf.BlastDBSize = fileConf.BlastDBSize
@@ -225,7 +225,7 @@ func (dbConf DBConf) Write(w io.Writer) error {
 		{"SavePlain", bs(dbConf.SavePlain)},
 		{"ReadOnly", bs(dbConf.ReadOnly)},
 		{"BlastMakeBlastDB", dbConf.BlastMakeBlastDB},
-		{"DmndMakeDmndDB", dbConf.DmndMakeDmndDB},
+		{"Dmnd", dbConf.Dmnd},
 		{"BlastDBSize", su(dbConf.BlastDBSize)},
 	}
 	if err := csvWriter.WriteAll(records); err != nil {

@@ -6,7 +6,6 @@ import (
 	"github.com/ndaniels/neutronium"
 	"log"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path"
 	"runtime"
@@ -40,7 +39,6 @@ var (
 	flagMemProfile  = ""
 	flagMemStats    = ""
 	flagMemInterval = false
-	flagDmnd        = "diamond"
 )
 
 func init() {
@@ -101,8 +99,8 @@ func init() {
 	flag.StringVar(&dbConf.BlastMakeBlastDB, "makeblastdb",
 		dbConf.BlastMakeBlastDB,
 		"The location of the 'makeblastdb' executable.")
-	flag.StringVar(&flagDmnd, "diamond",
-		flagDmnd,
+	flag.StringVar(&dbConf.Dmnd, "diamond",
+		dbConf.Dmnd,
 		"The location of the 'diamond' executable.")
 
 	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
@@ -221,27 +219,6 @@ func main() {
 
 	cleanup(db, &pool)
 
-	makeDmndFile(db)
-
-}
-
-func makeDmndFile(db *neutronium.DB) error {
-
-	cmd := exec.Command(
-		flagDmnd,
-		"makedb",
-		"--in", path.Join(db.Path, neutronium.FileCoarseFasta),
-		"-d", path.Join(db.Path, neutronium.FileDmndCoarse))
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-
-	err := neutronium.Exec(cmd)
-
-	if err != nil {
-		return fmt.Errorf("Error indexing coarse fasta with diamond: %s", err)
-	}
-
-	return nil
 }
 
 // When the program ends (either by SIGTERM or when all of the input sequences

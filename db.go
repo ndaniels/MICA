@@ -291,16 +291,16 @@ func (db *DB) Save() error {
 	Vprintf("Done creating %s.\n", FileBlastCoarse)
 
 	// For neutronium we also need to construct a dmnd database from the coarse fasta file
-	dmnddbCmd := exec.Command(
-		db.DmndMakeDmndDB,
-		"--in",
-		db.coarseFasta.Name(),
-		"-d",
-		(db.Path + FileDmndCoarse))
-	dmnddbCmd.Dir = db.Path
+	dmndDbCmd := exec.Command(
+		db.Dmnd,
+		"makedb",
+		"--in", path.Join(db.Path, FileCoarseFasta),
+		"-d", path.Join(db.Path, FileDmndCoarse))
+	dmndDbCmd.Stdin = os.Stdin
+	dmndDbCmd.Stdout = os.Stdout
 
 	Vprintf("Creating coarse diamond file at %s...\n", FileDmndCoarse)
-	if err = Exec(dmnddbCmd); err != nil {
+	if err = Exec(dmndDbCmd); err != nil {
 		return err
 	}
 	Vprintf("Done creating %s.\n", FileDmndCoarse)
