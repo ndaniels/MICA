@@ -173,7 +173,10 @@ func main() {
 	}
 
 	neutronium.Vprintln("\nProcessing Queries...")
-	processQueries(db, nuclQueryFile)
+	err = processQueries(db, nuclQueryFile)
+	if err != nil {
+		fatalf("Error processing queries: %s\n", err)
+	}
 
 	cleanup(db)
 }
