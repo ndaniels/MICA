@@ -38,6 +38,8 @@ func main() {
 		byteOff += int64(buf.Len())
 	}
 
+	newFastaIndex.Close()
+
 }
 
 func fatalf(format string, v ...interface{}) {
