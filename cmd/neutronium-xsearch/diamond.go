@@ -23,7 +23,7 @@ func dmndBlastXFine(queries *os.File, outFilename, fineFilename string) error {
 		"--threads", s(flagGoMaxProcs),
 		"-o", outFilename,
 		"--compress", "0",
-		"--top", "90")
+		"--top", s(flagFineDmndMatch))
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 
@@ -51,7 +51,7 @@ func dmndBlastXCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
 		"--threads", s(flagGoMaxProcs),
 		"-o", dmndOutFile.Name(),
 		"--compress", "0",
-		"--top", "90")
+		"--top", s(flagCoarseDmndMatch))
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 

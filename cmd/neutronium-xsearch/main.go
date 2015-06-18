@@ -25,20 +25,22 @@ var (
 	argDBConf = neutronium.DefaultDBConf.DeepCopy()
 	// Flags that affect the operation of search.
 	// Flags that control algorithmic parameters are stored in `queryDBConf`.
-	flagMakeBlastDB    = "makeblastdb"
-	flagBlastx         = "blastx"
-	flagBlastn         = "blastn"
-	flagDmnd           = "diamond"
-	flagGoMaxProcs     = runtime.NumCPU()
-	flagQuiet          = false
-	flagCpuProfile     = ""
-	flagMemProfile     = ""
-	flagCoarseEval     = 5.0
-	flagNoCleanup      = false
-	flagCompressQuery  = false
-	flagBatchQueries   = false
-	flagIterativeQuery = false
-	flagDmndFine       = ""
+	flagMakeBlastDB     = "makeblastdb"
+	flagBlastx          = "blastx"
+	flagBlastn          = "blastn"
+	flagDmnd            = "diamond"
+	flagGoMaxProcs      = runtime.NumCPU()
+	flagQuiet           = false
+	flagCpuProfile      = ""
+	flagMemProfile      = ""
+	flagCoarseEval      = 5.0
+	flagNoCleanup       = false
+	flagCompressQuery   = false
+	flagBatchQueries    = false
+	flagIterativeQuery  = false
+	flagDmndFine        = ""
+	flagCoarseDmndMatch = 90
+	flagFineDmndMatch   = 90
 )
 
 // blastArgs are all the arguments after "--blast-args".
@@ -72,6 +74,11 @@ func init() {
 	flag.BoolVar(&flagNoCleanup, "no-cleanup", flagNoCleanup,
 		"When set, the temporary fine BLAST database that is created\n"+
 			"\twill NOT be deleted.")
+
+	flag.IntVar(&flagCoarseDmndMatch, "dmnd-coarse-match", flagCoarseDmndMatch,
+		"The matching threshold for coarse search with diamond")
+	flag.IntVar(&flagFineDmndMatch, "dmnd-fine-match", flagFineDmndMatch,
+		"The matching threshold for fine search with diamond (assuming diamond fine search is enabled).")
 
 	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
 		"The maximum number of CPUs that can be executing simultaneously.")

@@ -33,15 +33,17 @@ var (
 
 	// Flags that affect the operation of search.
 	// Flags that control algorithmic parameters are stored in `dbConf`.
-	flagMakeBlastDB = "makeblastdb"
-	flagBlastp      = "blastp"
-	flagDmnd        = "diamond"
-	flagGoMaxProcs  = runtime.NumCPU()
-	flagQuiet       = false
-	flagCpuProfile  = ""
-	flagMemProfile  = ""
-	flagCoarseEval  = 5.0
-	flagNoCleanup   = false
+	flagMakeBlastDB     = "makeblastdb"
+	flagBlastp          = "blastp"
+	flagDmnd            = "diamond"
+	flagGoMaxProcs      = runtime.NumCPU()
+	flagQuiet           = false
+	flagCpuProfile      = ""
+	flagMemProfile      = ""
+	flagCoarseEval      = 5.0
+	flagNoCleanup       = false
+	flagCoarseDmndMatch = 90
+	flagFineDmndMatch   = 90
 )
 
 // blastArgs are all the arguments after "--blast-args".
@@ -69,6 +71,13 @@ func init() {
 
 	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
 		"The maximum number of CPUs that can be executing simultaneously.")
+
+	flag.IntVar(&flagCoarseDmndMatch, "dmnd-coarse-match", flagCoarseDmndMatch,
+		"The matching threshold for coarse search with diamond")
+
+	flag.IntVar(&flagFineDmndMatch, "dmnd-fine-match", flagFineDmndMatch,
+		"The matching threshold for fine search with diamond (assuming diamond fine search is enabled).")
+
 	flag.BoolVar(&flagQuiet, "quiet", flagQuiet,
 		"When set, the only outputs will be errors echoed to stderr.")
 	flag.StringVar(&flagCpuProfile, "cpuprofile", flagCpuProfile,
