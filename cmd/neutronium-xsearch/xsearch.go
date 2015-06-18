@@ -56,7 +56,8 @@ func processQueries(db *neutronium.DB, nuclQueryFile *os.File) error {
 
 		// Delete the temporary fine database.
 		if !flagNoCleanup {
-			err := os.RemoveAll(tmpFineDB + ".dmnd")
+			err := os.RemoveAll(tmpFineDB)
+			err = os.RemoveAll(tmpFineDB + ".dmnd")
 			handleFatalError("Could not delete fine DIAMOND database", err)
 		}
 
