@@ -19,6 +19,12 @@ func processQueries(db *neutronium.DB, nuclQueryFile *os.File) error {
 
 	neutronium.Vprintln("Decompressing diamond hits...")
 	dmndOutArr, err := ioutil.ReadAll(dmndOutFile)
+
+	if !flagNoCleanup {
+		err := os.RemoveAll(dmndOutFile.Name())
+		handleFatalError("Could not delete diamond output from coarse search", err)
+	}
+
 	if err != nil {
 		return fmt.Errorf("Could not read diamond output: %s", err)
 	}
@@ -39,13 +45,13 @@ func processQueries(db *neutronium.DB, nuclQueryFile *os.File) error {
 		fatalf("Could not create FASTA input from coarse hits: %s\n", err)
 	}
 
-	if flagDmndFine {
+	if flagDmndFine != "" {
 
 		neutronium.Vprintln("Building fine DIAMOND database...")
 		tmpFineDB, err := makeFineDmndDB(searchBuf)
 		handleFatalError("Could not create fine diamond database to search on", err)
 
-		err = dmndBlastXFine(nuclQueryFile, "neutronium-xsearch-fine-dmnd-output", tmpFineDB)
+		err = dmndBlastXFine(nuclQueryFile, flagDmndFine, tmpFineDB)
 		handleFatalError("Error diamond-blasting fine database", err)
 
 		// Delete the temporary fine database.

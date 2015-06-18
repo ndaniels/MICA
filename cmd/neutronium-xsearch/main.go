@@ -38,7 +38,7 @@ var (
 	flagCompressQuery  = false
 	flagBatchQueries   = false
 	flagIterativeQuery = false
-	flagDmndFine       = false
+	flagDmndFine       = ""
 )
 
 // blastArgs are all the arguments after "--blast-args".
@@ -61,6 +61,10 @@ func init() {
 	flag.StringVar(&flagDmnd, "diamond",
 		flagDmnd,
 		"The location of the 'diamond' executable.")
+	flag.StringVar(&flagDmndFine, "dmnd-fine",
+		"",
+		"When set, will use diamond for fine search writing the results to the specified file")
+
 	flag.Float64Var(&flagCoarseEval, "coarse-eval", flagCoarseEval,
 		"The e-value threshold for the coarse search. This will NOT\n"+
 			"\tbe used on the fine search. The fine search e-value threshold\n"+
@@ -81,8 +85,6 @@ func init() {
 		"When set, will process queries one at a time instead of as a batch.")
 	flag.BoolVar(&flagCompressQuery, "compress-query", flagCompressQuery,
 		"When set, will process compress queries before search.")
-	flag.BoolVar(&flagDmndFine, "dmnd-fine", flagDmndFine,
-		"When set, will use diamond for fine search.")
 
 	// compress options
 
