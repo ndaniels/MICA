@@ -32,6 +32,7 @@ func main() {
 	}
 
 	for i, seq := range coarsedb.Seqs {
+		neutronium.Vprintln(seq.String())
 		buf.Reset()
 		fmt.Fprintf(buf, ">%d\n%s\n", i, seq.String())
 		if _, err = newFastaFile.Write(buf.Bytes()); err != nil {
