@@ -32,7 +32,7 @@ func main() {
 		fatalf("Failed to create new index file: %s\n", err)
 	}
 
-	for i, seq := range coarsedb.Seqs {
+	for i, seq := range db.CoarseDB.Seqs {
 		//neutronium.Vprintln(seq.String())
 		buf.Reset()
 		fmt.Fprintf(buf, ">%d\n%s\n", i, seq.String())
