@@ -21,9 +21,8 @@ func main() {
 	buf := new(bytes.Buffer)
 	coarsedb := db.CoarseDB
 
-	newFastaIndex, err := os.Open("coarse.fasta.index.new")
-	if err != nil {
-		fatalf("Failed to open new index file: %s\n", err)
+	newFastaIndex, err := os.Create("coarse.fasta.index.new")
+		fatalf("Failed to create new index file: %s\n", err)
 	}
 
 	for i := 0; i < len(coarsedb.Seqs); i++ {
