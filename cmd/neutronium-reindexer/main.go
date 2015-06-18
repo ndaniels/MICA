@@ -31,9 +31,9 @@ func main() {
 		fatalf("Failed to create new index file: %s\n", err)
 	}
 
-	for i := 0; i < len(coarsedb.Seqs); i++ {
+	for i, seq := range coarsedb.Seqs {
 		buf.Reset()
-		fmt.Fprintf(buf, ">%d\n%s\n", i, string(coarsedb.Seqs[i].Residues))
+		fmt.Fprintf(buf, ">%d\n%s\n", i, seq.String())
 		if _, err = newFastaFile.Write(buf.Bytes()); err != nil {
 			return
 		}
@@ -46,6 +46,7 @@ func main() {
 		byteOff += int64(buf.Len())
 	}
 
+	newFastaFile.Close()
 	newFastaIndex.Close()
 
 }
