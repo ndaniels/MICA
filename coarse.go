@@ -356,7 +356,7 @@ func (coarsedb *CoarseDB) ReadCoarseSeq(id int) (*CoarseSeq, error) {
 	// n2, err := fmt.Fscanln(coarsedb.FileFasta, &residues)
 	// n := n1 + n2
 
-	n, err := fmt.Fscanf(coarsedb.FileFasta, ">%d \n%s \n", &corSeqId, &residues)
+	n, err := fmt.Fscanf(coarsedb.FileFasta, ">%d\n%s\n", &corSeqId, &residues)
 
 	if err != nil {
 		return nil, fmt.Errorf("Could not scan coarse sequence residues of %d from coarse-file: %s", id, err)
@@ -448,6 +448,13 @@ func (coarsedb *CoarseDB) load() (err error) {
 		if err = coarsedb.readSeeds(); err != nil {
 			return
 		}
+	}
+	return nil
+}
+
+func (coarsedb *CoarseDB) LoadSeqs() (err error) {
+	if err = coarsedb.readFasta(); err != nil {
+		return err
 	}
 	return nil
 }

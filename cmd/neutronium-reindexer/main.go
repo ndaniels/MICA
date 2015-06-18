@@ -32,8 +32,12 @@ func main() {
 		fatalf("Failed to create new index file: %s\n", err)
 	}
 
+	err = db.CoarseDB.LoadSeqs()
+	if err != nil {
+		fatalf("Failed to load coarse db sequences into memory: %s\n", err)
+	}
+
 	for i, seq := range db.CoarseDB.Seqs {
-		//neutronium.Vprintln(seq.String())
 		buf.Reset()
 		fmt.Fprintf(buf, ">%d\n%s\n", i, seq.String())
 		if _, err = newFastaFile.Write(buf.Bytes()); err != nil {
