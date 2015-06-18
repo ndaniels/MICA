@@ -22,6 +22,7 @@ func main() {
 	coarsedb := db.CoarseDB
 
 	newFastaIndex, err := os.Create("coarse.fasta.index.new")
+	if err != nil {
 		fatalf("Failed to create new index file: %s\n", err)
 	}
 
