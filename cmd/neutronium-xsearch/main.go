@@ -95,48 +95,6 @@ func init() {
 
 	// compress options
 
-	flag.IntVar(&argDBConf.MinMatchLen, "min-match-len",
-		argDBConf.MinMatchLen,
-		"The minimum size of a match.")
-	flag.IntVar(&argDBConf.MatchKmerSize, "match-kmer-size",
-		argDBConf.MatchKmerSize,
-		"The size of kmer fragments to match in ungapped extension.")
-	flag.IntVar(&argDBConf.ExtSeqIdThreshold, "ext-seq-id-threshold",
-		argDBConf.ExtSeqIdThreshold,
-		"The sequence identity threshold of [un]gapped extension. \n"+
-			"\t(An integer in the inclusive range from 0 to 100.)")
-	flag.IntVar(&argDBConf.MatchSeqIdThreshold, "match-seq-id-threshold",
-		argDBConf.MatchSeqIdThreshold,
-		"The sequence identity threshold of an entire match.")
-	flag.IntVar(&argDBConf.MatchExtend, "match-extend",
-		argDBConf.MatchExtend,
-		"The maximum number of residues to blindly extend a \n"+
-			"\tmatch without regard to sequence identity. This is \n"+
-			"\tto avoid small sequences in the coarse database.")
-	flag.IntVar(&argDBConf.MapSeedSize, "map-seed-size",
-		argDBConf.MapSeedSize,
-		"The size of a seed in the K-mer map. This size combined with\n"+
-			"\t'ext-seed-size' forms the total seed size.")
-
-	flag.IntVar(&argDBConf.LowComplexity, "low-complexity",
-		argDBConf.LowComplexity,
-		"The window size used to detect regions of low complexity.\n"+
-			"\tLow complexity regions are repetitions of a single amino\n"+
-			"\tacid residue. Low complexity regions are skipped when\n"+
-			"\ttrying to extend a match.")
-	flag.IntVar(&argDBConf.SeedLowComplexity, "seed-low-complexity",
-		argDBConf.SeedLowComplexity,
-		"The seed window size used to detect regions of low complexity.\n"+
-			"\tLow complexity regions are repetitions of a single amino\n"+
-			"\tacid residue. Low complexity regions matching this window\n"+
-			"\tsize are not included in the seeds table.")
-	// flag.Float64Var(&flagMaxSeedsGB, "max-seeds", flagMaxSeedsGB,
-	// 	"When set, the in memory seeds table will be completely erased\n"+
-	// 		"\twhen the memory used by seeds exceeds the specified number,\n"+
-	// 		"\tin gigabytes.\n"+
-	// 		"\tEach seed corresponds to 16 bytes of memory.\n"+
-	// 		"\tSetting to zero disables this behavior.")
-
 	// find '--blast-args' and chop off the remainder before letting the flag
 	// package have its way.
 	for i, arg := range os.Args {
