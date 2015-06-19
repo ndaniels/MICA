@@ -39,7 +39,7 @@ func main() {
 
 	for i, seq := range db.CoarseDB.Seqs {
 		buf.Reset()
-		fmt.Fprintf(buf, ">%d\n%s\n", i, seq.String())
+		fmt.Fprintf(buf, ">%d\n%s\n", i, string(seq.Residues))
 		if _, err = newFastaFile.Write(buf.Bytes()); err != nil {
 			return
 		}
