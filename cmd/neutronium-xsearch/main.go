@@ -39,8 +39,8 @@ var (
 	flagBatchQueries    = false
 	flagIterativeQuery  = false
 	flagDmndFine        = ""
-	flagCoarseDmndMatch = 90
-	flagFineDmndMatch   = 90
+	flagCoarseDmndMatch = 50
+	flagFineDmndMatch   = 60
 )
 
 // blastArgs are all the arguments after "--blast-args".

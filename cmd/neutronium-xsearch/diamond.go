@@ -18,6 +18,7 @@ func dmndBlastXFine(queries *os.File, outFilename, fineFilename string) error {
 	cmd := exec.Command(
 		flagDmnd,
 		"blastx",
+    "--sensitive",
 		"-d", fineFilename,
 		"-q", queries.Name(),
 		"--threads", s(flagGoMaxProcs),
@@ -46,6 +47,7 @@ func dmndBlastXCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
 	cmd := exec.Command(
 		flagDmnd,
 		"blastx",
+    "--sensitive",
 		"-d", path.Join(db.Path, neutronium.FileDmndCoarse),
 		"-q", queries.Name(),
 		"--threads", s(flagGoMaxProcs),
