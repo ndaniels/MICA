@@ -130,7 +130,7 @@ func main() {
 	inputFastaQueryName := flag.Arg(1)
 	nuclQueryFile, err := os.Open(inputFastaQueryName)
 	if err != nil {
-		fatalf("Could not open '%s' database: %s\n", inputFastaQueryName, err)
+		fatalf("Could not open '%s' query file: %s\n", inputFastaQueryName, err)
 	}
 
 	neutronium.Vprintln("\nProcessing Queries...")

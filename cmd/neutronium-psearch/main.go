@@ -37,8 +37,9 @@ var (
 	flagMemProfile      = ""
 	flagCoarseEval      = 5.0
 	flagNoCleanup       = false
-	flagCoarseDmndMatch = 90
-	flagFineDmndMatch   = 90
+	flagDmndFine        = ""
+	flagCoarseDmndMatch = 50
+	flagFineDmndMatch   = 60
 )
 
 // blastArgs are all the arguments after "--blast-args".
@@ -63,6 +64,11 @@ func init() {
 	flag.BoolVar(&flagNoCleanup, "no-cleanup", flagNoCleanup,
 		"When set, the temporary fine BLAST database that is created\n"+
 			"\twill NOT be deleted.")
+
+	flag.IntVar(&flagCoarseDmndMatch, "dmnd-coarse-match", flagCoarseDmndMatch,
+		"The matching threshold for coarse search with diamond")
+	flag.IntVar(&flagFineDmndMatch, "dmnd-fine-match", flagFineDmndMatch,
+		"The matching threshold for fine search with diamond (assuming diamond fine search is enabled).")
 
 	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
 		"The maximum number of CPUs that can be executing simultaneously.")
@@ -106,18 +112,19 @@ func main() {
 		neutronium.Verbose = true
 	}
 
-	inputFastaQueryFile, err := getInputFastaFile()
-	if err != nil {
-		fatalf("Could not open input fasta query: %s\n", err)
-	}
-
 	db, err := neutronium.NewReadDB(flag.Arg(0))
 	if err != nil {
 		fatalf("Could not open '%s' database: %s\n", flag.Arg(0), err)
 	}
 
+	inputFastaQueryName := flag.Arg(1)
+	aaQueryFile, err := os.Open(inputFastaQueryName)
+	if err != nil {
+		fatalf("Could not open '%s' query file: %s\n", inputFastaQueryName, err)
+	}
+
 	neutronium.Vprintln("\nProcessing Queries...")
-	err = processQueries(db, inputFastaQueryFile)
+	err = processQueries(db, aaQueryFile)
 	if err != nil {
 		fatalf("Error processing queries: %s\n", err)
 	}

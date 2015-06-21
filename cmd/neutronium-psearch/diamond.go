@@ -75,7 +75,63 @@ func expandDmndHits(db *neutronium.DB, dmndOut *bytes.Buffer) ([]neutronium.Orig
 	return oseqs, nil
 }
 
-func dmndCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
+func makeFineDmndDB(seqBuf *bytes.Buffer) (string, error) {
+	tmpSeqFile, err := ioutil.TempFile(".", "fine-sequences-")
+	if err != nil {
+		return "", fmt.Errorf("Could not create temporary sequence file: %s\n", err)
+	}
+	err = ioutil.WriteFile(tmpSeqFile.Name(), seqBuf.Bytes(), 0666)
+	if err != nil {
+		return "", fmt.Errorf("Could not write to temporary sequence file: %s\n", err)
+	}
+	tmpDmndFile, err := ioutil.TempFile(".", "fine-dmnd-db-")
+	if err != nil {
+		return "", fmt.Errorf("Could not create temporary diamond file: %s\n", err)
+	}
+	cmd := exec.Command(
+		flagDmnd,
+		"makedb",
+		"--in", tmpSeqFile.Name(),
+		"-d", tmpDmndFile.Name())
+
+	err = neutronium.Exec(cmd)
+	if err != nil {
+		return "", fmt.Errorf("Could not create fine diamond database: %s\n", err)
+	}
+
+	err = os.RemoveAll(tmpSeqFile.Name())
+	if err != nil {
+		return "", fmt.Errorf("Could not remove temporary sequence file: %s\n", err)
+	}
+
+	return tmpDmndFile.Name(), nil
+
+}
+
+func dmndBlastPFine(queries *os.File, outFilename, fineFilename string) error {
+
+	cmd := exec.Command(
+		flagDmnd,
+		"blastp",
+		"--sensitive",
+		"-d", fineFilename,
+		"-q", queries.Name(),
+		"--threads", s(flagGoMaxProcs),
+		"-o", outFilename,
+		"--compress", "0",
+		"--top", s(flagFineDmndMatch))
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+
+	err := neutronium.Exec(cmd)
+	if err != nil {
+		return fmt.Errorf("Error using diamond to blast coarse db: %s", err)
+	}
+
+	return nil
+}
+
+func dmndBlastPCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
 	// diamond blastp -d nr -q reads.fna -a matches -t <temporary directory>
 
 	dmndOutFile, err := ioutil.TempFile(".", "dmnd-out-")
@@ -86,12 +142,13 @@ func dmndCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
 	cmd := exec.Command(
 		flagDmnd,
 		"blastp",
+		"--sensitive",
 		"-d", path.Join(db.Path, neutronium.FileDmndCoarse),
 		"-q", queries.Name(),
 		"--threads", s(flagGoMaxProcs),
 		"-o", dmndOutFile.Name(),
 		"--compress", "0",
-		"--top", "90")
+		"--top", s(flagCoarseDmndMatch))
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 

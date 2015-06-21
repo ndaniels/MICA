@@ -9,20 +9,27 @@ import (
 	"github.com/ndaniels/neutronium"
 )
 
-func processQueries(db *neutronium.DB, inputFastaQueryFile *os.File) error {
+func processQueries(db *neutronium.DB, nuclQueryFile *os.File) error {
+
 	neutronium.Vprintln("\nBlasting with diamond query on coarse database...")
-	dmndOutFile, err := dmndCoarse(db, inputFastaQueryFile)
+	dmndOutFile, err := dmndBlastPCoarse(db, nuclQueryFile)
 	if err != nil {
-		return fmt.Errorf("Error blasting with diamond on coarse database: %s\n", err)
+		fatalf("Error blasting with diamond on coarse database: %s\n", err)
 	}
 
 	neutronium.Vprintln("Decompressing diamond hits...")
 	dmndOutArr, err := ioutil.ReadAll(dmndOutFile)
+
+	if !flagNoCleanup {
+		err := os.RemoveAll(dmndOutFile.Name())
+		handleFatalError("Could not delete diamond output from coarse search", err)
+	}
+
 	if err != nil {
-		return fmt.Errorf("Could not read diamond output: %s\n", err)
+		return fmt.Errorf("Could not read diamond output: %s", err)
 	}
 	if len(dmndOutArr) == 0 {
-		return fmt.Errorf("No coarse hits: %s\n", "Aborting.")
+		return fmt.Errorf("No coarse hits. %s", "Aborting.")
 	}
 	neutronium.Vprintln("Expanding diamond hits...")
 	dmndOut := bytes.NewBuffer(dmndOutArr)
@@ -33,39 +40,53 @@ func processQueries(db *neutronium.DB, inputFastaQueryFile *os.File) error {
 
 	// Write the contents of the expanded sequences to a fasta file.
 	// It is then indexed using makeblastdb.
-	buf := new(bytes.Buffer)
-	if err := writeFasta(expandedSequences, buf); err != nil {
-		return fmt.Errorf("Could not create FASTA input from coarse hits: %s\n", err)
+	searchBuf := new(bytes.Buffer)
+	if err := writeFasta(expandedSequences, searchBuf); err != nil {
+		fatalf("Could not create FASTA input from coarse hits: %s\n", err)
 	}
 
-	// Create the fine blast db in a temporary directory
-	neutronium.Vprintln("Building fine BLAST database...")
-	tmpDir, err := makeFineBlastDB(db, buf)
-	if err != nil {
-		return fmt.Errorf("Could not create fine database to search on: %s\n", err)
-	}
+	if flagDmndFine != "" {
 
-	// Finally, run the query against the fine fasta database and pass on the
-	// stdout and stderr...
-	inputFastaQuery, err := getInputFasta()
-	if err != nil {
-		return fmt.Errorf("Could not read input fasta query: %s\n", err)
-	}
-	neutronium.Vprintln("Blasting query on fine database...")
-	if _, err := inputFastaQuery.Seek(0, os.SEEK_SET); err != nil {
-		return fmt.Errorf("Could not seek to start of query fasta input: %s\n", err)
-	}
-	if err := blastFine(db, tmpDir, inputFastaQuery); err != nil {
-		return fmt.Errorf("Error blasting fine database: %s\n", err)
-	}
+		neutronium.Vprintln("Building fine DIAMOND database...")
+		tmpFineDB, err := makeFineDmndDB(searchBuf)
+		handleFatalError("Could not create fine diamond database to search on", err)
 
-	// Delete the temporary fine database.
-	if !flagNoCleanup {
-		if err := os.RemoveAll(dmndOutFile.Name()); err != nil {
-			return fmt.Errorf("Could not delete output from diamond: %s\n", err)
+		err = dmndBlastPFine(nuclQueryFile, flagDmndFine, tmpFineDB)
+		handleFatalError("Error diamond-blasting fine database", err)
+
+		// Delete the temporary fine database.
+		if !flagNoCleanup {
+			err := os.RemoveAll(tmpFineDB)
+			err = os.RemoveAll(tmpFineDB + ".dmnd")
+			handleFatalError("Could not delete fine DIAMOND database", err)
 		}
-		if err := os.RemoveAll(tmpDir); err != nil {
-			return fmt.Errorf("Could not delete fine BLAST database: %s\n", err)
+
+	} else {
+
+		// Create the fine blast db in a temporary directory
+		neutronium.Vprintln("Building fine BLAST database...")
+		tmpFineDB, err := makeFineBlastDB(db, searchBuf)
+		handleFatalError("Could not create fine blast database to search on", err)
+
+		// retrieve the cluster members for the original representative query seq
+
+		// pass them to blastx on the expanded (fine) db
+
+		// Finally, run the query against the fine fasta database and pass on the
+		// stdout and stderr...
+		bs, err := ioutil.ReadAll(nuclQueryFile)
+		if err != nil {
+			return fmt.Errorf("Could not read input fasta query: %s", err)
+		}
+		nuclQueryReader := bytes.NewReader(bs)
+
+		err = blastFine(db, tmpFineDB, nuclQueryReader)
+		handleFatalError("Error blasting fine database", err)
+
+		// Delete the temporary fine database.
+		if !flagNoCleanup {
+			err := os.RemoveAll(tmpFineDB)
+			handleFatalError("Could not delete fine BLAST database", err)
 		}
 	}
 

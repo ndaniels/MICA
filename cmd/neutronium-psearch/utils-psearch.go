@@ -45,3 +45,10 @@ func writeMemProfile(name string) {
 	pprof.WriteHeapProfile(f)
 	f.Close()
 }
+
+func handleFatalError(msg string, err error) error {
+	if err != nil {
+		fatalf(msg+": %s\n", err)
+	}
+	return nil
+}
