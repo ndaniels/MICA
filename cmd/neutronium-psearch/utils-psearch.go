@@ -1,0 +1,47 @@
+package main
+
+import (
+	"bytes"
+	"fmt"
+	"os"
+	"runtime/pprof"
+
+	"github.com/ndaniels/neutronium"
+)
+
+func s(i int) string {
+	return fmt.Sprintf("%d", i)
+}
+
+func su(i uint64) string {
+	return fmt.Sprintf("%d", i)
+}
+
+func writeFasta(oseqs []neutronium.OriginalSeq, buf *bytes.Buffer) error {
+	for _, oseq := range oseqs {
+		_, err := fmt.Fprintf(buf, "> %s\n%s\n",
+			oseq.Name, string(oseq.Residues))
+		if err != nil {
+			return fmt.Errorf("Could not write to buffer: %s", err)
+		}
+	}
+	return nil
+}
+
+func fatalf(format string, v ...interface{}) {
+	fmt.Fprintf(os.Stderr, format, v...)
+	os.Exit(1)
+}
+
+func errorf(format string, v ...interface{}) {
+	fmt.Fprintf(os.Stderr, format, v...)
+}
+
+func writeMemProfile(name string) {
+	f, err := os.Create(name)
+	if err != nil {
+		fatalf("%s\n", err)
+	}
+	pprof.WriteHeapProfile(f)
+	f.Close()
+}
