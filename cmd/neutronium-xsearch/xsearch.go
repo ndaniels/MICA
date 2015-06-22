@@ -12,9 +12,14 @@ import (
 func processQueries(db *neutronium.DB, nuclQueryFile *os.File) error {
 
 	neutronium.Vprintln("\nBlasting with diamond query on coarse database...")
-	dmndOutFile, err := dmndBlastXCoarse(db, nuclQueryFile)
+	dmndOutDaaFile, err := dmndBlastXCoarse(db, nuclQueryFile)
 	if err != nil {
-		fatalf("Error blasting with diamond on coarse database: %s\n", err)
+		return fmt.Errorf("Error blasting with diamond on coarse database: %s\n", err)
+	}
+
+	dmndOutFile, err := convertDmndToBlastTabular(dmndOutDaaFile)
+	if err != nil {
+		return fmt.Errorf("Error convertign diamond output to blast tabular: %s\n")
 	}
 
 	neutronium.Vprintln("Decompressing diamond hits...")
@@ -22,6 +27,8 @@ func processQueries(db *neutronium.DB, nuclQueryFile *os.File) error {
 
 	if !flagNoCleanup {
 		err := os.RemoveAll(dmndOutFile.Name())
+		handleFatalError("Could not delete diamond output from coarse search", err)
+		err = os.RemoveAll(dmndOutDaaFile.Name())
 		handleFatalError("Could not delete diamond output from coarse search", err)
 	}
 

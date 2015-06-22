@@ -159,3 +159,26 @@ func dmndBlastPCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
 
 	return dmndOutFile, nil
 }
+
+func convertDmndToBlastTabular(daa *os.File) (*os.File, error) {
+	dmndOutFile, err := ioutil.TempFile(".", "dmnd-out-tab-")
+	if err != nil {
+		return nil, fmt.Errorf("Could not build temporary file for diamond output: %s", err)
+	}
+
+	cmd := exec.Command(
+		flagDmnd,
+		"view",
+		"-o", dmndOutFile.Name(),
+		"-a", daa.Name())
+
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+
+	err = neutronium.Exec(cmd)
+	if err != nil {
+		return nil, fmt.Errorf("Error converting daa file to blast tabular: %s", err)
+	}
+
+	return dmndOutFile, nil
+}
