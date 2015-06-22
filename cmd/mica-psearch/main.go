@@ -40,6 +40,7 @@ var (
 	flagDmndFine        = ""
 	flagCoarseDmndMatch = 50
 	flagFineDmndMatch   = 60
+	flagDmndOutput      = false
 )
 
 // blastArgs are all the arguments after "--blast-args".
@@ -64,6 +65,9 @@ func init() {
 	flag.BoolVar(&flagNoCleanup, "no-cleanup", flagNoCleanup,
 		"When set, the temporary fine BLAST database that is created\n"+
 			"\twill NOT be deleted.")
+
+	flag.BoolVar(&flagDmndOutput, "daa-file", flagDmndOutput,
+		"When set, will not convert diamonds final output into blast tabular format")
 
 	flag.IntVar(&flagCoarseDmndMatch, "dmnd-coarse-match", flagCoarseDmndMatch,
 		"The matching threshold for coarse search with diamond")

@@ -128,6 +128,19 @@ func dmndBlastPFine(queries *os.File, outFilename, fineFilename string) error {
 		return fmt.Errorf("Error using diamond to blast coarse db: %s", err)
 	}
 
+	if !flagDmndOutput {
+		daaFile, err := os.Open(outFilename)
+		if err != nil {
+			return fmt.Errorf("Error opening diamond output: %s\n", err)
+		}
+		tabularFile, err := convertDmndToBlastTabular(daaFile)
+		if err != nil {
+			return fmt.Errorf("Error converting diamond output: %s\n", err)
+		}
+		os.Rename(tabularFile.Name(), outFilename)
+
+	}
+
 	return nil
 }
 
@@ -155,6 +168,29 @@ func dmndBlastPCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
 	err = neutronium.Exec(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("Error using diamond to blast coarse db: %s", err)
+	}
+
+	return dmndOutFile, nil
+}
+
+func convertDmndToBlastTabular(daa *os.File) (*os.File, error) {
+	dmndOutFile, err := ioutil.TempFile(".", "dmnd-out-tab-")
+	if err != nil {
+		return nil, fmt.Errorf("Could not build temporary file for diamond output: %s", err)
+	}
+
+	cmd := exec.Command(
+		flagDmnd,
+		"view",
+		"-o", dmndOutFile.Name(),
+		"-a", daa.Name())
+
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+
+	err = neutronium.Exec(cmd)
+	if err != nil {
+		return nil, fmt.Errorf("Error converting daa file to blast tabular: %s", err)
 	}
 
 	return dmndOutFile, nil

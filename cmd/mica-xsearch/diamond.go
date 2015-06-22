@@ -18,7 +18,7 @@ func dmndBlastXFine(queries *os.File, outFilename, fineFilename string) error {
 	cmd := exec.Command(
 		flagDmnd,
 		"blastx",
-    "--sensitive",
+		"--sensitive",
 		"-d", fineFilename,
 		"-q", queries.Name(),
 		"--threads", s(flagGoMaxProcs),
@@ -30,7 +30,19 @@ func dmndBlastXFine(queries *os.File, outFilename, fineFilename string) error {
 
 	err := neutronium.Exec(cmd)
 	if err != nil {
-		return fmt.Errorf("Error using diamond to blast coarse db: %s", err)
+		return fmt.Errorf("Error using diamond to blast coarse db: %s\n", err)
+	}
+	if !flagDmndOutput {
+		daaFile, err := os.Open(outFilename)
+		if err != nil {
+			return fmt.Errorf("Error opening diamond output: %s\n", err)
+		}
+		tabularFile, err := convertDmndToBlastTabular(daaFile)
+		if err != nil {
+			return fmt.Errorf("Error converting diamond output: %s\n", err)
+		}
+		os.Rename(tabularFile.Name(), outFilename)
+
 	}
 
 	return nil
@@ -39,7 +51,7 @@ func dmndBlastXFine(queries *os.File, outFilename, fineFilename string) error {
 func dmndBlastXCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
 	// diamond blastp -d nr -q reads.fna -a matches -t <temporary directory>
 
-	dmndOutFile, err := ioutil.TempFile(".", "dmnd-out-")
+	dmndOutFile, err := ioutil.TempFile(".", "dmnd-out-daa-")
 	if err != nil {
 		return nil, fmt.Errorf("Could not build temporary file for diamond output: %s", err)
 	}
@@ -47,7 +59,7 @@ func dmndBlastXCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
 	cmd := exec.Command(
 		flagDmnd,
 		"blastx",
-    "--sensitive",
+		"--sensitive",
 		"-d", path.Join(db.Path, neutronium.FileDmndCoarse),
 		"-q", queries.Name(),
 		"--threads", s(flagGoMaxProcs),
@@ -60,6 +72,29 @@ func dmndBlastXCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
 	err = neutronium.Exec(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("Error using diamond to blast coarse db: %s", err)
+	}
+
+	return dmndOutFile, nil
+}
+
+func convertDmndToBlastTabular(daa *os.File) (*os.File, error) {
+	dmndOutFile, err := ioutil.TempFile(".", "dmnd-out-tab-")
+	if err != nil {
+		return nil, fmt.Errorf("Could not build temporary file for diamond output: %s", err)
+	}
+
+	cmd := exec.Command(
+		flagDmnd,
+		"view",
+		"-o", dmndOutFile.Name(),
+		"-a", daa.Name())
+
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+
+	err = neutronium.Exec(cmd)
+	if err != nil {
+		return nil, fmt.Errorf("Error converting daa file to blast tabular: %s", err)
 	}
 
 	return dmndOutFile, nil

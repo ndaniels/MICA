@@ -41,6 +41,7 @@ var (
 	flagDmndFine        = ""
 	flagCoarseDmndMatch = 50
 	flagFineDmndMatch   = 60
+	flagDmndOutput      = false
 )
 
 // blastArgs are all the arguments after "--blast-args".
@@ -90,8 +91,8 @@ func init() {
 		"When set, a memory profile will be written to the file specified.")
 	flag.BoolVar(&flagIterativeQuery, "iterative-queries", flagIterativeQuery,
 		"When set, will process queries one at a time instead of as a batch.")
-	flag.BoolVar(&flagCompressQuery, "compress-query", flagCompressQuery,
-		"When set, will process compress queries before search.")
+	flag.BoolVar(&flagDmndOutput, "daa-file", flagDmndOutput,
+		"When set, will not convert diamonds final output into blast tabular format")
 
 	// compress options
 
