@@ -9,9 +9,9 @@ import (
 	"github.com/ndaniels/mica"
 )
 
-func processQueries(db *neutronium.DB, nuclQueryFile *os.File) error {
+func processQueries(db *mica.DB, nuclQueryFile *os.File) error {
 
-	neutronium.Vprintln("\nBlasting with diamond query on coarse database...")
+	mica.Vprintln("\nBlasting with diamond query on coarse database...")
 	dmndOutDaaFile, err := dmndBlastXCoarse(db, nuclQueryFile)
 	if err != nil {
 		return fmt.Errorf("Error blasting with diamond on coarse database: %s\n", err)
@@ -22,7 +22,7 @@ func processQueries(db *neutronium.DB, nuclQueryFile *os.File) error {
 		return fmt.Errorf("Error convertign diamond output to blast tabular: %s\n")
 	}
 
-	neutronium.Vprintln("Decompressing diamond hits...")
+	mica.Vprintln("Decompressing diamond hits...")
 	dmndOutArr, err := ioutil.ReadAll(dmndOutFile)
 
 	if !flagNoCleanup {
@@ -38,7 +38,7 @@ func processQueries(db *neutronium.DB, nuclQueryFile *os.File) error {
 	if len(dmndOutArr) == 0 {
 		return fmt.Errorf("No coarse hits. %s", "Aborting.")
 	}
-	neutronium.Vprintln("Expanding diamond hits...")
+	mica.Vprintln("Expanding diamond hits...")
 	dmndOut := bytes.NewBuffer(dmndOutArr)
 	expandedSequences, err := expandDmndHits(db, dmndOut)
 	if err != nil {
@@ -54,7 +54,7 @@ func processQueries(db *neutronium.DB, nuclQueryFile *os.File) error {
 
 	if flagDmndFine != "" {
 
-		neutronium.Vprintln("Building fine DIAMOND database...")
+		mica.Vprintln("Building fine DIAMOND database...")
 		tmpFineDB, err := makeFineDmndDB(searchBuf)
 		handleFatalError("Could not create fine diamond database to search on", err)
 
@@ -71,7 +71,7 @@ func processQueries(db *neutronium.DB, nuclQueryFile *os.File) error {
 	} else {
 
 		// Create the fine blast db in a temporary directory
-		neutronium.Vprintln("Building fine BLAST database...")
+		mica.Vprintln("Building fine BLAST database...")
 		tmpFineDB, err := makeFineBlastDB(db, searchBuf)
 		handleFatalError("Could not create fine blast database to search on", err)
 

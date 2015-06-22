@@ -26,7 +26,7 @@ var (
 	ignoredResidues = []byte{'J', 'O', 'U'}
 
 	// A default configuration.
-	dbConf = neutronium.DefaultDBConf
+	dbConf = mica.DefaultDBConf
 
 	// Flags that affect the higher level operation of compression.
 	// Flags that control algorithmic parameters are stored in `dbConf`.
@@ -149,7 +149,7 @@ func main() {
 
 	// If the quiet flag isn't set, enable verbose output.
 	if !flagQuiet {
-		neutronium.Verbose = true
+		mica.Verbose = true
 	}
 
 	// If the overwrite flag is set, remove whatever directory that may
@@ -163,11 +163,11 @@ func main() {
 
 	// Create a new database for writing. If we're appending, we load
 	// the coarse database into memory, and setup the database for writing.
-	db, err := neutronium.NewWriteDB(flagAppend, dbConf, flag.Arg(0))
+	db, err := mica.NewWriteDB(flagAppend, dbConf, flag.Arg(0))
 	if err != nil {
 		fatalf("%s\n", err)
 	}
-	neutronium.Vprintln("")
+	mica.Vprintln("")
 
 	pool := startCompressWorkers(db)
 	orgSeqId := db.ComDB.NumSequences()
@@ -186,7 +186,7 @@ func main() {
 		pprof.StartCPUProfile(f)
 	}
 	for _, arg := range flag.Args()[1:] {
-		seqChan, err := neutronium.ReadOriginalSeqs(arg, ignoredResidues)
+		seqChan, err := mica.ReadOriginalSeqs(arg, ignoredResidues)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -213,9 +213,9 @@ func main() {
 			}
 		}
 	}
-	neutronium.Vprintln("\n")
-	neutronium.Vprintf("Wrote %s.\n", neutronium.FileCompressed)
-	neutronium.Vprintf("Wrote %s.\n", neutronium.FileIndex)
+	mica.Vprintln("\n")
+	mica.Vprintf("Wrote %s.\n", mica.FileCompressed)
+	mica.Vprintf("Wrote %s.\n", mica.FileIndex)
 
 	cleanup(db, &pool)
 
@@ -225,8 +225,8 @@ func main() {
 // are compressed), 'cleanup' is executed. It writes all CPU/memory profiles
 // if they're enabled, waits for the compression workers to finish, saves
 // the database to disk and closes all file handles.
-func cleanup(db *neutronium.DB, pool *compressPool) {
-	neutronium.Vprintln("Cleaning up and saving.")
+func cleanup(db *mica.DB, pool *compressPool) {
+	mica.Vprintln("Cleaning up and saving.")
 	if len(flagCpuProfile) > 0 {
 		pprof.StopCPUProfile()
 	}
@@ -244,7 +244,7 @@ func cleanup(db *neutronium.DB, pool *compressPool) {
 }
 
 // Runs a goroutine to listen for SIGTERM and SIGKILL.
-func attachSignalHandler(db *neutronium.DB, mainQuit chan struct{},
+func attachSignalHandler(db *mica.DB, mainQuit chan struct{},
 	pool *compressPool) {
 
 	sigChan := make(chan os.Signal, 1)
@@ -260,7 +260,7 @@ func attachSignalHandler(db *neutronium.DB, mainQuit chan struct{},
 
 // The output generated after each sequence is compressed (or more precisely,
 // after some interval of sequences has been compressed).
-func verboseOutput(db *neutronium.DB, orgSeqId int) {
+func verboseOutput(db *mica.DB, orgSeqId int) {
 
 	if orgSeqId%interval == 0 {
 		if !flagQuiet {
@@ -305,7 +305,7 @@ func usage() {
 			"database-directory "+
 			"fasta-file [fasta-file ...]\n",
 		path.Base(os.Args[0]))
-	neutronium.PrintFlagDefaults()
+	mica.PrintFlagDefaults()
 	os.Exit(1)
 }
 

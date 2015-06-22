@@ -116,7 +116,7 @@ but should have been
 %s
 %s
 %s`,
-				neutronium.SeqIdentity(alignment[0], alignment[1]),
+				mica.SeqIdentity(alignment[0], alignment[1]),
 				sep, test.seq1, test.seq2, sep,
 				sep, sout1, sout2, sep,
 				sep, test.out1, test.out2, sep)

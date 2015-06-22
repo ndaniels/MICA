@@ -1,4 +1,4 @@
-package neutronium
+package mica
 
 func reduce1(char byte) byte {
 	switch char {

@@ -31,7 +31,7 @@ func writeMemProfile(name string) {
 	f.Close()
 }
 
-func expandCoarseSequence(db *neutronium.DB, seqId int, coarseSequence *seq.Sequence) ([]neutronium.OriginalSeq, error) {
+func expandCoarseSequence(db *mica.DB, seqId int, coarseSequence *seq.Sequence) ([]mica.OriginalSeq, error) {
 	originalSeqs, err := db.CoarseDB.Expand(db.ComDB, seqId, 0, coarseSequence.Len())
 	if err != nil {
 		return nil, err
@@ -60,7 +60,7 @@ func su(i uint64) string {
 	return fmt.Sprintf("%d", i)
 }
 
-func writeFasta(oseqs []neutronium.OriginalSeq, buf *bytes.Buffer) error {
+func writeFasta(oseqs []mica.OriginalSeq, buf *bytes.Buffer) error {
 	for _, oseq := range oseqs {
 		_, err := fmt.Fprintf(buf, ">%s\n%s\n",
 			oseq.Name, string(oseq.Residues))

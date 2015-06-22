@@ -22,7 +22,7 @@ func init() {
 // biogo package: code.google.com/p/biogo.
 //
 // It's mostly copied from its original form, but it is optimized specifically
-// for neutronium to limit allocations and to absolve the need for the
+// for mica to limit allocations and to absolve the need for the
 // biogo/seq.Seq type. There are several additional optimizations to limit
 // functional calls and pointer deferences.
 //

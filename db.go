@@ -1,4 +1,4 @@
-package neutronium
+package mica
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ const (
 	FileBlastFine   = "blastdb-fine"
 )
 
-// A DB represents a neutronium database, which has three main components:
+// A DB represents a mica database, which has three main components:
 // a coarse database, a compressed database and a configuration file.
 //
 // A DB can be opened either for writing/appending (compression) or for
@@ -44,7 +44,7 @@ type DB struct {
 	coarseFasta, coarseSeeds, coarseLinks, compressed, index, params *os.File
 }
 
-// NewWriteDB creates a new neutronium database, and prepares it for writing (or
+// NewWriteDB creates a new mica database, and prepares it for writing (or
 // opens an existing database and prepares it for appending if 'appnd' is set).
 //
 // An error is returned if there is a problem accessing any of the files in
@@ -63,7 +63,7 @@ func NewWriteDB(appnd bool, conf *DBConf, dir string) (*DB, error) {
 	if strings.HasSuffix(dir, ".tar") || strings.HasSuffix(dir, ".gz") {
 		return nil, fmt.Errorf("The CaBLASTP database you've provided does " +
 			"not appear to be a directory. Please make sure you've extracted " +
-			"the downloaded database with `tar zxf neutronium-xxx.tar.gz` " +
+			"the downloaded database with `tar zxf mica-xxx.tar.gz` " +
 			"before using it with CaBLASTP.")
 	}
 
@@ -173,7 +173,7 @@ func (db *DB) openWriteFile(appnd bool, name string) (*os.File, error) {
 	return f, nil
 }
 
-// NewReadDB opens a neutronium database for reading. An error is returned if
+// NewReadDB opens a mica database for reading. An error is returned if
 // there is a problem accessing any of the files on disk.
 //
 // Also, if the 'makeblastdb' or 'blastp' executales are not found, then an
@@ -184,7 +184,7 @@ func NewReadDB(dir string) (*DB, error) {
 	if strings.HasSuffix(dir, ".tar") || strings.HasSuffix(dir, ".gz") {
 		return nil, fmt.Errorf("The CaBLASTP database you've provided does " +
 			"not appear to be a directory. Please make sure you've extracted " +
-			"the downloaded database with `tar zxf neutronium-xxx.tar.gz` " +
+			"the downloaded database with `tar zxf mica-xxx.tar.gz` " +
 			"before using it with CaBLASTP.")
 	}
 
@@ -290,7 +290,7 @@ func (db *DB) Save() error {
 	}
 	Vprintf("Done creating %s.\n", FileBlastCoarse)
 
-	// For neutronium we also need to construct a dmnd database from the coarse fasta file
+	// For mica we also need to construct a dmnd database from the coarse fasta file
 	dmndDbCmd := exec.Command(
 		db.Dmnd,
 		"makedb",

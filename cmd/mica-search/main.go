@@ -26,7 +26,7 @@ import (
 
 var (
 	// A default configuration.
-	dbConf = neutronium.DefaultDBConf
+	dbConf = mica.DefaultDBConf
 
 	// Flags that affect the operation of search.
 	// Flags that control algorithmic parameters are stored in `dbConf`.
@@ -93,7 +93,7 @@ func main() {
 
 	// If the quiet flag isn't set, enable verbose output.
 	if !flagQuiet {
-		neutronium.Verbose = true
+		mica.Verbose = true
 	}
 
 	inputFastaQuery, err := getInputFasta()
@@ -101,17 +101,17 @@ func main() {
 		fatalf("Could not read input fasta query: %s\n", err)
 	}
 
-	db, err := neutronium.NewReadDB(flag.Arg(0))
+	db, err := mica.NewReadDB(flag.Arg(0))
 	if err != nil {
 		fatalf("Could not open '%s' database: %s\n", flag.Arg(0), err)
 	}
 
-	neutronium.Vprintln("\nBlasting query on coarse database...")
+	mica.Vprintln("\nBlasting query on coarse database...")
 	if err := blastCoarse(db, inputFastaQuery, buf); err != nil {
 		fatalf("Error blasting coarse database: %s\n", err)
 	}
 
-	neutronium.Vprintln("Decompressing blast hits...")
+	mica.Vprintln("Decompressing blast hits...")
 	expandedSequences, err := expandBlastHits(db, buf)
 	if err != nil {
 		fatalf("%s\n", err)
@@ -125,7 +125,7 @@ func main() {
 	}
 
 	// Create the fine blast db in a temporary directory
-	neutronium.Vprintln("Building fine BLAST database...")
+	mica.Vprintln("Building fine BLAST database...")
 	tmpDir, err := makeFineBlastDB(db, buf)
 	if err != nil {
 		fatalf("Could not create fine database to search on: %s\n", err)
@@ -133,7 +133,7 @@ func main() {
 
 	// Finally, run the query against the fine fasta database and pass on the
 	// stdout and stderr...
-	neutronium.Vprintln("Blasting query on fine database...")
+	mica.Vprintln("Blasting query on fine database...")
 	if _, err := inputFastaQuery.Seek(0, os.SEEK_SET); err != nil {
 		fatalf("Could not seek to start of query fasta input: %s\n", err)
 	}
@@ -160,12 +160,12 @@ func su(i uint64) string {
 }
 
 func blastFine(
-	db *neutronium.DB, blastFineDir string, stdin *bytes.Reader) error {
+	db *mica.DB, blastFineDir string, stdin *bytes.Reader) error {
 
 	// We pass our own "-db" flag to blastp, but the rest come from user
 	// defined flags.
 	flags := []string{
-		"-db", path.Join(blastFineDir, neutronium.FileBlastFine),
+		"-db", path.Join(blastFineDir, mica.FileBlastFine),
 		"-dbsize", su(db.BlastDBSize),
 		"-num_threads", s(flagGoMaxProcs),
 	}
@@ -175,28 +175,28 @@ func blastFine(
 	cmd.Stdin = stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return neutronium.Exec(cmd)
+	return mica.Exec(cmd)
 }
 
-func makeFineBlastDB(db *neutronium.DB, stdin *bytes.Buffer) (string, error) {
-	tmpDir, err := ioutil.TempDir("", "neutronium-fine-search-db")
+func makeFineBlastDB(db *mica.DB, stdin *bytes.Buffer) (string, error) {
+	tmpDir, err := ioutil.TempDir("", "mica-fine-search-db")
 	if err != nil {
 		return "", fmt.Errorf("Could not create temporary directory: %s\n", err)
 	}
 
 	cmd := exec.Command(
 		flagMakeBlastDB, "-dbtype", "prot",
-		"-title", neutronium.FileBlastFine,
+		"-title", mica.FileBlastFine,
 		"-in", "-",
-		"-out", path.Join(tmpDir, neutronium.FileBlastFine))
+		"-out", path.Join(tmpDir, mica.FileBlastFine))
 	cmd.Stdin = stdin
 
-	neutronium.Vprintf("Created temporary fine BLAST database in %s\n", tmpDir)
+	mica.Vprintf("Created temporary fine BLAST database in %s\n", tmpDir)
 
-	return tmpDir, neutronium.Exec(cmd)
+	return tmpDir, mica.Exec(cmd)
 }
 
-func writeFasta(oseqs []neutronium.OriginalSeq, buf *bytes.Buffer) error {
+func writeFasta(oseqs []mica.OriginalSeq, buf *bytes.Buffer) error {
 	for _, oseq := range oseqs {
 		_, err := fmt.Fprintf(buf, "> %s\n%s\n",
 			oseq.Name, string(oseq.Residues))
@@ -208,7 +208,7 @@ func writeFasta(oseqs []neutronium.OriginalSeq, buf *bytes.Buffer) error {
 }
 
 func expandBlastHits(
-	db *neutronium.DB, blastOut *bytes.Buffer) ([]neutronium.OriginalSeq, error) {
+	db *mica.DB, blastOut *bytes.Buffer) ([]mica.OriginalSeq, error) {
 
 	results := blast{}
 	if err := xml.NewDecoder(blastOut).Decode(&results); err != nil {
@@ -216,7 +216,7 @@ func expandBlastHits(
 	}
 
 	used := make(map[int]bool, 100) // prevent original sequence duplicates
-	oseqs := make([]neutronium.OriginalSeq, 0, 100)
+	oseqs := make([]mica.OriginalSeq, 0, 100)
 	for _, hit := range results.Hits {
 		for _, hsp := range hit.Hsps {
 			someOseqs, err := db.CoarseDB.Expand(db.ComDB,
@@ -245,16 +245,16 @@ func expandBlastHits(
 }
 
 func blastCoarse(
-	db *neutronium.DB, stdin *bytes.Reader, stdout *bytes.Buffer) error {
+	db *mica.DB, stdin *bytes.Reader, stdout *bytes.Buffer) error {
 
 	cmd := exec.Command(
 		flagBlastp,
-		"-db", path.Join(db.Path, neutronium.FileBlastCoarse),
+		"-db", path.Join(db.Path, mica.FileBlastCoarse),
 		"-num_threads", s(flagGoMaxProcs),
 		"-outfmt", "5", "-dbsize", su(db.BlastDBSize))
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout
-	return neutronium.Exec(cmd)
+	return mica.Exec(cmd)
 }
 
 func getInputFasta() (*bytes.Reader, error) {
@@ -269,7 +269,7 @@ func getInputFasta() (*bytes.Reader, error) {
 	return bytes.NewReader(bs), nil
 }
 
-func cleanup(db *neutronium.DB) {
+func cleanup(db *mica.DB) {
 	if len(flagCpuProfile) > 0 {
 		pprof.StopCPUProfile()
 	}
@@ -302,6 +302,6 @@ func usage() {
 		"\nUsage: %s [flags] database-directory query-fasta-file "+
 			"[--blast-args BLASTP_ARGUMENTS]\n",
 		path.Base(os.Args[0]))
-	neutronium.PrintFlagDefaults()
+	mica.PrintFlagDefaults()
 	os.Exit(1)
 }

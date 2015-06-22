@@ -13,7 +13,7 @@ import (
 )
 
 func expandBlastHits(
-	db *neutronium.DB, blastOut *bytes.Buffer) ([]neutronium.OriginalSeq, error) {
+	db *mica.DB, blastOut *bytes.Buffer) ([]mica.OriginalSeq, error) {
 
 	results := blast{}
 	if err := xml.NewDecoder(blastOut).Decode(&results); err != nil {
@@ -21,7 +21,7 @@ func expandBlastHits(
 	}
 
 	used := make(map[int]bool, 100) // prevent original sequence duplicates
-	oseqs := make([]neutronium.OriginalSeq, 0, 100)
+	oseqs := make([]mica.OriginalSeq, 0, 100)
 	for _, hit := range results.Hits {
 
 		for _, hsp := range hit.Hsps {
@@ -54,19 +54,19 @@ func expandBlastHits(
 }
 
 func blastCoarse(
-	db *neutronium.DB, stdin *bytes.Reader, stdout *bytes.Buffer) error {
+	db *mica.DB, stdin *bytes.Reader, stdout *bytes.Buffer) error {
 
 	cmd := exec.Command(
 		flagBlastn,
-		"-db", path.Join(db.Path, neutronium.FileBlastCoarse),
+		"-db", path.Join(db.Path, mica.FileBlastCoarse),
 		"-num_threads", s(flagGoMaxProcs),
 		"-outfmt", "5", "-dbsize", su(db.BlastDBSize))
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout
-	return neutronium.Exec(cmd)
+	return mica.Exec(cmd)
 }
 
-func makeFineBlastDB(db *neutronium.DB, stdin *bytes.Buffer) (string, error) {
+func makeFineBlastDB(db *mica.DB, stdin *bytes.Buffer) (string, error) {
 	tmpDir, err := ioutil.TempDir("", "cablastp-fine-search-db")
 	if err != nil {
 		return "", fmt.Errorf("Could not create temporary directory: %s\n", err)
@@ -74,23 +74,23 @@ func makeFineBlastDB(db *neutronium.DB, stdin *bytes.Buffer) (string, error) {
 
 	cmd := exec.Command(
 		flagMakeBlastDB, "-dbtype", "prot",
-		"-title", neutronium.FileBlastFine,
+		"-title", mica.FileBlastFine,
 		"-in", "-",
-		"-out", path.Join(tmpDir, neutronium.FileBlastFine))
+		"-out", path.Join(tmpDir, mica.FileBlastFine))
 	cmd.Stdin = stdin
 
-	neutronium.Vprintf("Created temporary fine BLAST database in %s\n", tmpDir)
+	mica.Vprintf("Created temporary fine BLAST database in %s\n", tmpDir)
 
-	return tmpDir, neutronium.Exec(cmd)
+	return tmpDir, mica.Exec(cmd)
 }
 
 func blastFine(
-	db *neutronium.DB, blastFineDir string, stdin *bytes.Reader) error {
+	db *mica.DB, blastFineDir string, stdin *bytes.Reader) error {
 
 	// We pass our own "-db" flag to blastp, but the rest come from user
 	// defined flags.
 	flags := []string{
-		"-db", path.Join(blastFineDir, neutronium.FileBlastFine),
+		"-db", path.Join(blastFineDir, mica.FileBlastFine),
 		"-dbsize", su(db.BlastDBSize),
 		"-num_threads", s(flagGoMaxProcs),
 	}
@@ -100,5 +100,5 @@ func blastFine(
 	cmd.Stdin = stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return neutronium.Exec(cmd)
+	return mica.Exec(cmd)
 }

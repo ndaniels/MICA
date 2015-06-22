@@ -11,7 +11,7 @@ import (
 
 	"github.com/TuftsBCB/io/fasta"
 
-	"github.com/ndaniels/cablastp"
+	"github.com/ndaniels/mica"
 )
 
 const interval = 1000
@@ -50,7 +50,7 @@ func main() {
 
 	// If the quiet flag isn't set, enable verbose output.
 	if !flagQuiet {
-		cablastp.Verbose = true
+		neutronium.Verbose = true
 	}
 
 	// Open the fasta file specified for writing.
@@ -63,11 +63,11 @@ func main() {
 
 	// Create a new database for writing. If we're appending, we load
 	// the coarse database into memory, and setup the database for writing.
-	db, err := cablastp.NewReadDB(flag.Arg(0))
+	db, err := neutronium.NewReadDB(flag.Arg(0))
 	if err != nil {
 		fatalf("Could not open '%s' database: %s\n", flag.Arg(0), err)
 	}
-	cablastp.Vprintln("")
+	neutronium.Vprintln("")
 
 	// Start the CPU profile after all of the data has been read.
 	if len(flagCpuProfile) > 0 {
@@ -85,7 +85,7 @@ func main() {
 			fatalf("Error reading seq id '%d': %s\n", orgSeqId, err)
 		}
 		if err := fastaWriter.Write(oseq.FastaSeq()); err != nil {
-			cablastp.Vprintf("Error writing seq '%s': %s\n", oseq.Name, err)
+			neutronium.Vprintf("Error writing seq '%s': %s\n", oseq.Name, err)
 		}
 	}
 
@@ -98,7 +98,7 @@ func main() {
 	}
 }
 
-func cleanup(db *cablastp.DB) {
+func cleanup(db *neutronium.DB) {
 	if len(flagCpuProfile) > 0 {
 		pprof.StopCPUProfile()
 	}
@@ -128,6 +128,6 @@ func usage() {
 			"database-directory "+
 			"out-fasta-file\n",
 		path.Base(os.Args[0]))
-	cablastp.PrintFlagDefaults()
+	neutronium.PrintFlagDefaults()
 	os.Exit(1)
 }

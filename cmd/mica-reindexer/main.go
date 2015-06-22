@@ -15,7 +15,7 @@ func init() {
 }
 
 func main() {
-	db, err := neutronium.NewReadDB(flag.Arg(0))
+	db, err := mica.NewReadDB(flag.Arg(0))
 	if err != nil {
 		fatalf("Failed to open database: %s\n", err)
 	}

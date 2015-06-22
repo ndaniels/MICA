@@ -22,7 +22,7 @@ import (
 
 var (
 	// A default configuration.
-	argDBConf = neutronium.DefaultDBConf.DeepCopy()
+	argDBConf = mica.DefaultDBConf.DeepCopy()
 	// Flags that affect the operation of search.
 	// Flags that control algorithmic parameters are stored in `queryDBConf`.
 	flagMakeBlastDB     = "makeblastdb"
@@ -120,10 +120,10 @@ func main() {
 
 	// If the quiet flag isn't set, enable verbose output.
 	if !flagQuiet {
-		neutronium.Verbose = true
+		mica.Verbose = true
 	}
 
-	db, err := neutronium.NewReadDB(flag.Arg(0))
+	db, err := mica.NewReadDB(flag.Arg(0))
 	if err != nil {
 		fatalf("Could not open '%s' database: %s\n", flag.Arg(0), err)
 	}
@@ -134,7 +134,7 @@ func main() {
 		fatalf("Could not open '%s' query file: %s\n", inputFastaQueryName, err)
 	}
 
-	neutronium.Vprintln("\nProcessing Queries...")
+	mica.Vprintln("\nProcessing Queries...")
 	err = processQueries(db, nuclQueryFile)
 	if err != nil {
 		fatalf("Error processing queries: %s\n", err)
@@ -143,7 +143,7 @@ func main() {
 	cleanup(db)
 }
 
-func cleanup(db *neutronium.DB) {
+func cleanup(db *mica.DB) {
 	if len(flagCpuProfile) > 0 {
 		pprof.StopCPUProfile()
 	}
@@ -158,6 +158,6 @@ func usage() {
 		"\nUsage: %s [flags] database-directory query-fasta-file "+
 			"[--blast-args BLASTP_ARGUMENTS]\n",
 		path.Base(os.Args[0]))
-	neutronium.PrintFlagDefaults()
+	mica.PrintFlagDefaults()
 	os.Exit(1)
 }

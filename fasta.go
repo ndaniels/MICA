@@ -1,4 +1,4 @@
-package neutronium
+package mica
 
 import (
 	"compress/gzip"

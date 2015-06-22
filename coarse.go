@@ -1,4 +1,4 @@
-package neutronium
+package mica
 
 import (
 	"encoding/binary"
@@ -9,7 +9,7 @@ import (
 	"sync"
 )
 
-// Hard-coded file names for different pieces of a neutronium database.
+// Hard-coded file names for different pieces of a mica database.
 const (
 	FileCoarseFasta      = "coarse.fasta"
 	FileCoarseFastaIndex = "coarse.fasta.index"
@@ -37,7 +37,7 @@ type CoarseDB struct {
 	// divide by 8.)
 	fastaIndexSize int64
 
-	// File pointers to each file in the "coarse" part of a neutronium database.
+	// File pointers to each file in the "coarse" part of a mica database.
 	FileFasta      *os.File
 	FileFastaIndex *os.File
 	FileSeeds      *os.File

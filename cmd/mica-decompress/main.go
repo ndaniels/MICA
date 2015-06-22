@@ -50,7 +50,7 @@ func main() {
 
 	// If the quiet flag isn't set, enable verbose output.
 	if !flagQuiet {
-		neutronium.Verbose = true
+		mica.Verbose = true
 	}
 
 	// Open the fasta file specified for writing.
@@ -63,11 +63,11 @@ func main() {
 
 	// Create a new database for writing. If we're appending, we load
 	// the coarse database into memory, and setup the database for writing.
-	db, err := neutronium.NewReadDB(flag.Arg(0))
+	db, err := mica.NewReadDB(flag.Arg(0))
 	if err != nil {
 		fatalf("Could not open '%s' database: %s\n", flag.Arg(0), err)
 	}
-	neutronium.Vprintln("")
+	mica.Vprintln("")
 
 	// Start the CPU profile after all of the data has been read.
 	if len(flagCpuProfile) > 0 {
@@ -85,7 +85,7 @@ func main() {
 			fatalf("Error reading seq id '%d': %s\n", orgSeqId, err)
 		}
 		if err := fastaWriter.Write(oseq.FastaSeq()); err != nil {
-			neutronium.Vprintf("Error writing seq '%s': %s\n", oseq.Name, err)
+			mica.Vprintf("Error writing seq '%s': %s\n", oseq.Name, err)
 		}
 	}
 
@@ -98,7 +98,7 @@ func main() {
 	}
 }
 
-func cleanup(db *neutronium.DB) {
+func cleanup(db *mica.DB) {
 	if len(flagCpuProfile) > 0 {
 		pprof.StopCPUProfile()
 	}
@@ -128,6 +128,6 @@ func usage() {
 			"database-directory "+
 			"out-fasta-file\n",
 		path.Base(os.Args[0]))
-	neutronium.PrintFlagDefaults()
+	mica.PrintFlagDefaults()
 	os.Exit(1)
 }

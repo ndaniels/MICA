@@ -28,7 +28,7 @@ func dmndBlastXFine(queries *os.File, outFilename, fineFilename string) error {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 
-	err := neutronium.Exec(cmd)
+	err := mica.Exec(cmd)
 	if err != nil {
 		return fmt.Errorf("Error using diamond to blast coarse db: %s\n", err)
 	}
@@ -48,7 +48,7 @@ func dmndBlastXFine(queries *os.File, outFilename, fineFilename string) error {
 	return nil
 }
 
-func dmndBlastXCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
+func dmndBlastXCoarse(db *mica.DB, queries *os.File) (*os.File, error) {
 	// diamond blastp -d nr -q reads.fna -a matches -t <temporary directory>
 
 	dmndOutFile, err := ioutil.TempFile(".", "dmnd-out-daa-")
@@ -60,7 +60,7 @@ func dmndBlastXCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
 		flagDmnd,
 		"blastx",
 		"--sensitive",
-		"-d", path.Join(db.Path, neutronium.FileDmndCoarse),
+		"-d", path.Join(db.Path, mica.FileDmndCoarse),
 		"-q", queries.Name(),
 		"--threads", s(flagGoMaxProcs),
 		"-o", dmndOutFile.Name(),
@@ -69,7 +69,7 @@ func dmndBlastXCoarse(db *neutronium.DB, queries *os.File) (*os.File, error) {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 
-	err = neutronium.Exec(cmd)
+	err = mica.Exec(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("Error using diamond to blast coarse db: %s", err)
 	}
@@ -92,7 +92,7 @@ func convertDmndToBlastTabular(daa *os.File) (*os.File, error) {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 
-	err = neutronium.Exec(cmd)
+	err = mica.Exec(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("Error converting daa file to blast tabular: %s", err)
 	}
@@ -100,10 +100,10 @@ func convertDmndToBlastTabular(daa *os.File) (*os.File, error) {
 	return dmndOutFile, nil
 }
 
-func expandDmndHits(db *neutronium.DB, dmndOut *bytes.Buffer) ([]neutronium.OriginalSeq, error) {
+func expandDmndHits(db *mica.DB, dmndOut *bytes.Buffer) ([]mica.OriginalSeq, error) {
 
 	used := make(map[int]bool, 100) // prevent original sequence duplicates
-	oseqs := make([]neutronium.OriginalSeq, 0, 100)
+	oseqs := make([]mica.OriginalSeq, 0, 100)
 
 	dmndScanner := bufio.NewScanner(dmndOut)
 	for dmndScanner.Scan() {
@@ -180,7 +180,7 @@ func makeFineDmndDB(seqBuf *bytes.Buffer) (string, error) {
 		"--in", tmpSeqFile.Name(),
 		"-d", tmpDmndFile.Name())
 
-	err = neutronium.Exec(cmd)
+	err = mica.Exec(cmd)
 	if err != nil {
 		return "", fmt.Errorf("Could not create fine diamond database: %s\n", err)
 	}
