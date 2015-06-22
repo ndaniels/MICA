@@ -128,6 +128,19 @@ func dmndBlastPFine(queries *os.File, outFilename, fineFilename string) error {
 		return fmt.Errorf("Error using diamond to blast coarse db: %s", err)
 	}
 
+	if !flagDmndOutput {
+		daaFile, err := os.Open(outFilename)
+		if err != nil {
+			return fmt.Errorf("Error opening diamond output: %s\n", err)
+		}
+		tabularFile, err := convertDmndToBlastTabular(daaFile)
+		if err != nil {
+			return fmt.Errorf("Error converting diamond output: %s\n", err)
+		}
+		os.Rename(tabularFile.Name(), outFilename)
+
+	}
+
 	return nil
 }
 

@@ -59,7 +59,7 @@ func processQueries(db *neutronium.DB, nuclQueryFile *os.File) error {
 		handleFatalError("Could not create fine diamond database to search on", err)
 
 		err = dmndBlastPFine(nuclQueryFile, flagDmndFine, tmpFineDB)
-		handleFatalError("Error diamond-blasting fine database", err)
+		handleFatalError("Error diamond-blasting (p-search) fine database", err)
 
 		// Delete the temporary fine database.
 		if !flagNoCleanup {
@@ -88,7 +88,7 @@ func processQueries(db *neutronium.DB, nuclQueryFile *os.File) error {
 		nuclQueryReader := bytes.NewReader(bs)
 
 		err = blastFine(db, tmpFineDB, nuclQueryReader)
-		handleFatalError("Error blasting fine database", err)
+		handleFatalError("Error blasting fine database (p-search):", err)
 
 		// Delete the temporary fine database.
 		if !flagNoCleanup {
