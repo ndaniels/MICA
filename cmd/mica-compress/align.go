@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/ndaniels/neutronium"
+	"github.com/ndaniels/mica"
 )
 
 // alignLen computes the length of a sequence in an alignment.

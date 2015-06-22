@@ -11,7 +11,7 @@ import (
 
 	"github.com/TuftsBCB/io/fasta"
 
-	"github.com/ndaniels/neutronium"
+	"github.com/ndaniels/mica"
 )
 
 const interval = 1000

@@ -6,7 +6,7 @@ import (
 	"os"
 	"runtime/pprof"
 
-	"github.com/ndaniels/neutronium"
+	"github.com/ndaniels/mica"
 )
 
 func s(i int) string {

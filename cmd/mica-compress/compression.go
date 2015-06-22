@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/ndaniels/neutronium"
+	"github.com/ndaniels/mica"
 )
 
 // compressPool represents a pool of workers where each worker is responsible

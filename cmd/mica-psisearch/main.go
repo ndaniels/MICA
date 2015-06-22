@@ -13,7 +13,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 
-	"github.com/ndaniels/neutronium"
+	"github.com/ndaniels/mica"
 )
 
 // psi version will need two new args to psiblast: -num_iterations, -in_pssm

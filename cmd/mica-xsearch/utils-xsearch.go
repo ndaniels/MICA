@@ -10,7 +10,7 @@ import (
 
 	"github.com/TuftsBCB/seq"
 
-	"github.com/ndaniels/neutronium"
+	"github.com/ndaniels/mica"
 )
 
 func fatalf(format string, v ...interface{}) {

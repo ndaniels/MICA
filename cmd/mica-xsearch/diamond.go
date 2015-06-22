@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/ndaniels/neutronium"
+	"github.com/ndaniels/mica"
 	"io/ioutil"
 	"os"
 	"os/exec"

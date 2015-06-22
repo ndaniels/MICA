@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/ndaniels/neutronium/blosum"
+	"github.com/ndaniels/mica/blosum"
 )
 
 var (

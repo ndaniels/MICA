@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ndaniels/neutronium"
+	"github.com/ndaniels/mica"
 )
 
 func TestSkipLowComplexity(t *testing.T) {

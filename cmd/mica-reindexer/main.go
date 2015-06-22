@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
-	"github.com/ndaniels/neutronium"
+	"github.com/ndaniels/mica"
 	"os"
 )
 

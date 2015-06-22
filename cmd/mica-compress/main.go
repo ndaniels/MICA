@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/ndaniels/neutronium"
+	"github.com/ndaniels/mica"
 	"log"
 	"os"
 	"os/signal"

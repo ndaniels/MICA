@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 
-	"github.com/ndaniels/neutronium"
+	"github.com/ndaniels/mica"
 )
 
 // A BLAST database is created on the reference sequence after compression.

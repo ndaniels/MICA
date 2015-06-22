@@ -13,7 +13,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 
-	"github.com/ndaniels/neutronium"
+	"github.com/ndaniels/mica"
 )
 
 // psi version will need one new arg to deltablast: -rpsdb

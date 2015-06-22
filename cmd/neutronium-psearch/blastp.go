@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"path"
 
-	"github.com/ndaniels/neutronium"
+	"github.com/ndaniels/mica"
 )
 
 func blastFine(
