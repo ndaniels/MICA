@@ -221,13 +221,13 @@ For example, to specify XML output, one might run:
     mica-xsearch /path/to/mica_database /path/to/query.fasta
                     --blast-args -outfmt 5
 
-Where `-outfmt 5` is, as indicated in the NCBI blastp user guide, the 
+Where `-outfmt 5` is, as indicated in the NCBI BLAST+ user guide, the 
 command-line argument for XML output.
 
 
 REPORTING BUGS
 ==============
-If you find any bugs or have any problems using CaBLASTP, please submit a bug
+If you find any bugs or have any problems using MICA, please submit a bug
 report on our issue tracker:
 
     https://github.com/ndaniels/MICA/issues
