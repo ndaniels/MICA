@@ -33,7 +33,7 @@ Specifically, DIAMOND now outputs only a `.daa` file, which can be converted to
 BLAST-style tabular output or SAM output via `diamond view`.
 The results in Yu et al. depend on the November 2014 version of DIAMOND, which
 output a BLAST tabular file directly. Thus, the database provided depends on
-particular version of DIAMOND and MICA. Specifically, the paper results were produced using [this version of MICA](https://github.com/ndaniels/MICA/releases/tag/paper-resubmit) and [this version of DIAMOND](https://giant.csail.mit.edu/gems/diamond) (a linux-x64 binary)
+particular versions of DIAMOND and MICA. Specifically, the paper results were produced using [this version of MICA](https://github.com/ndaniels/MICA/releases/tag/paper-resubmit) and [this version of DIAMOND](https://giant.csail.mit.edu/gems/diamond) (a linux-x64 binary)
 
 Current MICA works with current DIAMOND, and can optionally convert the .daa file to BLAST tabular format directly.
 MICA can also perform its fine search step using BLASTX or BLASTP, which 
