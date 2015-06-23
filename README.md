@@ -2,7 +2,7 @@ ABOUT
 =====
 MICA (Metagenomic Inquiry Compressive Acceleration) is a family of programs for performing compressively-accelerated
 metagenomic sequence searches based on BLASTX and DIAMOND.
-MICA also includes compressively accelerated versionf of the BLASTP family of 
+MICA also includes compressively accelerated versions of the BLASTP family of 
 tools (including PSI-BLAST and DELTA-BLAST), as well as a compression tool (mica-compress)
 for creating searchable, compressed databases based on an input FASTA file.
 
@@ -41,6 +41,24 @@ results in a small run-time performance penalty, but allows *any* BLASTX options
 to be passed along. This can be useful for incorporating MICA into an existing
 BLASTX pipeline that depends on options not supported by DIAMOND.
 
+DIAMOND vs. BLASTX
+==================
+MICA performs a two-stage search: it searches cluster representatives first 
+("coarse search"), expands those representatives that are reasonably close to a 
+query, and finally performs a second search ("fine search") on just the 
+sequences reprsented by those coarse hits.
+MICA relies on DIAMOND for its coarse search, but allows the choice of DIAMOND
+or BLASTX for its fine search.
+DIAMOND is faster, but less flexible in terms of the options that can be
+provided to BLASTX.
+BLASTX imposes a moderate run-time penalty (~20-40%) compared to DIAMOND but 
+allows all options to be passed through via the `--blast-args` flag.
+This means that any of BLAST's output formats, filtering options, and such are
+available.
+To use DIAMOND for fine search, specify the argument `--dmnd-fine` (with a 
+specific output file, such as `--dmnd-fine=results.txt`).
+To use BLAST for fine search, omit this argument, and use output redirection
+(`> results.txt`).
 
 
 QUICK EXAMPLE
