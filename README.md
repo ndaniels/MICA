@@ -23,6 +23,25 @@ MICA licensing is available through MIT office of Technology Transfer.
 Contact bab@mit.edu for more information.
 Contact ndaniels@csail.mit.edu for issues involving the code.
 
+COMPATIBILITY NOTE
+==================
+Between publication of 
+[DIAMOND](http://www.nature.com/nmeth/journal/v12/n1/full/nmeth.3176.html) and
+MICA, DIAMOND made some changes that affected both database and output
+compatibility.
+Specifically, DIAMOND now outputs only a `.daa` file, which can be converted to
+BLAST-style tabular output or SAM output via `diamond view`.
+The results in Yu et al. depend on the November 2014 version of DIAMOND, which
+output a BLAST tabular file directly. Thus, the database provided depends on
+particular version of DIAMOND and MICA. Specifically, the paper results were produced using [this version of MICA](https://github.com/ndaniels/MICA/releases/tag/paper-resubmit) and [this version of DIAMOND](https://giant.csail.mit.edu/gems/diamond) (a linux-x64 binary)
+
+Current MICA works with current DIAMOND, and can optionally convert the .daa file to BLAST tabular format directly.
+MICA can also perform its fine search step using BLASTX or BLASTP, which 
+results in a small run-time performance penalty, but allows *any* BLASTX options
+to be passed along. This can be useful for incorporating MICA into an existing
+BLASTX pipeline that depends on options not supported by DIAMOND.
+
+
 
 QUICK EXAMPLE
 =============
