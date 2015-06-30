@@ -2,9 +2,9 @@ all: gofmt blosum/blosum.go install
 
 install:
 	go install -p 6 . \
-		./cmd/cablastp-compress ./cmd/cablastp-decompress \
-		./cmd/cablastp-search ./cmd/cablastp-psisearch \
-		./cmd/cablastp-deltasearch
+		./cmd/mica-compress ./cmd/mica-decompress \
+		./cmd/mica-search ./cmd/mica-psisearch \
+		./cmd/mica-deltasearch ./cmd/mica-xsearch
 
 blosum/blosum.go:
 	scripts/mkBlosum | gofmt > blosum/blosum.go

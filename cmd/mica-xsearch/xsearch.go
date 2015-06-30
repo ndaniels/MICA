@@ -19,7 +19,7 @@ func processQueries(db *mica.DB, nuclQueryFile *os.File) error {
 
 	dmndOutFile, err := convertDmndToBlastTabular(dmndOutDaaFile)
 	if err != nil {
-		return fmt.Errorf("Error convertign diamond output to blast tabular: %s\n")
+		return fmt.Errorf("Error converting diamond output to blast tabular: %s\n")
 	}
 
 	mica.Vprintln("Decompressing diamond hits...")

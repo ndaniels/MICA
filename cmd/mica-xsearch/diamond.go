@@ -22,7 +22,7 @@ func dmndBlastXFine(queries *os.File, outFilename, fineFilename string) error {
 		"-d", fineFilename,
 		"-q", queries.Name(),
 		"--threads", s(flagGoMaxProcs),
-		"-o", outFilename,
+		"-a", outFilename,
 		"--compress", "0",
 		"--top", s(flagFineDmndMatch))
 	cmd.Stdin = os.Stdin
@@ -63,7 +63,7 @@ func dmndBlastXCoarse(db *mica.DB, queries *os.File) (*os.File, error) {
 		"-d", path.Join(db.Path, mica.FileDmndCoarse),
 		"-q", queries.Name(),
 		"--threads", s(flagGoMaxProcs),
-		"-o", dmndOutFile.Name(),
+		"-a", dmndOutFile.Name(),
 		"--compress", "0",
 		"--top", s(flagCoarseDmndMatch))
 	cmd.Stdin = os.Stdin
