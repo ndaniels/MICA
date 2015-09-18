@@ -92,6 +92,7 @@ func init() {
 		"When set, additional plain-text versions of files that are \n"+
 			"\tnormally encoded in binary are saved with a '.plain' \n"+
 			"\textension. Note that the original binary files are also saved.")
+	flag.BoolVar(&dbConf.SaveCompressed, "compress-source", dbConf.SaveCompressed, "When set compresses the source sequence files to use less disk space")
 	flag.BoolVar(&dbConf.ReadOnly, "read-only",
 		dbConf.ReadOnly,
 		"When set, the database created will be read-only (i.e., it \n"+
@@ -210,7 +211,7 @@ func main() {
 			verboseOutput(db, orgSeqId)
 			if flagMaxSeedsGB > 0 && orgSeqId%10000 == 0 {
 				db.CoarseDB.Seeds.MaybeWipe(flagMaxSeedsGB)
-        runtime.GC()
+				runtime.GC()
 			}
 		}
 	}
