@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/csv"
 	"fmt"
+	"github.com/biogo/hts/bgzf"
 	"io"
 	"os"
 	"strconv"
@@ -316,8 +317,34 @@ func (coarsedb *CoarseDB) saveLinksPlain() error {
 	return nil
 }
 
+func (comdb *CompressedDB) ReadSeqFromCompressedSource(coarsedb *CoarseDB, orgSeqId int) (OriginalSeq, error) {
+	if !comdb.CompressedSource {
+		fmt.Errorf("Trying to read compressed source but database does not indicate that source files are compressed")
+	}
+
+	off, err := comdb.orgSeqOffset(orgSeqId)
+	if err != nil {
+		return OriginalSeq{}, err
+	}
+	offset := bgzf.Offset{File: off} // I'm not convinced this is correct but it's as close as I could gather from the bgzf tests
+
+	compressedReader, err := bgzf.NewReader(comdb.File, 0) // O indicates that bgzf should use GO_MAX_PROCS for decompression
+	if err != nil {
+		return OriginalSeq{}, err
+	}
+	err = compressedReader.Seek(offset)
+	if err != nil {
+		return OriginalSeq{}, err
+	}
+	return comdb.ReadNextSeq(coarsedb, compressedReader, orgSeqId)
+}
+
 func (comdb *CompressedDB) ReadSeq(
 	coarsedb *CoarseDB, orgSeqId int) (OriginalSeq, error) {
+
+	if comdb.CompressedSource {
+		return comdb.ReadSeqFromCompressedSource(coarsedb, orgSeqId)
+	}
 
 	off, err := comdb.orgSeqOffset(orgSeqId)
 	if err != nil {
@@ -332,13 +359,13 @@ func (comdb *CompressedDB) ReadSeq(
 			fmt.Errorf("Tried to seek to offset %d in the compressed "+
 				"database, but seeked to %d instead.", off, newOff)
 	}
-	return comdb.ReadNextSeq(coarsedb, orgSeqId)
+	return comdb.ReadNextSeq(coarsedb, comdb.File, orgSeqId)
 }
 
 func (comdb *CompressedDB) ReadNextSeq(
-	coarsedb *CoarseDB, orgSeqId int) (OriginalSeq, error) {
+	coarsedb *CoarseDB, seqFile io.Reader, orgSeqId int) (OriginalSeq, error) {
 
-	csvReader := csv.NewReader(comdb.File)
+	csvReader := csv.NewReader(seqFile)
 	csvReader.LazyQuotes = true
 	csvReader.Comma = ','
 	csvReader.FieldsPerRecord = -1
@@ -424,9 +451,19 @@ func (comdb *CompressedDB) writer() {
 
 	byteOffset := int64(0)
 	buf := new(bytes.Buffer)
-	csvWriter := csv.NewWriter(buf)
-	csvWriter.Comma = ','
-	csvWriter.UseCRLF = false
+
+	var csvWriter *csv.Writer
+	if comdb.CompressedSource {
+		CompressedWriter := bgzf.NewWriter(buf, 0) // O indicates that bgzf should use GO_MAX_PROCS for compression
+		csvWriter = csv.NewWriter(CompressedWriter)
+		csvWriter.Comma = ','
+		csvWriter.UseCRLF = false
+
+	} else {
+		csvWriter = csv.NewWriter(buf)
+		csvWriter.Comma = ','
+		csvWriter.UseCRLF = false
+	}
 
 	saved := make([]CompressedSeq, 0, 1000)
 	nextIndex := comdb.NumSequences()
@@ -469,6 +506,9 @@ func (comdb *CompressedDB) writer() {
 					fmt.Sprintf("%d", link.CoarseEnd),
 					link.Diff)
 			}
+			// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 			// Write the record to our *buffer* and flush it.
 			if err = csvWriter.Write(record); err != nil {

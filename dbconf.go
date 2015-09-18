@@ -23,6 +23,7 @@ type DBConf struct {
 	SeedLowComplexity   int
 	SavePlain           bool
 	ReadOnly            bool
+	SaveCompressed      bool
 	BlastMakeBlastDB    string
 	Dmnd                string
 	BlastDBSize         uint64
@@ -42,6 +43,7 @@ var DefaultDBConf = &DBConf{
 	SeedLowComplexity:   6,
 	SavePlain:           false,
 	ReadOnly:            true,
+	SaveCompressed:      false,
 	BlastMakeBlastDB:    "makeblastdb",
 	Dmnd:                "diamond",
 	BlastDBSize:         0,
@@ -63,6 +65,7 @@ func (conf *DBConf) DeepCopy() *DBConf {
 		SeedLowComplexity:   conf.SeedLowComplexity,
 		SavePlain:           conf.SavePlain,
 		ReadOnly:            conf.ReadOnly,
+		SaveCompressed:      conf.SaveCompressed,
 		BlastMakeBlastDB:    conf.BlastMakeBlastDB,
 		Dmnd:                conf.Dmnd,
 		BlastDBSize:         conf.BlastDBSize,
@@ -141,6 +144,12 @@ func LoadDBConf(r io.Reader) (conf *DBConf, err error) {
 			} else {
 				conf.ReadOnly = false
 			}
+		case "SaveCompressed":
+			if strings.TrimSpace(line[1]) == "1" {
+				conf.SaveCompressed = true
+			} else {
+				conf.SaveCompressed = false
+			}
 		case "BlastMakeBlastDB":
 			conf.BlastMakeBlastDB = strings.TrimSpace(line[1])
 		case "Dmnd":
@@ -201,6 +210,9 @@ func (flagConf *DBConf) FlagMerge(fileConf *DBConf) (*DBConf, error) {
 	if !only["plain"] {
 		flagConf.SavePlain = fileConf.SavePlain
 	}
+	if !only["compressed"] {
+		flagConf.SaveCompressed = fileConf.SaveCompressed
+	}
 	if !only["read-only"] {
 		flagConf.ReadOnly = fileConf.ReadOnly
 	}
@@ -246,6 +258,7 @@ func (dbConf DBConf) Write(w io.Writer) error {
 		{"LowComplexity", s(dbConf.LowComplexity)},
 		{"SeedLowComplexity", s(dbConf.SeedLowComplexity)},
 		{"SavePlain", bs(dbConf.SavePlain)},
+		{"SaveCompressed", bs(dbConf.SaveCompressed)},
 		{"ReadOnly", bs(dbConf.ReadOnly)},
 		{"BlastMakeBlastDB", dbConf.BlastMakeBlastDB},
 		{"Dmnd", dbConf.Dmnd},

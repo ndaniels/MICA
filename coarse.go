@@ -295,8 +295,12 @@ func (coarsedb *CoarseDB) Expand(
 		if ids[compLink.OrgSeqId] {
 			continue
 		}
-
+		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		// !!! This is probably what I need to change for disk-compression
 		oseq, err := comdb.ReadSeq(coarsedb, int(compLink.OrgSeqId))
+		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 		if err != nil {
 			return nil, fmt.Errorf(
 				"Could not read compressed sequence: %s", err)

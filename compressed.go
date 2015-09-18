@@ -49,6 +49,8 @@ type CompressedDB struct {
 
 	// Caches already read sequences from the compressed database while reading.
 	seqCache map[int]OriginalSeq
+
+	CompressedSource bool
 }
 
 // newWriteCompressedDB creates a new compressed database ready for writing
@@ -59,11 +61,12 @@ func newWriteCompressedDB(appnd bool, db *DB) (*CompressedDB, error) {
 	Vprintln("\tOpening compressed database...")
 
 	cdb := &CompressedDB{
-		seqCache:   nil,
-		File:       nil,
-		Index:      nil,
-		writerChan: make(chan CompressedSeq, 500),
-		writerDone: make(chan struct{}, 0),
+		seqCache:         nil,
+		File:             nil,
+		Index:            nil,
+		writerChan:       make(chan CompressedSeq, 500),
+		writerDone:       make(chan struct{}, 0),
+		CompressedSource: db.DBConf.SaveCompressed,
 	}
 
 	fileFlags := os.O_RDWR | os.O_CREATE | os.O_TRUNC
