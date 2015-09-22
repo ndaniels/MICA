@@ -127,6 +127,8 @@ func newReadCompressedDB(db *DB) (*CompressedDB, error) {
 	cdb.csvReader.Comma = ','
 	cdb.csvReader.FieldsPerRecord = -1
 
+	cdb.CompressedSource = db.DBConf.SaveCompressed
+
 	Vprintln("\tDone opening compressed database.")
 	return cdb, nil
 }

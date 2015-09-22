@@ -55,6 +55,10 @@ func dmndBlastXCoarse(db *mica.DB, queries *os.File) (*os.File, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Could not build temporary file for diamond output: %s", err)
 	}
+	dmndTmpDir, err := ioutil.TempDir(".", "dmnd-tmp-dir-")
+	if err != nil {
+		return nil, fmt.Errorf("Could not build temporary directory for diamond to work in: %s", err)
+	}
 
 	cmd := exec.Command(
 		flagDmnd,
@@ -65,13 +69,19 @@ func dmndBlastXCoarse(db *mica.DB, queries *os.File) (*os.File, error) {
 		"--threads", s(flagGoMaxProcs),
 		"-a", dmndOutFile.Name(),
 		"--compress", "0",
-		"--top", s(flagCoarseDmndMatch))
+		"--top", s(flagCoarseDmndMatch),
+		"--tmpdir", dmndTmpDir)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 
 	err = mica.Exec(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("Error using diamond to blast coarse db: %s", err)
+	}
+
+	err = os.RemoveAll(dmndTmpDir)
+	if err != nil {
+		return nil, fmt.Errorf("Error destroying diamond working directory: %s", err)
 	}
 
 	return dmndOutFile, nil
@@ -96,7 +106,10 @@ func convertDmndToBlastTabular(daa *os.File) (*os.File, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error converting daa file to blast tabular: %s", err)
 	}
-
+	// err = os.Remove(daa.Name())
+	// if err != nil {
+	// 	return nil, fmt.Errorf("Error destroying .daa file: %s", err)
+	// }
 	return dmndOutFile, nil
 }
 

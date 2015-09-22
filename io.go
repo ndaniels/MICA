@@ -323,10 +323,20 @@ func (comdb *CompressedDB) ReadSeqFromCompressedSource(coarsedb *CoarseDB, orgSe
 	}
 
 	off, err := comdb.orgSeqOffset(orgSeqId)
+	block := off / bgzf.BlockSize
+	posInBlock := off % bgzf.BlockSize
+
 	if err != nil {
 		return OriginalSeq{}, err
 	}
-	offset := bgzf.Offset{File: off} // I'm not convinced this is correct but it's as close as I could gather from the bgzf tests
+	offset := bgzf.Offset{
+		//File:  off,
+		Block: uint16(block),
+	} // I'm not convinced this is correct but it's as close as I could gather from the bgzf tests
+
+	//	Vprintf("Looking for seqid=%d using offset File=%d Block=%d posInBlock=%d\n", orgSeqId, offset.File, offset.Block, posInBlock)
+
+	comdb.File.Seek(0, 0) // Seek to the begining of the file
 
 	compressedReader, err := bgzf.NewReader(comdb.File, 0) // O indicates that bgzf should use GO_MAX_PROCS for decompression
 	if err != nil {
@@ -336,7 +346,19 @@ func (comdb *CompressedDB) ReadSeqFromCompressedSource(coarsedb *CoarseDB, orgSe
 	if err != nil {
 		return OriginalSeq{}, err
 	}
-	return comdb.ReadNextSeq(coarsedb, compressedReader, orgSeqId)
+	blockData := make([]byte, bgzf.BlockSize)
+	compressedReader.Read(blockData)
+	blockData = blockData[posInBlock:]
+
+	blockReader := bytes.NewReader(blockData)
+	oseq, err := comdb.ReadNextSeq(coarsedb, blockReader, orgSeqId)
+	if err != nil {
+		return oseq, fmt.Errorf("Error reading next sequence: %s\n", err)
+	} else if oseq.Id != orgSeqId {
+		return oseq, fmt.Errorf("Wanted to read sequence %d but read %d instead\n", orgSeqId, oseq.Id)
+	}
+
+	return oseq, nil
 }
 
 func (comdb *CompressedDB) ReadSeq(
@@ -444,6 +466,17 @@ func nextSeqToWrite(
 	return nil, saved
 }
 
+type countWriter struct {
+	bytes int64
+	w     io.Writer
+}
+
+func (cw *countWriter) Write(p []byte) (n int, err error) {
+	n, err = cw.w.Write(p)
+	cw.bytes += int64(n)
+	return
+}
+
 func (comdb *CompressedDB) writer() {
 	var record []string
 	var err error
@@ -452,18 +485,16 @@ func (comdb *CompressedDB) writer() {
 	byteOffset := int64(0)
 	buf := new(bytes.Buffer)
 
-	var csvWriter *csv.Writer
+	var compressedWriter *bgzf.Writer
+	var cw *countWriter
 	if comdb.CompressedSource {
-		CompressedWriter := bgzf.NewWriter(buf, 0) // O indicates that bgzf should use GO_MAX_PROCS for compression
-		csvWriter = csv.NewWriter(CompressedWriter)
-		csvWriter.Comma = ','
-		csvWriter.UseCRLF = false
-
-	} else {
-		csvWriter = csv.NewWriter(buf)
-		csvWriter.Comma = ','
-		csvWriter.UseCRLF = false
+		cw = &countWriter{w: comdb.File}
+		compressedWriter = bgzf.NewWriter(cw, 0) // O indicates that bgzf should use GO_MAX_PROCS for compression
 	}
+
+	csvWriter := csv.NewWriter(buf)
+	csvWriter.Comma = ','
+	csvWriter.UseCRLF = false
 
 	saved := make([]CompressedSeq, 0, 1000)
 	nextIndex := comdb.NumSequences()
@@ -490,6 +521,7 @@ func (comdb *CompressedDB) writer() {
 
 		cseq, saved = nextSeqToWrite(nextIndex, saved)
 		for cseq != nil {
+			Vprintf("Writing seqid=%d\n", cseq.Id)
 			// Reset the buffer so it's empty. We want it to only contain
 			// the next record we're writing.
 			buf.Reset()
@@ -518,9 +550,18 @@ func (comdb *CompressedDB) writer() {
 			csvWriter.Flush()
 
 			// Pass the bytes on to the compressed file.
-			if _, err = comdb.File.Write(buf.Bytes()); err != nil {
-				fmt.Fprintf(os.Stderr, "%s\n", err)
-				os.Exit(1)
+			if comdb.CompressedSource {
+				if _, err = compressedWriter.Write(buf.Bytes()); err != nil {
+					fmt.Fprintf(os.Stderr, "%s\n", err)
+					os.Exit(1)
+				}
+				compressedWriter.Flush()
+				compressedWriter.Wait()
+			} else {
+				if _, err = comdb.File.Write(buf.Bytes()); err != nil {
+					fmt.Fprintf(os.Stderr, "%s\n", err)
+					os.Exit(1)
+				}
 			}
 
 			// Now write the byte offset that points to the start of this record
@@ -530,12 +571,22 @@ func (comdb *CompressedDB) writer() {
 				os.Exit(1)
 			}
 
-			// Increment the byte offset to be at the end of this record.
-			byteOffset += int64(buf.Len())
+			if comdb.CompressedSource {
+
+				//				Vprintf("BufferLength=%d cw.bytes=%d ByteOffset=%d Next=%d\n", int64(buf.Len()), cw.bytes, byteOffset, n)
+				//byteOffset += cw.bytes
+				byteOffset += int64(buf.Len())
+			} else {
+				// Increment the byte offset to be at the end of this record.
+				byteOffset += int64(buf.Len())
+			}
 
 			nextIndex++
 			cseq, saved = nextSeqToWrite(nextIndex, saved)
 		}
+	}
+	if comdb.CompressedSource {
+		compressedWriter.Close()
 	}
 	comdb.Index.Close()
 	comdb.File.Close()
