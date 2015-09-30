@@ -466,17 +466,6 @@ func nextSeqToWrite(
 	return nil, saved
 }
 
-type countWriter struct {
-	bytes int64
-	w     io.Writer
-}
-
-func (cw *countWriter) Write(p []byte) (n int, err error) {
-	n, err = cw.w.Write(p)
-	cw.bytes += int64(n)
-	return
-}
-
 func (comdb *CompressedDB) writer() {
 	var record []string
 	var err error
@@ -486,10 +475,9 @@ func (comdb *CompressedDB) writer() {
 	buf := new(bytes.Buffer)
 
 	var compressedWriter *bgzf.Writer
-	var cw *countWriter
 	if comdb.CompressedSource {
-		cw = &countWriter{w: comdb.File}
-		compressedWriter = bgzf.NewWriter(cw, 0) // O indicates that bgzf should use GO_MAX_PROCS for compression
+
+		compressedWriter = bgzf.NewWriter(comdb.File, 0) // O indicates that bgzf should use GO_MAX_PROCS for compression
 	}
 
 	csvWriter := csv.NewWriter(buf)
@@ -521,7 +509,7 @@ func (comdb *CompressedDB) writer() {
 
 		cseq, saved = nextSeqToWrite(nextIndex, saved)
 		for cseq != nil {
-			Vprintf("Writing seqid=%d\n", cseq.Id)
+
 			// Reset the buffer so it's empty. We want it to only contain
 			// the next record we're writing.
 			buf.Reset()
@@ -538,9 +526,6 @@ func (comdb *CompressedDB) writer() {
 					fmt.Sprintf("%d", link.CoarseEnd),
 					link.Diff)
 			}
-			// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 			// Write the record to our *buffer* and flush it.
 			if err = csvWriter.Write(record); err != nil {
@@ -571,15 +556,8 @@ func (comdb *CompressedDB) writer() {
 				os.Exit(1)
 			}
 
-			if comdb.CompressedSource {
-
-				//				Vprintf("BufferLength=%d cw.bytes=%d ByteOffset=%d Next=%d\n", int64(buf.Len()), cw.bytes, byteOffset, n)
-				//byteOffset += cw.bytes
-				byteOffset += int64(buf.Len())
-			} else {
-				// Increment the byte offset to be at the end of this record.
-				byteOffset += int64(buf.Len())
-			}
+			// Increment the byte offset to be at the end of this record.
+			byteOffset += int64(buf.Len())
 
 			nextIndex++
 			cseq, saved = nextSeqToWrite(nextIndex, saved)
