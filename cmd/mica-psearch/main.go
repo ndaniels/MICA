@@ -77,11 +77,6 @@ func init() {
 	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
 		"The maximum number of CPUs that can be executing simultaneously.")
 
-	flag.IntVar(&flagCoarseDmndMatch, "dmnd-coarse-match", flagCoarseDmndMatch,
-		"The matching threshold for coarse search with diamond")
-
-	flag.IntVar(&flagFineDmndMatch, "dmnd-fine-match", flagFineDmndMatch,
-		"The matching threshold for fine search with diamond (assuming diamond fine search is enabled).")
 
 	flag.BoolVar(&flagQuiet, "quiet", flagQuiet,
 		"When set, the only outputs will be errors echoed to stderr.")
