@@ -117,7 +117,7 @@ func dmndBlastPFine(queries *os.File, outFilename, fineFilename string) error {
 		"-d", fineFilename,
 		"-q", queries.Name(),
 		"--threads", s(flagGoMaxProcs),
-		"-o", outFilename,
+		"-a", outFilename,
 		"--compress", "0",
 		"--top", s(flagFineDmndMatch))
 	cmd.Stdin = os.Stdin
@@ -129,6 +129,7 @@ func dmndBlastPFine(queries *os.File, outFilename, fineFilename string) error {
 	}
 
 	if !flagDmndOutput {
+		outFilename += ".daa"
 		daaFile, err := os.Open(outFilename)
 		if err != nil {
 			return fmt.Errorf("Error opening diamond output: %s\n", err)
@@ -159,7 +160,7 @@ func dmndBlastPCoarse(db *mica.DB, queries *os.File) (*os.File, error) {
 		"-d", path.Join(db.Path, mica.FileDmndCoarse),
 		"-q", queries.Name(),
 		"--threads", s(flagGoMaxProcs),
-		"-o", dmndOutFile.Name(),
+		"-a", dmndOutFile.Name(),
 		"--compress", "0",
 		"--top", s(flagCoarseDmndMatch))
 	cmd.Stdin = os.Stdin
