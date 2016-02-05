@@ -41,6 +41,7 @@ var (
 	flagCoarseDmndMatch = 50
 	flagFineDmndMatch   = 60
 	flagDmndOutput      = false
+	flagTempFileDir 	= "."
 )
 
 // blastArgs are all the arguments after "--blast-args".
@@ -58,6 +59,9 @@ func init() {
 	flag.StringVar(&flagDmnd, "diamond",
 		flagDmnd,
 		"The location of the 'diamond' executable.")
+	flag.StringVar(&flagDmndFine, "dmnd-fine-output", flagDmndFine,
+		"When set will use diamond for fine search and will write a blast\n"+
+		 "\ttabular output file to the given location.")
 	flag.Float64Var(&flagCoarseEval, "coarse-eval", flagCoarseEval,
 		"The e-value threshold for the coarse search. This will NOT\n"+
 			"\tbe used on the fine search. The fine search e-value threshold\n"+
@@ -84,6 +88,8 @@ func init() {
 		"When set, a CPU profile will be written to the file specified.")
 	flag.StringVar(&flagMemProfile, "memprofile", flagMemProfile,
 		"When set, a memory profile will be written to the file specified.")
+	flag.StringVar(&flagTempFileDir, "temp-dir", flagTempFileDir,
+		"Location to put temporary files")
 
 	// find '--blast-args' and chop off the remainder before letting the flag
 	// package have its way.

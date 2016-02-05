@@ -76,7 +76,7 @@ func expandDmndHits(db *mica.DB, dmndOut *bytes.Buffer) ([]mica.OriginalSeq, err
 }
 
 func makeFineDmndDB(seqBuf *bytes.Buffer) (string, error) {
-	tmpSeqFile, err := ioutil.TempFile(".", "fine-sequences-")
+	tmpSeqFile, err := ioutil.TempFile(flagTempFileDir, "fine-sequences-")
 	if err != nil {
 		return "", fmt.Errorf("Could not create temporary sequence file: %s\n", err)
 	}
@@ -84,7 +84,7 @@ func makeFineDmndDB(seqBuf *bytes.Buffer) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("Could not write to temporary sequence file: %s\n", err)
 	}
-	tmpDmndFile, err := ioutil.TempFile(".", "fine-dmnd-db-")
+	tmpDmndFile, err := ioutil.TempFile(flagTempFileDir, "fine-dmnd-db-")
 	if err != nil {
 		return "", fmt.Errorf("Could not create temporary diamond file: %s\n", err)
 	}
@@ -129,8 +129,8 @@ func dmndBlastPFine(queries *os.File, outFilename, fineFilename string) error {
 	}
 
 	if !flagDmndOutput {
-		outFilename += ".daa"
-		daaFile, err := os.Open(outFilename)
+		daaFilename := outFilename + ".daa"
+		daaFile, err := os.Open(daaFilename)
 		if err != nil {
 			return fmt.Errorf("Error opening diamond output: %s\n", err)
 		}
@@ -139,7 +139,7 @@ func dmndBlastPFine(queries *os.File, outFilename, fineFilename string) error {
 			return fmt.Errorf("Error converting diamond output: %s\n", err)
 		}
 		os.Rename(tabularFile.Name(), outFilename)
-
+		os.RemoveAll(daaFilename)
 	}
 
 	return nil
@@ -148,7 +148,7 @@ func dmndBlastPFine(queries *os.File, outFilename, fineFilename string) error {
 func dmndBlastPCoarse(db *mica.DB, queries *os.File) (*os.File, error) {
 	// diamond blastp -d nr -q reads.fna -a matches -t <temporary directory>
 
-	dmndOutFile, err := ioutil.TempFile(".", "dmnd-out-")
+	dmndOutFile, err := ioutil.TempFile(flagTempFileDir, "dmnd-out-")
 	if err != nil {
 		return nil, fmt.Errorf("Could not build temporary file for diamond output: %s", err)
 	}
@@ -175,7 +175,7 @@ func dmndBlastPCoarse(db *mica.DB, queries *os.File) (*os.File, error) {
 }
 
 func convertDmndToBlastTabular(daa *os.File) (*os.File, error) {
-	dmndOutFile, err := ioutil.TempFile(".", "dmnd-out-tab-")
+	dmndOutFile, err := ioutil.TempFile(flagTempFileDir, "dmnd-out-tab-")
 	if err != nil {
 		return nil, fmt.Errorf("Could not build temporary file for diamond output: %s", err)
 	}

@@ -27,6 +27,7 @@ func processQueries(db *mica.DB, nuclQueryFile *os.File) error {
 
 	if !flagNoCleanup {
 		err := os.RemoveAll(dmndOutFile.Name())
+		err = os.RemoveAll(dmndOutFile.Name() + ".daa")
 		handleFatalError("Could not delete diamond output from coarse search", err)
 		err = os.RemoveAll(dmndOutDaaFile.Name())
 		handleFatalError("Could not delete diamond output from coarse search", err)
