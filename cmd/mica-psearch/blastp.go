@@ -32,7 +32,7 @@ func blastFine(
 }
 
 func makeFineBlastDB(db *mica.DB, stdin *bytes.Buffer) (string, error) {
-	tmpDir, err := ioutil.TempDir("", "mica-fine-search-db")
+	tmpDir, err := ioutil.TempDir(flagTempFileDir, "mica-fine-search-db")
 	if err != nil {
 		return "", fmt.Errorf("Could not create temporary directory: %s\n", err)
 	}
