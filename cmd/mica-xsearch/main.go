@@ -42,6 +42,7 @@ var (
 	flagCoarseDmndMatch = 50
 	flagFineDmndMatch   = 60
 	flagDmndOutput      = false
+	flagTempFileDir 	= "."
 )
 
 // blastArgs are all the arguments after "--blast-args".
@@ -93,6 +94,8 @@ func init() {
 		"When set, will process queries one at a time instead of as a batch.")
 	flag.BoolVar(&flagDmndOutput, "daa-file", flagDmndOutput,
 		"When set, will not convert diamonds final output into blast tabular format")
+	flag.StringVar(&flagTempFileDir, "temp-dir", flagTempFileDir,
+		"Location to put temporary files")
 
 	// compress options
 

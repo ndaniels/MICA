@@ -51,11 +51,11 @@ func dmndBlastXFine(queries *os.File, outFilename, fineFilename string) error {
 func dmndBlastXCoarse(db *mica.DB, queries *os.File) (*os.File, error) {
 	// diamond blastp -d nr -q reads.fna -a matches -t <temporary directory>
 
-	dmndOutFile, err := ioutil.TempFile(".", "dmnd-out-daa-")
+	dmndOutFile, err := ioutil.TempFile(flagTempFileDir, "dmnd-out-daa-")
 	if err != nil {
 		return nil, fmt.Errorf("Could not build temporary file for diamond output: %s", err)
 	}
-	dmndTmpDir, err := ioutil.TempDir(".", "dmnd-tmp-dir-")
+	dmndTmpDir, err := ioutil.TempDir(flagTempFileDir, "dmnd-tmp-dir-")
 	if err != nil {
 		return nil, fmt.Errorf("Could not build temporary directory for diamond to work in: %s", err)
 	}
@@ -88,7 +88,7 @@ func dmndBlastXCoarse(db *mica.DB, queries *os.File) (*os.File, error) {
 }
 
 func convertDmndToBlastTabular(daa *os.File) (*os.File, error) {
-	dmndOutFile, err := ioutil.TempFile(".", "dmnd-out-tab-")
+	dmndOutFile, err := ioutil.TempFile(flagTempFileDir, "dmnd-out-tab-")
 	if err != nil {
 		return nil, fmt.Errorf("Could not build temporary file for diamond output: %s", err)
 	}
@@ -175,7 +175,7 @@ func expandDmndHits(db *mica.DB, dmndOut *bytes.Buffer) ([]mica.OriginalSeq, err
 }
 
 func makeFineDmndDB(seqBuf *bytes.Buffer) (string, error) {
-	tmpSeqFile, err := ioutil.TempFile(".", "fine-sequences-")
+	tmpSeqFile, err := ioutil.TempFile(flagTempFileDir, "fine-sequences-")
 	if err != nil {
 		return "", fmt.Errorf("Could not create temporary sequence file: %s\n", err)
 	}
@@ -183,7 +183,7 @@ func makeFineDmndDB(seqBuf *bytes.Buffer) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("Could not write to temporary sequence file: %s\n", err)
 	}
-	tmpDmndFile, err := ioutil.TempFile(".", "fine-dmnd-db-")
+	tmpDmndFile, err := ioutil.TempFile(flagTempFileDir, "fine-dmnd-db-")
 	if err != nil {
 		return "", fmt.Errorf("Could not create temporary diamond file: %s\n", err)
 	}
