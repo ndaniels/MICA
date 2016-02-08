@@ -77,6 +77,10 @@ func init() {
 	flag.BoolVar(&flagNoCleanup, "no-cleanup", flagNoCleanup,
 		"When set, the temporary fine BLAST database that is created\n"+
 			"\twill NOT be deleted.")
+	flag.BoolVar(&flagCompressQuery, "compress-query", flagCompressQuery,
+		"When set, will compress the input nucleotide sequences.\n"+
+			"\tThis option may result in very bad performance if used on\n"+
+			"\ta machine with out a fast hard drive.\n")
 
 	flag.IntVar(&flagCoarseDmndMatch, "dmnd-coarse-match", flagCoarseDmndMatch,
 		"The matching threshold for coarse search with diamond")

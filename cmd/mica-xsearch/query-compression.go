@@ -127,7 +127,7 @@ func compressQueries(queryFileName string) (string, error) {
 	dbDirLoc, err := ioutil.TempDir(flagTempFileDir, "compressed-query-db")
 
 
-	db, err := mica.NewWriteDB(&queryDBConf, dbDirLoc)
+	db, err := mica.NewWriteDB(false, queryDBConf, dbDirLoc)
 	handleFatalError("Failed to open new db", err)
 	pool := mica.StartCompressReducedWorkers(db)
 	seqId := db.ComDB.NumSequences()
