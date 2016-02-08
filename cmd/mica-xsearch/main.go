@@ -23,6 +23,7 @@ import (
 var (
 	// A default configuration.
 	argDBConf = mica.DefaultDBConf.DeepCopy()
+	queryDBConf = mica.DefaultDBConf.DeepCopy()
 	// Flags that affect the operation of search.
 	// Flags that control algorithmic parameters are stored in `queryDBConf`.
 	flagMakeBlastDB     = "makeblastdb"
