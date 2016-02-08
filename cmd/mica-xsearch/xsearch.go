@@ -11,29 +11,12 @@ import (
 
 func processQueries(db *mica.DB, nuclQueryFile *os.File) error {
 
-	if flagCompressQuery {
-		queryDbLoc, err := compressQueries(nuclQueryFile.Name())
-		if err != nil {
-			return fmt.Errorf("Error compressing queries: %s\n",err)
-		}
-		
-		queryDb, err := mica.NewReadDB(queryDbLoc)
-		if err != nil {
-			return fmt.Errorf("Error opening newly created compressed query db: %s\n", err)
-		}
-	}
 
 	mica.Vprintln("\nBlasting with diamond query on coarse database...")
-	if flagCompressQuery {
-		dmndOutDaaFile, err := dmndBlastXCoarse(db, queryDb.CoarseDB.FileFasta)
-		if err != nil {
-			return fmt.Errorf("Error blasting with diamond on coarse database from compressed queries: %s\n", err)
-		}
-	} else {
-		dmndOutDaaFile, err := dmndBlastXCoarse(db, nuclQueryFile)
-		if err != nil {
-			return fmt.Errorf("Error blasting with diamond on coarse database: %s\n", err)
-		}
+
+	dmndOutDaaFile, err := dmndBlastXCoarse(db, nuclQueryFile)
+	if err != nil {
+		return fmt.Errorf("Error blasting with diamond on coarse database: %s\n", err)
 	}
 
 
@@ -50,10 +33,6 @@ func processQueries(db *mica.DB, nuclQueryFile *os.File) error {
 		handleFatalError("Could not delete diamond output from coarse search", err)
 		err = os.RemoveAll(dmndOutDaaFile.Name())
 		handleFatalError("Could not delete diamond output from coarse search", err)
-		if flagCompressQuery {
-			err = os.RemoveAll(queryDbDirLoc)
-			handleFatalError("Could not delete diamond output from coarse search", err)
-		}
 	}
 
 	if err != nil {

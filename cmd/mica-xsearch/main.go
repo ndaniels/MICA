@@ -133,15 +133,25 @@ func main() {
 	}
 
 	inputFastaQueryName := flag.Arg(1)
-	nuclQueryFile, err := os.Open(inputFastaQueryName)
-	if err != nil {
-		fatalf("Could not open '%s' query file: %s\n", inputFastaQueryName, err)
-	}
 
-	mica.Vprintln("\nProcessing Queries...")
-	err = processQueries(db, nuclQueryFile)
-	if err != nil {
-		fatalf("Error processing queries: %s\n", err)
+	if flagCompressQuery {
+		mica.Vprintln("\nProcessing queries with query-side compression...")
+		err = processCompressedQueries(db, inputFastaQueryName)
+		if err != nil {
+			fatalf("Error processing queries with query-side compression: %s\n", err)
+		}
+	} else {
+
+		nuclQueryFile, err := os.Open(inputFastaQueryName)
+		if err != nil {
+			fatalf("Could not open '%s' query file: %s\n", inputFastaQueryName, err)
+		}
+
+		mica.Vprintln("\nProcessing queries...")
+		err = processQueries(db, nuclQueryFile)
+		if err != nil {
+			fatalf("Error processing queries: %s\n", err)
+		}
 	}
 
 	cleanup(db)
