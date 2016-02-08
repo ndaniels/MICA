@@ -38,10 +38,11 @@ func processCompressedQueries(db *mica.DB, nuclQueryFileLoc string) error {
 	mica.Vprintln("Decompressing diamond hits...")
 	dmndOutArr, err := ioutil.ReadAll(dmndOutFile)
 
-	nuclQueryFile, err := os.Open(nuclQueryFileLoc)
-	if err != nil {
-		fatalf("Could not open '%s' query file for fine search: %s\n", nuclQueryFileLoc, err)
-	}
+
+	// nuclQueryFile, err := os.Open(nuclQueryFileLoc)
+	// if err != nil {
+	// 	fatalf("Could not open '%s' query file for fine search: %s\n", nuclQueryFileLoc, err)
+	// }
 
 	if !flagNoCleanup {
 		err := os.RemoveAll(dmndOutFile.Name())
@@ -62,7 +63,7 @@ func processCompressedQueries(db *mica.DB, nuclQueryFileLoc string) error {
 	}
 	mica.Vprintln("Expanding diamond hits...")
 	dmndOut := bytes.NewBuffer(dmndOutArr)
-	expandedSequences, err := expandDmndHits(db, dmndOut)
+	expandedSequences, expandedQueries, err := expandDmndHitsAndQuery(db, queryDb, dmndOut)
 	if err != nil {
 		return fmt.Errorf("%s\n", err)
 	}
@@ -74,13 +75,26 @@ func processCompressedQueries(db *mica.DB, nuclQueryFileLoc string) error {
 		fatalf("Could not create FASTA input from coarse hits: %s\n", err)
 	}
 
+	qSearchBuf := new(bytes.Buffer)
+	if err := writeFasta(expandedQueries, qSearchBuf); err != nil {
+		fatalf("Could not create FASTA input from coarse QUERY hits: %s\n", err)
+	}
+	fineQueryFile, err := ioutil.TempFile(flagTempFileDir, "fine-query-sequences")
+	if err != nil {
+		fatalf("Could not create temporary QUERY sequence file: %s\n", err)
+	}
+	err = ioutil.WriteFile(fineQueryFile.Name(), qSearchBuf.Bytes(), 0666)
+	if err != nil {
+		fatalf("Could not write to temporary QUERY sequence file: %s\n", err)
+	}
+
 	if flagDmndFine != "" {
 
 		mica.Vprintln("Building fine DIAMOND database...")
 		tmpFineDB, err := makeFineDmndDB(searchBuf)
 		handleFatalError("Could not create fine diamond database to search on", err)
 
-		err = dmndBlastXFine(nuclQueryFile, flagDmndFine, tmpFineDB)
+		err = dmndBlastXFine(fineQueryFile, flagDmndFine, tmpFineDB)
 		handleFatalError("Error diamond-blasting (x-search) fine database", err)
 
 		// Delete the temporary fine database.
@@ -103,7 +117,7 @@ func processCompressedQueries(db *mica.DB, nuclQueryFileLoc string) error {
 
 		// Finally, run the query against the fine fasta database and pass on the
 		// stdout and stderr...
-		bs, err := ioutil.ReadAll(nuclQueryFile)
+		bs, err := ioutil.ReadAll(fineQueryFile)
 		if err != nil {
 			return fmt.Errorf("Could not read input fasta query: %s", err)
 		}

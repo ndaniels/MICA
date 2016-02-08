@@ -174,6 +174,94 @@ func expandDmndHits(db *mica.DB, dmndOut *bytes.Buffer) ([]mica.OriginalSeq, err
 	return oseqs, nil
 }
 
+func expandDmndHitsAndQuery(db *mica.DB, qdb *mica.DB, dmndOut *bytes.Buffer) ([]mica.OriginalSeq, []mica.OriginalSeq, error) {
+
+	used := make(map[int]bool, 100) // prevent original sequence duplicates
+	oseqs := make([]mica.OriginalSeq, 0, 100)
+	qUsed := make(map[int]bool, 100)
+	qSeqs := make([]mica.OriginalSeq, 0, 100)
+
+	dmndScanner := bufio.NewScanner(dmndOut)
+	for dmndScanner.Scan() {
+		line := dmndScanner.Text()
+		if err := dmndScanner.Err(); err != nil {
+			return nil, nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+
+		// Example line:
+		// 0        1          2             3          4              5             6           7         8             9           10    11
+		// queryId, subjectId, percIdentity, alnLength, mismatchCount, gapOpenCount, queryStart, queryEnd, subjectStart, subjectEnd, eVal, bitScore
+		// YAL001C  897745     96.12         1160       45             0             1           1160      1             1160        0e+00 2179.8
+
+		splitLine := strings.Fields(line)
+
+		if len(splitLine) < 12 {
+			return nil, nil, fmt.Errorf("Line in diamond output is too short: %s", line)
+		}
+		coarseQID, err := strconv.Atoi(splitLine[0])
+		if err != nil {
+			return nil, nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+		coarseID, err := strconv.Atoi(splitLine[1])
+		if err != nil {
+			return nil, nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+		qHitFrom, err := strconv.Atoi(splitLine[6])
+		if err != nil {
+			return nil, nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+		qHitTo, err := strconv.Atoi(splitLine[7])
+		if err != nil {
+			return nil, nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+		hitFrom, err := strconv.Atoi(splitLine[8])
+		if err != nil {
+			return nil, nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+		hitTo, err := strconv.Atoi(splitLine[9])
+		if err != nil {
+			return nil, nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+		eval, err := strconv.ParseFloat(splitLine[10], 64)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+
+		someOseqs, err := db.CoarseDB.Expand(db.ComDB, coarseID, hitFrom, hitTo)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Could not decompress coarse sequence %d (%d, %d): %s\n", coarseID, hitFrom, hitTo, err)
+		}
+
+		someQseqs, err := qdb.CoarseDB.Expand(qdb.ComDB, coarseQID, qHitFrom, qHitTo)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Could not decompress coarse  QUERY sequence %d (%d, %d): %s\n", coarseQID, qHitFrom, qHitTo, err)
+		}
+
+
+		// Make sure this hit is below the coarse e-value threshold.
+		if eval > flagCoarseEval {
+			continue
+		}
+
+		for _, oseq := range someOseqs {
+			if used[oseq.Id] {
+				continue
+			}
+			used[oseq.Id] = true
+			oseqs = append(oseqs, oseq)
+		}
+
+		for _, qseq := range someQseqs {
+			if qUsed[qseq.Id] {
+				continue
+			}
+			qUsed[qseq.Id] = true
+			qSeqs = append(qSeqs, qseq)
+		}
+	}
+	return oseqs, qSeqs, nil
+}
+
 func makeFineDmndDB(seqBuf *bytes.Buffer) (string, error) {
 	tmpSeqFile, err := ioutil.TempFile(flagTempFileDir, "fine-sequences-")
 	if err != nil {
