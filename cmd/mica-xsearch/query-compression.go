@@ -138,8 +138,9 @@ func processCompressedQueries(db *mica.DB, nuclQueryFileLoc string) error {
 
 
 func compressQueries(queryFileName string) (string, error) {
-	dbDirLoc, err := ioutil.TempDir(flagTempFileDir, "compressed-query-db")
-
+	// dbDirLoc, err := ioutil.TempDir(flagTempFileDir, "temporary-compressed-query-db")
+	dbDirLoc := flagTempFileDir 
+	dbDirLoc = dbDirLoc + "/temporary-compressed-query-db"
 
 	db, err := mica.NewWriteDB(false, queryDBConf, dbDirLoc)
 	handleFatalError("Failed to open new db", err)
