@@ -12,12 +12,12 @@ import (
 func processQueries(db *mica.DB, nuclQueryFile *os.File) error {
 
 	mica.Vprintln("\nBlasting with diamond query on coarse database...")
-	dmndOutDaaFile, err := dmndBlastPCoarse(db, nuclQueryFile)
+	dmndOutDaaFilename, err := dmndBlastPCoarse(db, nuclQueryFile)
 	if err != nil {
 		fatalf("Error blasting with diamond on coarse database: %s\n", err)
 	}
 
-	dmndOutFile, err := convertDmndToBlastTabular(dmndOutDaaFile)
+	dmndOutFile, err := convertDmndToBlastTabular(dmndOutDaaFilename)
 	if err != nil {
 		return fmt.Errorf("Error convertign diamond output to blast tabular: %s\n")
 	}
@@ -27,9 +27,8 @@ func processQueries(db *mica.DB, nuclQueryFile *os.File) error {
 
 	if !flagNoCleanup {
 		err := os.RemoveAll(dmndOutFile.Name())
-		err = os.RemoveAll(dmndOutFile.Name() + ".daa")
 		handleFatalError("Could not delete diamond output from coarse search", err)
-		err = os.RemoveAll(dmndOutDaaFile.Name())
+		err = os.RemoveAll(dmndOutDaaFilename)
 		handleFatalError("Could not delete diamond output from coarse search", err)
 	}
 

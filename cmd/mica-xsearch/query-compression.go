@@ -23,14 +23,14 @@ func processCompressedQueries(db *mica.DB, nuclQueryFileLoc string) error {
 
 
 	mica.Vprintln("\nBlasting with diamond query on coarse database...")
-	dmndOutDaaFile, err := dmndBlastXCoarse(db, queryDb.CoarseDB.FileFasta)
+	dmndOutDaaFilename, err := dmndBlastXCoarse(db, queryDb.CoarseDB.FileFasta.Name())
 	if err != nil {
 		return fmt.Errorf("Error blasting with diamond on coarse database from compressed queries: %s\n", err)
 	}
 	
 
 
-	dmndOutFile, err := convertDmndToBlastTabular(dmndOutDaaFile)
+	dmndOutFile, err := convertDmndToBlastTabular(dmndOutDaaFilename)
 	if err != nil {
 		return fmt.Errorf("Error converting diamond output to blast tabular: %s\n")
 	}
@@ -47,7 +47,7 @@ func processCompressedQueries(db *mica.DB, nuclQueryFileLoc string) error {
 	if !flagNoCleanup {
 		err := os.RemoveAll(dmndOutFile.Name())
 		handleFatalError("Could not delete diamond output from coarse search", err)
-		err = os.RemoveAll(dmndOutDaaFile.Name())
+		err = os.RemoveAll(dmndOutDaaFilename)
 		handleFatalError("Could not delete diamond output from coarse search", err)
 		err = os.RemoveAll(queryDbLoc)
 		handleFatalError("Could not delete diamond output from coarse search", err)
@@ -61,7 +61,7 @@ func processCompressedQueries(db *mica.DB, nuclQueryFileLoc string) error {
 	if len(dmndOutArr) == 0 {
 		return fmt.Errorf("No coarse hits. %s", "Aborting.")
 	}
-	mica.Vprintln("Expanding diamond hits...")
+	mica.Vprintln("Expanding diamond hits (queries and targets)...")
 	dmndOut := bytes.NewBuffer(dmndOutArr)
 	expandedSequences, expandedQueries, err := expandDmndHitsAndQuery(db, queryDb, dmndOut)
 	if err != nil {
@@ -74,6 +74,7 @@ func processCompressedQueries(db *mica.DB, nuclQueryFileLoc string) error {
 	if err := writeFasta(expandedSequences, searchBuf); err != nil {
 		fatalf("Could not create FASTA input from coarse hits: %s\n", err)
 	}
+
 
 	qSearchBuf := new(bytes.Buffer)
 	if err := writeFasta(expandedQueries, qSearchBuf); err != nil {
@@ -94,7 +95,7 @@ func processCompressedQueries(db *mica.DB, nuclQueryFileLoc string) error {
 		tmpFineDB, err := makeFineDmndDB(searchBuf)
 		handleFatalError("Could not create fine diamond database to search on", err)
 
-		err = dmndBlastXFine(fineQueryFile, flagDmndFine, tmpFineDB)
+		err = dmndBlastXFine(fineQueryFile.Name(), flagDmndFine, tmpFineDB)
 		handleFatalError("Error diamond-blasting (x-search) fine database", err)
 
 		// Delete the temporary fine database.

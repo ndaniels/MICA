@@ -146,13 +146,8 @@ func main() {
 		}
 	} else {
 
-		nuclQueryFile, err := os.Open(inputFastaQueryName)
-		if err != nil {
-			fatalf("Could not open '%s' query file: %s\n", inputFastaQueryName, err)
-		}
-
 		mica.Vprintln("\nProcessing queries...")
-		err = processQueries(db, nuclQueryFile)
+		err = processQueries(db, inputFastaQueryName)
 		if err != nil {
 			fatalf("Error processing queries: %s\n", err)
 		}

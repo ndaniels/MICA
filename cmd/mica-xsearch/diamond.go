@@ -13,14 +13,14 @@ import (
 	"strings"
 )
 
-func dmndBlastXFine(queries *os.File, outFilename, fineFilename string) error {
+func dmndBlastXFine(queryFilename string, outFilename, fineFilename string) error {
 
 	cmd := exec.Command(
 		flagDmnd,
 		"blastx",
 		"--sensitive",
 		"-d", fineFilename,
-		"-q", queries.Name(),
+		"-q", queryFilename,
 		"--threads", s(flagGoMaxProcs),
 		"-a", outFilename,
 		"--compress", "0",
@@ -33,11 +33,8 @@ func dmndBlastXFine(queries *os.File, outFilename, fineFilename string) error {
 		return fmt.Errorf("Error using diamond to blast coarse db: %s\n", err)
 	}
 	if !flagDmndOutput {
-		daaFile, err := os.Open(outFilename)
-		if err != nil {
-			return fmt.Errorf("Error opening diamond output: %s\n", err)
-		}
-		tabularFile, err := convertDmndToBlastTabular(daaFile)
+		daaFilename := outFilename + ".daa"
+		tabularFile, err := convertDmndToBlastTabular(daaFilename)
 		if err != nil {
 			return fmt.Errorf("Error converting diamond output: %s\n", err)
 		}
@@ -48,56 +45,48 @@ func dmndBlastXFine(queries *os.File, outFilename, fineFilename string) error {
 	return nil
 }
 
-func dmndBlastXCoarse(db *mica.DB, queries *os.File) (*os.File, error) {
+func dmndBlastXCoarse(db *mica.DB, queryFilename string) (string, error) {
 	// diamond blastp -d nr -q reads.fna -a matches -t <temporary directory>
 
-	dmndOutFile, err := ioutil.TempFile(flagTempFileDir, "dmnd-out-daa-")
-	if err != nil {
-		return nil, fmt.Errorf("Could not build temporary file for diamond output: %s", err)
-	}
-	dmndTmpDir, err := ioutil.TempDir(flagTempFileDir, "dmnd-tmp-dir-")
-	if err != nil {
-		return nil, fmt.Errorf("Could not build temporary directory for diamond to work in: %s", err)
-	}
+	dmndOutFilename := flagTempFileDir + "/dmnd-blastx-out-temp"
+
 
 	cmd := exec.Command(
 		flagDmnd,
 		"blastx",
 		"--sensitive",
 		"-d", path.Join(db.Path, mica.FileDmndCoarse),
-		"-q", queries.Name(),
+		"-q", queryFilename,
 		"--threads", s(flagGoMaxProcs),
-		"-a", dmndOutFile.Name(),
+		"-a", dmndOutFilename,
 		"--compress", "0",
 		"--top", s(flagCoarseDmndMatch),
-		"--tmpdir", dmndTmpDir)
+		"--tmpdir", flagTempFileDir)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 
-	err = mica.Exec(cmd)
+	err := mica.Exec(cmd)
 	if err != nil {
-		return nil, fmt.Errorf("Error using diamond to blast coarse db: %s", err)
+		return "", fmt.Errorf("Error using diamond to blast coarse db: %s", err)
 	}
 
-	err = os.RemoveAll(dmndTmpDir)
-	if err != nil {
-		return nil, fmt.Errorf("Error destroying diamond working directory: %s", err)
-	}
+	dmndOutFilename = dmndOutFilename + ".daa"
 
-	return dmndOutFile, nil
+	return dmndOutFilename, nil
 }
 
-func convertDmndToBlastTabular(daa *os.File) (*os.File, error) {
+func convertDmndToBlastTabular(daaName string) (*os.File, error) {
 	dmndOutFile, err := ioutil.TempFile(flagTempFileDir, "dmnd-out-tab-")
 	if err != nil {
 		return nil, fmt.Errorf("Could not build temporary file for diamond output: %s", err)
 	}
 
+
 	cmd := exec.Command(
 		flagDmnd,
 		"view",
 		"-o", dmndOutFile.Name(),
-		"-a", daa.Name())
+		"-a", daaName)
 
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
