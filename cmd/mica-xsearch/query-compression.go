@@ -144,13 +144,14 @@ func compressQueries(queryFileName string) (string, error) {
 
 	db, err := mica.NewWriteDB(false, queryDBConf, dbDirLoc)
 	handleFatalError("Failed to open new db", err)
+	mica.Vprintln("Starting query compress workers...")
 	pool := mica.StartCompressReducedWorkers(db)
 	seqId := db.ComDB.NumSequences()
 	mainQuit := make(chan struct{}, 0)
 
 	seqChan, err := mica.ReadOriginalSeqs(queryFileName, []byte{})
 	handleFatalError("Could not read query sequences", err)
-
+	mica.Vprintln("Reading sequences into query database...")
 	for readSeq := range seqChan {
 		// Do a non-blocking receive to see if main needs to quit.
 		select {
@@ -173,6 +174,7 @@ func compressQueries(queryFileName string) (string, error) {
 		}
 		seqId = pool.CompressReduced(seqId, redReadSeq)
 	}
+	mica.Vprintln("Cleaning up query database...")
 	mica.CleanupDB(db, &pool)
 	mica.Vprintln("")
 
