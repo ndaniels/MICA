@@ -143,6 +143,17 @@ func compressQueries(queryFileName string) (string, error) {
 	dbDirLoc := flagTempFileDir 
 	dbDirLoc = dbDirLoc + "/temporary-compressed-query-db"
 
+	if flagQueryDBConf != "" {
+		qdbParams, err := os.Open(flagQueryDBConf)
+		if err != nil {
+			return "", fmt.Errorf("Failed to load query db conf: %s", err)
+		}
+		queryDBConf, err := mica.LoadDBConf(qdbParams)
+		if err != nil {
+			return "", fmt.Errorf("Failed to load query db conf: %s", err)
+		}
+	}
+
 	db, err := mica.NewWriteDB(false, queryDBConf, dbDirLoc)
 	handleFatalError("Failed to open new db", err)
 	mica.Vprintln("Starting query compress workers...")

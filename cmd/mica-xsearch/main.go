@@ -23,7 +23,7 @@ import (
 var (
 	// A default configuration.
 	argDBConf = mica.DefaultDBConf.DeepCopy()
-	queryDBConf = mica.DefaultDBConf.DeepCopy()
+	queryDBConf = mica.DefaultQueryDBConf.DeepCopy() // Overwritten directly in the 'compressQuery' function if a different conf is specified
 	// Flags that affect the operation of search.
 	// Flags that control algorithmic parameters are stored in `queryDBConf`.
 	flagMakeBlastDB     = "makeblastdb"
@@ -37,6 +37,7 @@ var (
 	flagCoarseEval      = 5.0
 	flagNoCleanup       = false
 	flagCompressQuery   = false
+	flagQueryDBConf 	= ""
 	flagBatchQueries    = false
 	flagIterativeQuery  = false
 	flagDmndFine        = ""
@@ -54,38 +55,33 @@ func init() {
 
 	// Regular cablastp-xsearch options
 
-	flag.StringVar(&flagMakeBlastDB, "makeblastdb",
-		flagMakeBlastDB,
+	flag.StringVar(&flagMakeBlastDB, "makeblastdb", flagMakeBlastDB,
 		"The location of the 'makeblastdb' executable.")
-	flag.StringVar(&flagBlastx, "blastx",
-		flagBlastx,
+	flag.StringVar(&flagBlastx, "blastx", flagBlastx,
 		"The location of the 'blastx' executable.")
-	flag.StringVar(&flagBlastn, "blastn",
-		flagBlastn,
+	flag.StringVar(&flagBlastn, "blastn", flagBlastn,
 		"The location of the 'blastn' executable.")
-	flag.StringVar(&flagDmnd, "diamond",
-		flagDmnd,
+	flag.StringVar(&flagDmnd, "diamond", flagDmnd,
 		"The location of the 'diamond' executable.")
-	flag.StringVar(&flagDmndFine, "dmnd-fine",
-		"",
+	flag.StringVar(&flagDmndFine, "dmnd-fine", flagDmndFine,
 		"When set, will use diamond for fine search writing the results to the specified file")
-
-	flag.Float64Var(&flagCoarseEval, "coarse-eval", flagCoarseEval,
-		"The e-value threshold for the coarse search. This will NOT\n"+
-			"\tbe used on the fine search. The fine search e-value threshold\n"+
-			"\tcan be set in the 'blast-args' argument.")
-	flag.BoolVar(&flagNoCleanup, "no-cleanup", flagNoCleanup,
-		"When set, the temporary fine BLAST database that is created\n"+
-			"\twill NOT be deleted.")
-	flag.BoolVar(&flagCompressQuery, "compress-query", flagCompressQuery,
-		"When set, will compress the input nucleotide sequences.\n"+
-			"\tThis option may result in very bad performance if used on\n"+
-			"\ta machine with out a fast hard drive.\n")
-
 	flag.IntVar(&flagCoarseDmndMatch, "dmnd-coarse-match", flagCoarseDmndMatch,
 		"The matching threshold for coarse search with diamond")
 	flag.IntVar(&flagFineDmndMatch, "dmnd-fine-match", flagFineDmndMatch,
 		"The matching threshold for fine search with diamond (assuming diamond fine search is enabled).")
+	flag.BoolVar(&flagDmndOutput, "daa-file", flagDmndOutput,
+		"When set, will not convert diamonds final output into blast tabular format")
+	flag.Float64Var(&flagCoarseEval, "coarse-eval", flagCoarseEval,
+		"The e-value threshold for the coarse search. This will NOT\n"+
+			"\tbe used on the fine search. The fine search e-value threshold\n"+
+			"\tcan be set in the 'blast-args' argument.")
+
+	flag.BoolVar(&flagCompressQuery, "compress-query", flagCompressQuery,
+		"When set, will compress the input nucleotide sequences.\n"+
+			"\tThis option may result in very bad performance if used on\n"+
+			"\ta machine with out a fast hard drive.\n")
+	flag.StringVar(&flagQueryDBConf, "query-dbconf", flagQueryDBConf,
+		"Alternative conf file to use for query compression")
 
 	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
 		"The maximum number of CPUs that can be executing simultaneously.")
@@ -97,8 +93,9 @@ func init() {
 		"When set, a memory profile will be written to the file specified.")
 	flag.BoolVar(&flagIterativeQuery, "iterative-queries", flagIterativeQuery,
 		"When set, will process queries one at a time instead of as a batch.")
-	flag.BoolVar(&flagDmndOutput, "daa-file", flagDmndOutput,
-		"When set, will not convert diamonds final output into blast tabular format")
+	flag.BoolVar(&flagNoCleanup, "no-cleanup", flagNoCleanup,
+		"When set, the temporary fine BLAST database that is created\n"+
+			"\twill NOT be deleted.")
 	flag.StringVar(&flagTempFileDir, "temp-dir", flagTempFileDir,
 		"Location to put temporary files")
 
