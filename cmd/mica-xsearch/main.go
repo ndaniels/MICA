@@ -23,9 +23,8 @@ import (
 var (
 	// A default configuration.
 	argDBConf = mica.DefaultDBConf.DeepCopy()
-	queryDBConf = mica.DefaultQueryDBConf.DeepCopy() // Overwritten directly in the 'compressQuery' function if a different conf is specified
-	// Flags that affect the operation of search.
-	// Flags that control algorithmic parameters are stored in `queryDBConf`.
+	queryDBConf = mica.DefaultDBConf.DeepCopy() // Overwritten directly in the 'compressQuery' function if a different conf is specified
+
 	flagMakeBlastDB     = "makeblastdb"
 	flagBlastx          = "blastx"
 	flagBlastn          = "blastn"

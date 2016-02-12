@@ -148,7 +148,7 @@ func compressQueries(queryFileName string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("Failed to load query db conf: %s", err)
 		}
-		queryDBConf, err := mica.LoadDBConf(qdbParams)
+		queryDBConf, err = mica.LoadDBConf(qdbParams)
 		if err != nil {
 			return "", fmt.Errorf("Failed to load query db conf: %s", err)
 		}
