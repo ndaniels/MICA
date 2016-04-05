@@ -10,7 +10,7 @@ import (
 )
 
 // ReadOriginalSeq is the value sent over `chan ReadOriginalSeq` when a new
-// sequence is read from a fasta file.
+// sequence is read from a fasta file
 type ReadOriginalSeq struct {
 	Seq *OriginalSeq
 	Err error

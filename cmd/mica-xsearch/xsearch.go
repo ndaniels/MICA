@@ -4,20 +4,25 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"io"
 	"os"
-
+	"compress/gzip"
+	"strings"
 	"github.com/ndaniels/mica"
 )
 
-func processQueries(db *mica.DB, nuclQueryFile *os.File) error {
+func processQueries(db *mica.DB, inputFastaQueryName string) error {
+
 
 	mica.Vprintln("\nBlasting with diamond query on coarse database...")
-	dmndOutDaaFile, err := dmndBlastXCoarse(db, nuclQueryFile)
+
+	dmndOutDaaFilename, err := dmndBlastXCoarse(db, inputFastaQueryName)
 	if err != nil {
 		return fmt.Errorf("Error blasting with diamond on coarse database: %s\n", err)
 	}
 
-	dmndOutFile, err := convertDmndToBlastTabular(dmndOutDaaFile)
+
+	dmndOutFile, err := convertDmndToBlastTabular(dmndOutDaaFilename)
 	if err != nil {
 		return fmt.Errorf("Error converting diamond output to blast tabular: %s\n")
 	}
@@ -28,7 +33,7 @@ func processQueries(db *mica.DB, nuclQueryFile *os.File) error {
 	if !flagNoCleanup {
 		err := os.RemoveAll(dmndOutFile.Name())
 		handleFatalError("Could not delete diamond output from coarse search", err)
-		err = os.RemoveAll(dmndOutDaaFile.Name())
+		err = os.RemoveAll(dmndOutDaaFilename)
 		handleFatalError("Could not delete diamond output from coarse search", err)
 	}
 
@@ -58,7 +63,7 @@ func processQueries(db *mica.DB, nuclQueryFile *os.File) error {
 		tmpFineDB, err := makeFineDmndDB(searchBuf)
 		handleFatalError("Could not create fine diamond database to search on", err)
 
-		err = dmndBlastXFine(nuclQueryFile, flagDmndFine, tmpFineDB)
+		err = dmndBlastXFine(inputFastaQueryName, flagDmndFine, tmpFineDB)
 		handleFatalError("Error diamond-blasting (x-search) fine database", err)
 
 		// Delete the temporary fine database.
@@ -79,12 +84,26 @@ func processQueries(db *mica.DB, nuclQueryFile *os.File) error {
 
 		// pass them to blastx on the expanded (fine) db
 
+		var nuclQueryFile io.Reader
+		nuclQueryFile, err = os.Open(inputFastaQueryName)
+		if err != nil {
+			fatalf("Could not open '%s' query file: %s\n", inputFastaQueryName, err)
+		}
+
+		if strings.HasSuffix(inputFastaQueryName, ".gz") {
+			nuclQueryFile, err = gzip.NewReader(nuclQueryFile)
+			if err != nil {
+				return err
+			}
+		}
+
 		// Finally, run the query against the fine fasta database and pass on the
 		// stdout and stderr...
 		bs, err := ioutil.ReadAll(nuclQueryFile)
 		if err != nil {
 			return fmt.Errorf("Could not read input fasta query: %s", err)
 		}
+
 		nuclQueryReader := bytes.NewReader(bs)
 
 		err = blastFine(db, tmpFineDB, nuclQueryReader)

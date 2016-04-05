@@ -9,7 +9,7 @@ import (
 	"github.com/TuftsBCB/seq"
 )
 
-// SeqIdentity computes the sequence identity of two byte slices.
+// SeqIdentity computes the Sequence identity of two byte slices.
 // The number returned is an integer in the range 0-100, inclusive.
 // SeqIdentity returns zero if the lengths of both seq1 and seq2 are zero.
 //
@@ -70,20 +70,20 @@ func repetitive(bs []byte) bool {
 	return true
 }
 
-// sequence is the underlying (i.e., embedded) type of reference and original
-// sequences used in cablast.
-type sequence struct {
+// Sequence is the underlying (i.e., embedded) type of reference and original
+// Sequences used in cablast.
+type Sequence struct {
 	Name     string
 	Residues []byte
 	Offset   uint
 	Id       int
 }
 
-// newSeq creates a new sequence and upper cases the given residues.
-func newSeq(id int, name string, residues []byte) *sequence {
+// newSeq creates a new Sequence and upper cases the given residues.
+func newSeq(id int, name string, residues []byte) *Sequence {
 	residuesStr := strings.ToUpper(string(residues))
 	residuesStr = strings.Replace(residuesStr, "*", "", -1)
-	return &sequence{
+	return &Sequence{
 		Name:     name,
 		Residues: []byte(residuesStr),
 		Offset:   0,
@@ -91,18 +91,18 @@ func newSeq(id int, name string, residues []byte) *sequence {
 	}
 }
 
-// newFastaSeq creates a new *sequence value from seq's Sequence type, and
-// ensures that all residues in the sequence are upper cased.
-func newFastaSeq(id int, s seq.Sequence) *sequence {
+// newFastaSeq creates a new *Sequence value from seq's Sequence type, and
+// ensures that all residues in the Sequence are upper cased.
+func newFastaSeq(id int, s seq.Sequence) *Sequence {
 	return newSeq(id, s.Name, s.Bytes())
 }
 
-// newSubSequence returns a new *sequence value that corresponds to a
-// subsequence of 'sequence'. 'start' and 'end' specify an inclusive range in
-// 'sequence'. newSubSequence panics if the range is invalid.
-func (seq *sequence) newSubSequence(start, end uint) *sequence {
+// newSubSequence returns a new *Sequence value that corresponds to a
+// subSequence of 'Sequence'. 'start' and 'end' specify an inclusive range in
+// 'Sequence'. newSubSequence panics if the range is invalid.
+func (seq *Sequence) newSubSequence(start, end uint) *Sequence {
 	if start < 0 || start >= end || end > uint(seq.Len()) {
-		panic(fmt.Sprintf("Invalid sub sequence (%d, %d) for sequence "+
+		panic(fmt.Sprintf("Invalid sub Sequence (%d, %d) for Sequence "+
 			"with length %d.", start, end, seq.Len()))
 	}
 	s := newSeq(seq.Id, seq.Name, seq.Residues[start:end])
@@ -111,7 +111,7 @@ func (seq *sequence) newSubSequence(start, end uint) *sequence {
 }
 
 // FastaSeq returns a new seq.Sequence from TuftsBCB/seq.
-func (s *sequence) FastaSeq() seq.Sequence {
+func (s *Sequence) FastaSeq() seq.Sequence {
 	rs := make([]seq.Residue, len(s.Residues))
 	for i := range s.Residues {
 		rs[i] = seq.Residue(s.Residues[i])
@@ -119,15 +119,15 @@ func (s *sequence) FastaSeq() seq.Sequence {
 	return seq.Sequence{s.Name, rs}
 }
 
-// Len retuns the number of residues in this sequence.
-func (seq *sequence) Len() int {
+// Len retuns the number of residues in this Sequence.
+func (seq *Sequence) Len() int {
 	return len(seq.Residues)
 }
 
-// String returns a string (fasta) representation of this sequence. If this
-// sequence is a subsequence, then the range of the subsequence (with respect
-// to the original sequence) is also printed.
-func (seq *sequence) String() string {
+// String returns a string (fasta) representation of this Sequence. If this
+// Sequence is a subSequence, then the range of the subSequence (with respect
+// to the original Sequence) is also printed.
+func (seq *Sequence) String() string {
 	if seq.Offset == 0 {
 		return fmt.Sprintf("> %s (%d)\n%s",
 			seq.Name, seq.Id, string(seq.Residues))
@@ -136,18 +136,18 @@ func (seq *sequence) String() string {
 		seq.Name, seq.Id, seq.Offset, seq.Len(), string(seq.Residues))
 }
 
-// referenceSeq embeds a sequence and serves as a typing mechanism to
-// distguish reference sequences in the compressed database with original
-// sequences from the input FASTA file.
+// referenceSeq embeds a Sequence and serves as a typing mechanism to
+// distguish reference Sequences in the compressed database with original
+// Sequences from the input FASTA file.
 type CoarseSeq struct {
-	*sequence
+	*Sequence
 	Links    *LinkToCompressed
 	linkLock *sync.RWMutex
 }
 
 func NewCoarseSeq(id int, name string, residues []byte) *CoarseSeq {
 	return &CoarseSeq{
-		sequence: newSeq(id, name, residues),
+		Sequence: newSeq(id, name, residues),
 		Links:    nil,
 		linkLock: &sync.RWMutex{},
 	}
@@ -159,7 +159,7 @@ func NewFastaCoarseSeq(id int, s seq.Sequence) *CoarseSeq {
 
 func (rseq *CoarseSeq) NewSubSequence(start, end uint) *CoarseSeq {
 	return &CoarseSeq{
-		sequence: rseq.sequence.newSubSequence(start, end),
+		Sequence: rseq.Sequence.newSubSequence(start, end),
 		Links:    nil,
 	}
 }
@@ -181,21 +181,38 @@ func (rseq *CoarseSeq) addLink(link *LinkToCompressed) {
 	}
 }
 
-// OriginalSeq embeds a sequence and serves as a typing mechanism to
-// distguish reference sequences in the compressed database with original
-// sequences from the input FASTA file.
+// OriginalSeq embeds a Sequence and serves as a typing mechanism to
+// distguish reference Sequences in the compressed database with original
+// Sequences from the input FASTA file.
 type OriginalSeq struct {
-	*sequence
+	*Sequence
 }
 
 func NewOriginalSeq(id int, name string, residues []byte) *OriginalSeq {
-	return &OriginalSeq{sequence: newSeq(id, name, residues)}
+	return &OriginalSeq{Sequence: newSeq(id, name, residues)}
 }
 
 func NewFastaOriginalSeq(id int, s seq.Sequence) *OriginalSeq {
-	return &OriginalSeq{sequence: newFastaSeq(id, s)}
+	return &OriginalSeq{Sequence: newFastaSeq(id, s)}
 }
 
 func (oseq *OriginalSeq) NewSubSequence(start, end uint) *OriginalSeq {
-	return &OriginalSeq{oseq.sequence.newSubSequence(start, end)}
+	return &OriginalSeq{oseq.Sequence.newSubSequence(start, end)}
+}
+
+// ReducedSeq embeds a Sequence and serves as a typing mechanism to
+// distguish reduced-alphabet (DNA) Sequences from amino acid Sequences.
+type ReducedSeq struct {
+	*Sequence
+}
+
+//
+func NewReducedSeq(oseq *OriginalSeq) *ReducedSeq {
+	return &ReducedSeq{Sequence: newSeq(oseq.Sequence.Id,
+		oseq.Sequence.Name,
+		Reduce(oseq.Sequence.Residues))}
+}
+
+func (rseq *ReducedSeq) NewSubSequence(start, end uint) *ReducedSeq {
+	return &ReducedSeq{rseq.Sequence.newSubSequence(start, end)}
 }

@@ -28,26 +28,51 @@ type DBConf struct {
 	Dmnd                string
 	BlastDBSize         uint64
 }
+var(
+	 DefaultQueryDBConf = &DBConf{
+		MinMatchLen:         40,
+		MatchKmerSize:       4,
+		GappedWindowSize:    25,
+		UngappedWindowSize:  10,
+		ExtSeqIdThreshold:   60,
+		MatchSeqIdThreshold: 70,
+		MatchExtend:         30,
+		MapSeedSize:         6,
+		ExtSeedSize:         0,
+		LowComplexity:       10,
+		SeedLowComplexity:   6,
+		SavePlain:           false,
+		ReadOnly:            true,
+		SaveCompressed:      false,
+		BlastMakeBlastDB:    "makeblastdb",
+		Dmnd:                "diamond",
+		BlastDBSize:         0,
+	}
 
-var DefaultDBConf = &DBConf{
-	MinMatchLen:         40,
-	MatchKmerSize:       4,
-	GappedWindowSize:    25,
-	UngappedWindowSize:  10,
-	ExtSeqIdThreshold:   60,
-	MatchSeqIdThreshold: 70,
-	MatchExtend:         30,
-	MapSeedSize:         6,
-	ExtSeedSize:         0,
-	LowComplexity:       10,
-	SeedLowComplexity:   6,
-	SavePlain:           false,
-	ReadOnly:            true,
-	SaveCompressed:      false,
-	BlastMakeBlastDB:    "makeblastdb",
-	Dmnd:                "diamond",
-	BlastDBSize:         0,
-}
+	 DefaultDBConf = &DBConf{
+		MinMatchLen:         40,
+		MatchKmerSize:       4,
+		GappedWindowSize:    25,
+		UngappedWindowSize:  10,
+		ExtSeqIdThreshold:   60,
+		MatchSeqIdThreshold: 70,
+		MatchExtend:         30,
+		MapSeedSize:         6,
+		ExtSeedSize:         0,
+		LowComplexity:       10,
+		SeedLowComplexity:   6,
+		SavePlain:           false,
+		ReadOnly:            true,
+		SaveCompressed:      false,
+		BlastMakeBlastDB:    "makeblastdb",
+		Dmnd:                "diamond",
+		BlastDBSize:         0,
+	}
+)
+
+
+
+
 
 func (conf *DBConf) DeepCopy() *DBConf {
 	copied := DBConf{

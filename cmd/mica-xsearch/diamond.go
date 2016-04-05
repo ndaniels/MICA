@@ -13,14 +13,14 @@ import (
 	"strings"
 )
 
-func dmndBlastXFine(queries *os.File, outFilename, fineFilename string) error {
+func dmndBlastXFine(queryFilename string, outFilename, fineFilename string) error {
 
 	cmd := exec.Command(
 		flagDmnd,
 		"blastx",
 		"--sensitive",
 		"-d", fineFilename,
-		"-q", queries.Name(),
+		"-q", queryFilename,
 		"--threads", s(flagGoMaxProcs),
 		"-a", outFilename,
 		"--compress", "0",
@@ -33,11 +33,8 @@ func dmndBlastXFine(queries *os.File, outFilename, fineFilename string) error {
 		return fmt.Errorf("Error using diamond to blast coarse db: %s\n", err)
 	}
 	if !flagDmndOutput {
-		daaFile, err := os.Open(outFilename)
-		if err != nil {
-			return fmt.Errorf("Error opening diamond output: %s\n", err)
-		}
-		tabularFile, err := convertDmndToBlastTabular(daaFile)
+		daaFilename := outFilename + ".daa"
+		tabularFile, err := convertDmndToBlastTabular(daaFilename)
 		if err != nil {
 			return fmt.Errorf("Error converting diamond output: %s\n", err)
 		}
@@ -48,56 +45,48 @@ func dmndBlastXFine(queries *os.File, outFilename, fineFilename string) error {
 	return nil
 }
 
-func dmndBlastXCoarse(db *mica.DB, queries *os.File) (*os.File, error) {
+func dmndBlastXCoarse(db *mica.DB, queryFilename string) (string, error) {
 	// diamond blastp -d nr -q reads.fna -a matches -t <temporary directory>
 
-	dmndOutFile, err := ioutil.TempFile(flagTempFileDir, "dmnd-out-daa-")
-	if err != nil {
-		return nil, fmt.Errorf("Could not build temporary file for diamond output: %s", err)
-	}
-	dmndTmpDir, err := ioutil.TempDir(flagTempFileDir, "dmnd-tmp-dir-")
-	if err != nil {
-		return nil, fmt.Errorf("Could not build temporary directory for diamond to work in: %s", err)
-	}
+	dmndOutFilename := flagTempFileDir + "/dmnd-blastx-out-temp"
+
 
 	cmd := exec.Command(
 		flagDmnd,
 		"blastx",
 		"--sensitive",
 		"-d", path.Join(db.Path, mica.FileDmndCoarse),
-		"-q", queries.Name(),
+		"-q", queryFilename,
 		"--threads", s(flagGoMaxProcs),
-		"-a", dmndOutFile.Name(),
+		"-a", dmndOutFilename,
 		"--compress", "0",
 		"--top", s(flagCoarseDmndMatch),
-		"--tmpdir", dmndTmpDir)
+		"--tmpdir", flagTempFileDir)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 
-	err = mica.Exec(cmd)
+	err := mica.Exec(cmd)
 	if err != nil {
-		return nil, fmt.Errorf("Error using diamond to blast coarse db: %s", err)
+		return "", fmt.Errorf("Error using diamond to blast coarse db: %s", err)
 	}
 
-	err = os.RemoveAll(dmndTmpDir)
-	if err != nil {
-		return nil, fmt.Errorf("Error destroying diamond working directory: %s", err)
-	}
+	dmndOutFilename = dmndOutFilename + ".daa"
 
-	return dmndOutFile, nil
+	return dmndOutFilename, nil
 }
 
-func convertDmndToBlastTabular(daa *os.File) (*os.File, error) {
+func convertDmndToBlastTabular(daaName string) (*os.File, error) {
 	dmndOutFile, err := ioutil.TempFile(flagTempFileDir, "dmnd-out-tab-")
 	if err != nil {
 		return nil, fmt.Errorf("Could not build temporary file for diamond output: %s", err)
 	}
 
+
 	cmd := exec.Command(
 		flagDmnd,
 		"view",
 		"-o", dmndOutFile.Name(),
-		"-a", daa.Name())
+		"-a", daaName)
 
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -172,6 +161,94 @@ func expandDmndHits(db *mica.DB, dmndOut *bytes.Buffer) ([]mica.OriginalSeq, err
 		}
 	}
 	return oseqs, nil
+}
+
+func expandDmndHitsAndQuery(db *mica.DB, qdb *mica.DB, dmndOut *bytes.Buffer) ([]mica.OriginalSeq, []mica.OriginalSeq, error) {
+
+	used := make(map[int]bool, 100) // prevent original sequence duplicates
+	oseqs := make([]mica.OriginalSeq, 0, 100)
+	qUsed := make(map[int]bool, 100)
+	qSeqs := make([]mica.OriginalSeq, 0, 100)
+
+	dmndScanner := bufio.NewScanner(dmndOut)
+	for dmndScanner.Scan() {
+		line := dmndScanner.Text()
+		if err := dmndScanner.Err(); err != nil {
+			return nil, nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+
+		// Example line:
+		// 0        1          2             3          4              5             6           7         8             9           10    11
+		// queryId, subjectId, percIdentity, alnLength, mismatchCount, gapOpenCount, queryStart, queryEnd, subjectStart, subjectEnd, eVal, bitScore
+		// YAL001C  897745     96.12         1160       45             0             1           1160      1             1160        0e+00 2179.8
+
+		splitLine := strings.Fields(line)
+
+		if len(splitLine) < 12 {
+			return nil, nil, fmt.Errorf("Line in diamond output is too short: %s", line)
+		}
+		coarseQID, err := strconv.Atoi(splitLine[0])
+		if err != nil {
+			return nil, nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+		coarseID, err := strconv.Atoi(splitLine[1])
+		if err != nil {
+			return nil, nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+		qHitFrom, err := strconv.Atoi(splitLine[6])
+		if err != nil {
+			return nil, nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+		qHitTo, err := strconv.Atoi(splitLine[7])
+		if err != nil {
+			return nil, nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+		hitFrom, err := strconv.Atoi(splitLine[8])
+		if err != nil {
+			return nil, nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+		hitTo, err := strconv.Atoi(splitLine[9])
+		if err != nil {
+			return nil, nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+		eval, err := strconv.ParseFloat(splitLine[10], 64)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Error reading from diamond output: %s", err)
+		}
+
+		someOseqs, err := db.CoarseDB.Expand(db.ComDB, coarseID, hitFrom, hitTo)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Could not decompress coarse sequence %d (%d, %d): %s\n", coarseID, hitFrom, hitTo, err)
+		}
+
+		someQseqs, err := qdb.CoarseDB.Expand(qdb.ComDB, coarseQID, qHitFrom, qHitTo)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Could not decompress coarse  QUERY sequence %d (%d, %d): %s\n", coarseQID, qHitFrom, qHitTo, err)
+		}
+
+
+		// Make sure this hit is below the coarse e-value threshold.
+		if eval > flagCoarseEval {
+			continue
+		}
+
+		for _, oseq := range someOseqs {
+			if used[oseq.Id] {
+				continue
+			}
+			used[oseq.Id] = true
+			oseqs = append(oseqs, oseq)
+		}
+
+		for _, qseq := range someQseqs {
+			if qUsed[qseq.Id] {
+				continue
+			}
+			qUsed[qseq.Id] = true
+			qSeqs = append(qSeqs, qseq)
+		}
+	}
+	return oseqs, qSeqs, nil
 }
 
 func makeFineDmndDB(seqBuf *bytes.Buffer) (string, error) {

@@ -67,7 +67,7 @@ func blastCoarse(
 }
 
 func makeFineBlastDB(db *mica.DB, stdin *bytes.Buffer) (string, error) {
-	tmpDir, err := ioutil.TempDir("", "cablastp-fine-search-db")
+	tmpDir, err := ioutil.TempDir(flagTempFileDir, "cablastp-fine-search-db")
 	if err != nil {
 		return "", fmt.Errorf("Could not create temporary directory: %s\n", err)
 	}
