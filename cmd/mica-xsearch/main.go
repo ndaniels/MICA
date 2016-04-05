@@ -74,13 +74,13 @@ func init() {
 		"The e-value threshold for the coarse search. This will NOT\n"+
 			"\tbe used on the fine search. The fine search e-value threshold\n"+
 			"\tcan be set in the 'blast-args' argument.")
-
-	flag.BoolVar(&flagCompressQuery, "compress-query", flagCompressQuery,
-		"When set, will compress the input nucleotide sequences.\n"+
-			"\tThis option may result in very bad performance if used on\n"+
-			"\ta machine with out a fast hard drive.\n")
-	flag.StringVar(&flagQueryDBConf, "query-dbconf", flagQueryDBConf,
-		"Alternative conf file to use for query compression")
+// Not currently supporting query compression
+//	flag.BoolVar(&flagCompressQuery, "compress-query", flagCompressQuery,
+//		"When set, will compress the input nucleotide sequences.\n"+
+//			"\tThis option may result in very bad performance if used on\n"+
+//			"\ta machine with out a fast hard drive.\n")
+//	flag.StringVar(&flagQueryDBConf, "query-dbconf", flagQueryDBConf,
+//		"Alternative conf file to use for query compression")
 
 	flag.IntVar(&flagGoMaxProcs, "p", flagGoMaxProcs,
 		"The maximum number of CPUs that can be executing simultaneously.")
@@ -135,6 +135,7 @@ func main() {
 	inputFastaQueryName := flag.Arg(1)
 
 	if flagCompressQuery {
+	        fatalf("Query compression is currently unsupported.\nExiting.\n","")
 		mica.Vprintln("\nProcessing queries with query-side compression...")
 		err = processCompressedQueries(db, inputFastaQueryName)
 		if err != nil {
