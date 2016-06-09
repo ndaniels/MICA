@@ -119,7 +119,7 @@ func expandDmndHits(db *mica.DB, dmndOut *bytes.Buffer) ([]mica.OriginalSeq, err
 		// queryId, subjectId, percIdentity, alnLength, mismatchCount, gapOpenCount, queryStart, queryEnd, subjectStart, subjectEnd, eVal, bitScore
 		// YAL001C  897745     96.12         1160       45             0             1           1160      1             1160        0e+00 2179.8
 
-		splitLine := strings.Split(line, "\t")
+		splitLine := strings.Fields(line)
 
 		if len(splitLine) < 12 {
 			return nil, fmt.Errorf("Line in diamond output is too short: %s", line)
