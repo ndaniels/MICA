@@ -4,7 +4,9 @@ import (
 	"encoding/csv"
 	"fmt"
 	"os"
+	"io/ioutil"
 	"strings"
+	"bytes"
 )
 
 const (
@@ -27,6 +29,10 @@ type CompressedDB struct {
 	File  *os.File
 	Index *os.File
 
+	// Arrays for preloading
+	Array *bytes.Reader
+	preloaded bool
+	
 	// The size of the compressed database index in bytes. Since the index
 	// contains precisely one 64-bit integer byte offset for every sequence
 	// in the compressed database, the index size can be used to quickly
@@ -160,6 +166,18 @@ func (comdb *CompressedDB) SeqGet(
 	return comdb.seqCache[orgSeqId], nil
 }
 
+func (comdb *CompressedDB) Preload() error {
+      array, err := ioutil.ReadFile(comdb.File.Name())
+      if err != nil {
+     	return fmt.Errorf("Could not preload compressed file: %s", err)
+      }
+      comdb.Array = bytes.NewReader(array)
+      comdb.preloaded = true
+      return nil
+}
+
+
+
 // NumSequences returns the number of sequences in the compressed database
 // using the file size of the index.
 func (comdb *CompressedDB) NumSequences() int {
@@ -250,3 +268,5 @@ func (cseq CompressedSeq) Decompress(coarse *CoarseDB) (OriginalSeq, error) {
 	}
 	return *NewOriginalSeq(cseq.Id, cseq.Name, residues), nil
 }
+
+

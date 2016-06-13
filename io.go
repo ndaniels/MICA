@@ -366,14 +366,16 @@ func (comdb *CompressedDB) ReadSeq(
 
 	if comdb.CompressedSource {
 		return comdb.ReadSeqFromCompressedSource(coarsedb, orgSeqId)
+	} else if comdb.preloaded {
+	       return comdb.readPreloadedSeq(coarsedb,orgSeqId)
 	}
 
 	off, err := comdb.orgSeqOffset(orgSeqId)
 	if err != nil {
 		return OriginalSeq{}, err
 	}
-
-	newOff, err := comdb.File.Seek(off, os.SEEK_SET)
+	   comdb.Array.Seek(off, os.SEEK_SET)
+	  newOff, err := comdb.File.Seek(off, os.SEEK_SET)
 	if err != nil {
 		return OriginalSeq{}, err
 	} else if newOff != off {
@@ -382,6 +384,25 @@ func (comdb *CompressedDB) ReadSeq(
 				"database, but seeked to %d instead.", off, newOff)
 	}
 	return comdb.ReadNextSeq(coarsedb, comdb.File, orgSeqId)
+}
+
+func (comdb *CompressedDB) readPreloadedSeq(
+     coarsedb *CoarseDB, orgSeqId int) (OriginalSeq, error) {
+
+        off, err := comdb.orgSeqOffset(orgSeqId)
+	if err != nil {
+		return OriginalSeq{}, err
+	}
+	newOff, err := comdb.Array.Seek(off, os.SEEK_SET)
+	if err != nil {
+		return OriginalSeq{}, err
+	} else if newOff != off {
+		return OriginalSeq{},
+			fmt.Errorf("Tried to seek to offset %d in the compressed "+
+				"database, but seeked to %d instead.", off, newOff)
+	}
+	return comdb.ReadNextSeq(coarsedb, comdb.Array, orgSeqId)
+	
 }
 
 func (comdb *CompressedDB) ReadNextSeq(

@@ -144,7 +144,16 @@ func expandDmndHits(db *mica.DB, dmndOut *bytes.Buffer) ([]mica.OriginalSeq, err
 	j := 0 
 	dmndScanner := bufio.NewScanner(dmndOut)
 	if flagPreload{
-	   db.CoarseDB.Preload()
+	   mica.Vprintf("Preloading database...")
+	   err := db.CoarseDB.Preload()
+	   if err != nil {
+	      return nil, fmt.Errorf("Error preloading coarse database: %s",err)
+	      }
+	   err = db.ComDB.Preload()
+	   if err != nil{
+	      return nil, fmt.Errorf("Error preloading compressed database: %s",err)
+	      }
+	   mica.Vprintln(" done.")
 	   }
 	for dmndScanner.Scan() {
 	    	if i % 1000 == 0 {

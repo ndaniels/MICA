@@ -338,3 +338,16 @@ func fileExists(name string) error {
 	}
 	return nil
 }
+
+// Read files into arrays for faster decompression
+func (db *DB) Preload() error {
+     err := db.CoarseDB.Preload()
+     if err != nil {
+     	return err
+	}
+     err = db.ComDB.Preload()
+     if err != nil {
+     	return err
+	}
+	return nil
+}
