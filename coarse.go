@@ -4,9 +4,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
-	// "strconv"
-	// "strings"
 	"sync"
+	"bytes"
+	"io/ioutil"
 )
 
 // Hard-coded file names for different pieces of a mica database.
@@ -44,6 +44,10 @@ type CoarseDB struct {
 	FileLinks      *os.File
 	FileLinksIndex *os.File
 
+	// Array pointers for preloading files
+	ArrayLinks *bytes.Reader
+	ArrayLinksIndex *bytes.Reader
+	
 	// Ensures that adding a sequence to the coarse database is atomic.
 	seqLock *sync.RWMutex
 
@@ -61,7 +65,8 @@ type CoarseDB struct {
 	// not read only) in a human readable format, rather than the default binary
 	// format.
 	plain bool
-
+	preloaded bool
+	
 	// File pointers to use when 'plain' is true.
 	plainLinks *os.File
 	plainSeeds *os.File
@@ -84,6 +89,8 @@ func newWriteCoarseDB(appnd bool, db *DB) (*CoarseDB, error) {
 		FileSeeds:      nil,
 		FileLinks:      nil,
 		FileLinksIndex: nil,
+		ArrayLinks:	nil,
+		ArrayLinksIndex:nil,
 		seqLock:        &sync.RWMutex{},
 		readOnly:       db.ReadOnly,
 		plain:          db.SavePlain,
@@ -187,6 +194,8 @@ func newReadCoarseDB(db *DB) (*CoarseDB, error) {
 		FileSeeds:      nil,
 		FileLinks:      nil,
 		FileLinksIndex: nil,
+		ArrayLinks:	nil,
+		ArrayLinksIndex:nil,
 		seqLock:        nil,
 		readOnly:       false,
 		plain:          db.SavePlain,
@@ -244,9 +253,42 @@ func (coarsedb *CoarseDB) CoarseSeqGet(i uint) *CoarseSeq {
 	return seq
 }
 
+func (coarsedb *CoarseDB) Preload() error {
+     arrayLinksIndex, err := ioutil.ReadFile(coarsedb.FileLinksIndex.Name())
+     if err != nil {
+     	return  fmt.Errorf("Could not preload links index file: %s", err)
+     }
+	
+     arrayLinks, err := ioutil.ReadFile(coarsedb.FileLinks.Name())
+     if err != nil {
+     	return  fmt.Errorf("Could not preload links file: %s", err)
+     }
+     coarsedb.ArrayLinksIndex = bytes.NewReader(arrayLinksIndex)
+     coarsedb.ArrayLinks = bytes.NewReader(arrayLinks)
+     coarsedb.preloaded = true
+     return nil
+}
+
+func (coarsedb *CoarseDB) Unload() error {
+     coarsedb.ArrayLinksIndex = nil
+     coarsedb.ArrayLinks = nil
+     coarsedb.preloaded = false
+     return nil
+}
+
+func (coarsedb *CoarseDB) Expand(
+	comdb *CompressedDB, id, start, end int) ([]OriginalSeq, error) {
+	if coarsedb.preloaded {
+	   return coarsedb.expandPreloaded(comdb,id,start,end)
+	} else {
+	   return coarsedb.expandUnloaded(comdb,id,start,end)
+	}
+}
+
+
 // Expand will follow all links to compressed sequences for the coarse
 // sequence at index `id` and return a slice of decompressed sequences.
-func (coarsedb *CoarseDB) Expand(
+func (coarsedb *CoarseDB) expandUnloaded(
 	comdb *CompressedDB, id, start, end int) ([]OriginalSeq, error) {
 
 	// Calculate the byte offset into the coarse links file where the links
@@ -257,14 +299,14 @@ func (coarsedb *CoarseDB) Expand(
 	}
 
 	// Actually seek to that offset.
-	newOff, err := coarsedb.FileLinks.Seek(off, os.SEEK_SET)
-	if err != nil {
-		return nil, fmt.Errorf("Could not seek: %s", err)
-	} else if newOff != off {
-		return nil,
-			fmt.Errorf("Tried to seek to offset %d in the coarse links, "+
-				"but seeked to %d instead.", off, newOff)
-	}
+	       newOff, err := coarsedb.FileLinks.Seek(off, os.SEEK_SET)
+	       if err != nil {
+	       	  return nil, fmt.Errorf("Could not seek: %s", err)
+	       } else if newOff != off {
+	       	  return nil,
+		  fmt.Errorf("Tried to seek to offset %d in the coarse links, "+
+		  "but seeked to %d instead.", off, newOff)
+	       }
 
 	// Read in the number of links for this sequence.
 	// Each link corresponds to a single original sequence.
@@ -281,9 +323,75 @@ func (coarsedb *CoarseDB) Expand(
 	oseqs := make([]OriginalSeq, 0, numLinks)
 	s, e := uint16(start), uint16(end)
 	for i := uint32(0); i < numLinks; i++ {
-		compLink, err := coarsedb.readLink()
+		compLink, err := coarsedb.readLink(coarsedb.FileLinks)
 		if err != nil {
 			return nil, fmt.Errorf("Could not read link: %s", err)
+		}
+
+		// We only use this link if the match is in the range.
+		if e < compLink.CoarseStart || s > compLink.CoarseEnd {
+			continue
+		}
+
+		// Don't decompress the same original sequence more than once.
+		if ids[compLink.OrgSeqId] {
+			continue
+		}
+		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		// !!! This is probably what I need to change for disk-compression
+		oseq, err := comdb.ReadSeq(coarsedb, int(compLink.OrgSeqId))
+		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+		if err != nil {
+			return nil, fmt.Errorf(
+				"Could not read compressed sequence: %s", err)
+		}
+		ids[compLink.OrgSeqId] = true
+		oseqs = append(oseqs, oseq)
+	}
+
+	return oseqs, nil
+}
+
+func (coarsedb *CoarseDB) expandPreloaded(
+	comdb *CompressedDB, id, start, end int) ([]OriginalSeq, error) {
+
+	// Calculate the byte offset into the coarse links file where the links
+	// for the coarse sequence `i` starts.
+	off, err := coarsedb.linkOffset(id)
+	if err != nil {
+		return nil, fmt.Errorf("Could not get link offset: %s", err)
+	}
+
+	// Actually seek to that offset.
+	       newOff, err := coarsedb.ArrayLinks.Seek(off, os.SEEK_SET)
+	       if err != nil {
+	       	  return nil, fmt.Errorf("Could not seek: %s", err)
+	       } else if newOff != off {
+	       	  return nil,
+		  fmt.Errorf("Tried to seek to offset %d in the preloaded coarse links, "+
+		  "but seeked to %d instead.", off, newOff)
+	       }
+
+	// Read in the number of links for this sequence.
+	// Each link corresponds to a single original sequence.
+	var numLinks uint32
+	err = binary.Read(coarsedb.ArrayLinks, binary.BigEndian, &numLinks)
+	if err != nil {
+		return nil, fmt.Errorf("Could not read preloaded number of links: %s", err)
+	}
+
+	// We use a map as a set of original sequence ids for eliminating
+	// duplicates (since a coarse sequence can point to different pieces of the
+	// same compressed sequence).
+	ids := make(map[uint32]bool, numLinks)
+	oseqs := make([]OriginalSeq, 0, numLinks)
+	s, e := uint16(start), uint16(end)
+	for i := uint32(0); i < numLinks; i++ {
+		compLink, err := coarsedb.readLink(coarsedb.ArrayLinks)
+		if err != nil {
+			return nil, fmt.Errorf("Could not read preloaded link: %s", err)
 		}
 
 		// We only use this link if the match is in the range.
@@ -345,25 +453,25 @@ func (coarsedb *CoarseDB) ReadCoarseSeq(id int) (*CoarseSeq, error) {
 	}
 
 	// Read in the sequence.
-	// var rawCorSeqId string
+	//var rawCorSeqId string
 	var corSeqId int
 	var residues string
-	// n1, err := fmt.Fscanln(coarsedb.FileFasta, &rawCorSeqId)
+	//n1, err := fmt.Fscanln(coarsedb.FileFasta, &rawCorSeqId)
 
-	// trimmedRawCorSeqId := strings.TrimPrefix(rawCorSeqId, ">")
-	// corSeqId, err := strconv.Atoi(trimmedRawCorSeqId)
+	//trimmedRawCorSeqId := strings.TrimPrefix(rawCorSeqId, ">")
+	//corSeqId, err = strconv.Atoi(trimmedRawCorSeqId)
 
-	// if err != nil {
+	//if err != nil {
 	// 	return nil, fmt.Errorf("Could not scan coarse sequence id of %d from coarse-file: %s", id, err)
-	// }
+	//}
 
-	// n2, err := fmt.Fscanln(coarsedb.FileFasta, &residues)
-	// n := n1 + n2
+	//n2, err := fmt.Fscanln(coarsedb.FileFasta, &residues)
+	//n := n1 + n2
 
 	n, err := fmt.Fscanf(coarsedb.FileFasta, ">%d\n%s\n", &corSeqId, &residues)
 
 	if err != nil {
-		return nil, fmt.Errorf("Could not scan coarse sequence residues of %d from coarse-file: %s", id, err)
+		return nil, fmt.Errorf("Could not scan coarse sequence  %d from coarse-file: %s", id, err)
 	} else if n != 2 {
 		return nil, fmt.Errorf("Expected to read in two values for coarse "+
 			"sequence %d, but read %d values instead.", id, n)
@@ -371,6 +479,7 @@ func (coarsedb *CoarseDB) ReadCoarseSeq(id int) (*CoarseSeq, error) {
 		return nil, fmt.Errorf("Expected to read coarse sequence %d but read "+
 			"coarse sequence %d instead.", id, corSeqId)
 	}
+	
 
 	coarseSeq := NewCoarseSeq(id, "", []byte(residues))
 	coarsedb.fastaCache[id] = coarseSeq
@@ -402,6 +511,28 @@ func (coarsedb *CoarseDB) coarseOffset(id int) (seqOff int64, err error) {
 //
 // An error is returned if the file seek fails.
 func (coarsedb *CoarseDB) linkOffset(id int) (seqOff int64, err error) {
+     if coarsedb.preloaded {
+     	return coarsedb.preloadedLinkOffset(id)
+     } else {
+	return coarsedb.unloadedLinkOffset(id)
+     }
+}
+
+func (coarsedb *CoarseDB) preloadedLinkOffset(id int) (seqOff int64, err error) {
+	tryOff := int64(id) * 8
+	realOff, err := coarsedb.ArrayLinksIndex.Seek(tryOff, os.SEEK_SET)
+	if err != nil {
+		return
+	} else if tryOff != realOff {
+		return 0,
+			fmt.Errorf("Tried to seek to offset %d in the preloaded coarse links index, "+
+				"but seeked to %d instead.", tryOff, realOff)
+	}
+	err = binary.Read(coarsedb.ArrayLinksIndex, binary.BigEndian, &seqOff)
+	return
+}
+
+func (coarsedb *CoarseDB) unloadedLinkOffset(id int) (seqOff int64, err error) {
 	tryOff := int64(id) * 8
 	realOff, err := coarsedb.FileLinksIndex.Seek(tryOff, os.SEEK_SET)
 	if err != nil {

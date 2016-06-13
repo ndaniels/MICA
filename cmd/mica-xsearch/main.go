@@ -40,6 +40,7 @@ var (
 	flagQueryDBConf 	= ""
 	flagBatchQueries    = false
 	flagIterativeQuery  = false
+	flagPreload	    = false
 	flagDmndFine        = ""
 	flagCoarseDmndMatch = 50
 	flagFineDmndMatch   = 60
@@ -73,6 +74,8 @@ func init() {
 		"When set, will not convert diamonds final output into blast tabular format")
 	flag.BoolVar(&flagFast, "fast", flagFast,
 	        "When set MICA will run in fast mode which is less accurate (but faster!)")
+	flag.BoolVar(&flagPreload, "preload", flagPreload,
+		"When set, will preload the database before decompression")
 	flag.Float64Var(&flagCoarseEval, "coarse-eval", flagCoarseEval,
 		"The e-value threshold for the coarse search. This will NOT\n"+
 			"\tbe used on the fine search. The fine search e-value threshold\n"+

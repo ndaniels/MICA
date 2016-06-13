@@ -59,7 +59,15 @@ func dmndBlastXFine(queryFilename string, outFilename, fineFilename string) erro
 func dmndBlastXCoarse(db *mica.DB, queryFilename string) (string, error) {
 	// diamond blastp -d nr -q reads.fna -a matches -t <temporary directory>
 
-	dmndOutFilename := flagTempFileDir + "/dmnd-blastx-out-temp"
+
+	dmndOutFile, err := ioutil.TempFile(flagTempFileDir, "dmnd-coarse-out-")
+	if err != nil {
+		return "", fmt.Errorf("Could not open file to catch coarse search output: %s", err)
+	}
+	dmndOutFilename := dmndOutFile.Name()
+
+
+
 	cmd := exec.Command(
 		flagDmnd,
 		"blastx",
@@ -88,13 +96,16 @@ func dmndBlastXCoarse(db *mica.DB, queryFilename string) (string, error) {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 
-	err := mica.Exec(cmd)
-	if err != nil {
-		return "", fmt.Errorf("Error using diamond to blast coarse db: %s", err)
+	errp := mica.Exec(cmd)
+	if errp != nil {
+		return "", fmt.Errorf("Error using diamond to blast coarse db: %s", errp)
 	}
 
 	dmndOutFilename = dmndOutFilename + ".daa"
-
+	if _, err := os.Stat(dmndOutFilename); err != nil {
+	   return "", fmt.Errorf("Diamond did not produce daa output file: %s (%s)", errp, err)
+	}
+	
 	return dmndOutFilename, nil
 }
 
@@ -132,6 +143,9 @@ func expandDmndHits(db *mica.DB, dmndOut *bytes.Buffer) ([]mica.OriginalSeq, err
 	i := 0
 	j := 0 
 	dmndScanner := bufio.NewScanner(dmndOut)
+	if flagPreload{
+	   db.CoarseDB.Preload()
+	   }
 	for dmndScanner.Scan() {
 	    	if i % 1000 == 0 {
 		 mica.Vprintf("\rScanning %d Writing %d...",i,j)
@@ -193,6 +207,9 @@ func expandDmndHits(db *mica.DB, dmndOut *bytes.Buffer) ([]mica.OriginalSeq, err
 			oseqs = append(oseqs, oseq)
 		}
 	}
+	if flagPreload{
+	   db.CoarseDB.Unload()
+	   }
 	return oseqs, nil
 }
 
@@ -317,3 +334,4 @@ func makeFineDmndDB(seqBuf *bytes.Buffer) (string, error) {
 	return tmpDmndFile.Name(), nil
 
 }
+
