@@ -14,8 +14,7 @@ import (
 )
 
 func dmndBlastXFine(queryFilename string, outFilename, fineFilename string) error {
-
-	cmd := exec.Command(
+     	cmd := exec.Command(
 		flagDmnd,
 		"blastx",
 		"--sensitive",
@@ -25,6 +24,18 @@ func dmndBlastXFine(queryFilename string, outFilename, fineFilename string) erro
 		"-a", outFilename,
 		"--compress", "0",
 		"--top", s(flagFineDmndMatch))
+		
+     	if flagFast {     
+	   cmd = exec.Command(
+		flagDmnd,
+		"blastx",
+		"-d", fineFilename,
+		"-q", queryFilename,
+		"--threads", s(flagGoMaxProcs),
+		"-a", outFilename,
+		"--compress", "0",
+		"--top", s(flagFineDmndMatch))
+	}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 
@@ -49,8 +60,6 @@ func dmndBlastXCoarse(db *mica.DB, queryFilename string) (string, error) {
 	// diamond blastp -d nr -q reads.fna -a matches -t <temporary directory>
 
 	dmndOutFilename := flagTempFileDir + "/dmnd-blastx-out-temp"
-
-
 	cmd := exec.Command(
 		flagDmnd,
 		"blastx",
@@ -62,6 +71,20 @@ func dmndBlastXCoarse(db *mica.DB, queryFilename string) (string, error) {
 		"--compress", "0",
 		"--top", s(flagCoarseDmndMatch),
 		"--tmpdir", flagTempFileDir)
+
+	if flagFast{
+	   cmd = exec.Command(
+		flagDmnd,
+		"blastx",
+		"-d", path.Join(db.Path, mica.FileDmndCoarse),
+		"-q", queryFilename,
+		"--threads", s(flagGoMaxProcs),
+		"-a", dmndOutFilename,
+		"--compress", "0",
+		"--top", s(flagCoarseDmndMatch),
+		"--tmpdir", flagTempFileDir)
+	}
+	
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 
@@ -106,9 +129,15 @@ func expandDmndHits(db *mica.DB, dmndOut *bytes.Buffer) ([]mica.OriginalSeq, err
 
 	used := make(map[int]bool, 100) // prevent original sequence duplicates
 	oseqs := make([]mica.OriginalSeq, 0, 100)
-
+	i := 0
+	j := 0 
 	dmndScanner := bufio.NewScanner(dmndOut)
 	for dmndScanner.Scan() {
+	    	if i % 1000 == 0 {
+		 mica.Vprintf("\rScanning %d Writing %d...",i,j)
+	    	   
+		   }
+		i = i + 1
 		line := dmndScanner.Text()
 		if err := dmndScanner.Err(); err != nil {
 			return nil, fmt.Errorf("Error reading from diamond output: %s", err)
@@ -153,6 +182,10 @@ func expandDmndHits(db *mica.DB, dmndOut *bytes.Buffer) ([]mica.OriginalSeq, err
 		}
 
 		for _, oseq := range someOseqs {
+		       if j % 1000 == 0 {
+	    	       	  mica.Vprintf("\rScanning %d Writing %d...",i,j)
+		   	}
+			j = j + 1
 			if used[oseq.Id] {
 				continue
 			}
@@ -171,6 +204,7 @@ func expandDmndHitsAndQuery(db *mica.DB, qdb *mica.DB, dmndOut *bytes.Buffer) ([
 	qSeqs := make([]mica.OriginalSeq, 0, 100)
 
 	dmndScanner := bufio.NewScanner(dmndOut)
+	
 	for dmndScanner.Scan() {
 		line := dmndScanner.Text()
 		if err := dmndScanner.Err(); err != nil {

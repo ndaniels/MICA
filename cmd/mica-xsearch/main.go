@@ -31,6 +31,7 @@ var (
 	flagDmnd            = "diamond"
 	flagGoMaxProcs      = runtime.NumCPU()
 	flagQuiet           = false
+	flagFast	    = false
 	flagCpuProfile      = ""
 	flagMemProfile      = ""
 	flagCoarseEval      = 5.0
@@ -70,6 +71,8 @@ func init() {
 		"The matching threshold for fine search with diamond (assuming diamond fine search is enabled).")
 	flag.BoolVar(&flagDmndOutput, "daa-file", flagDmndOutput,
 		"When set, will not convert diamonds final output into blast tabular format")
+	flag.BoolVar(&flagFast, "fast", flagFast,
+	        "When set MICA will run in fast mode which is less accurate (but faster!)")
 	flag.Float64Var(&flagCoarseEval, "coarse-eval", flagCoarseEval,
 		"The e-value threshold for the coarse search. This will NOT\n"+
 			"\tbe used on the fine search. The fine search e-value threshold\n"+
