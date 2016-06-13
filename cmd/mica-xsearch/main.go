@@ -39,6 +39,7 @@ var (
 	flagQueryDBConf 	= ""
 	flagBatchQueries    = false
 	flagIterativeQuery  = false
+	flagPreload	    = false
 	flagDmndFine        = ""
 	flagCoarseDmndMatch = 50
 	flagFineDmndMatch   = 60
@@ -70,6 +71,8 @@ func init() {
 		"The matching threshold for fine search with diamond (assuming diamond fine search is enabled).")
 	flag.BoolVar(&flagDmndOutput, "daa-file", flagDmndOutput,
 		"When set, will not convert diamonds final output into blast tabular format")
+	flag.BoolVar(&flagPreload, "preload", flagPreload,
+		"When set, will preload the database before decompression")
 	flag.Float64Var(&flagCoarseEval, "coarse-eval", flagCoarseEval,
 		"The e-value threshold for the coarse search. This will NOT\n"+
 			"\tbe used on the fine search. The fine search e-value threshold\n"+

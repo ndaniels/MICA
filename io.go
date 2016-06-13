@@ -200,7 +200,7 @@ func (coarsedb *CoarseDB) readLinks() error {
 			break
 		}
 		for i := int32(0); i < cnt; i++ {
-			newLink, err := coarsedb.readLink()
+			newLink, err := coarsedb.readLink(coarsedb.FileLinks)
 			if err != nil {
 				return err
 			}
@@ -212,9 +212,9 @@ func (coarsedb *CoarseDB) readLinks() error {
 	return nil
 }
 
-func (coarsedb *CoarseDB) readLink() (_ *LinkToCompressed, err error) {
+func (coarsedb *CoarseDB) readLink(source io.Reader) (_ *LinkToCompressed, err error) {
 	br := func(data interface{}) error {
-		return binary.Read(coarsedb.FileLinks, binary.BigEndian, data)
+		return binary.Read(source, binary.BigEndian, data)
 	}
 
 	var orgSeqId uint32
