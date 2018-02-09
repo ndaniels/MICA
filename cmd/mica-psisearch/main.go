@@ -173,6 +173,7 @@ func blastFine(
 	// defined flags.
 	flags := []string{"-db", path.Join(blastFineDir, mica.FileBlastFine),
 		"-num_iterations", s(flagIters),
+		"-num_threads", s(flagGoMaxProcs),
 		"-dbsize", su(db.BlastDBSize)}
 	flags = append(flags, blastArgs...)
 
@@ -253,6 +254,7 @@ func blastCoarse(
 	db *mica.DB, stdin *bytes.Reader, stdout *bytes.Buffer) error {
 	flags := []string{"-db", path.Join(db.Path, mica.FileBlastCoarse),
 		"-outfmt", "5", "-num_iterations", s(flagIters),
+		"-num_threads", s(flagGoMaxProcs),
 		"-dbsize", su(db.BlastDBSize)}
 
 	cmd := exec.Command(flagPsiBlast, flags...)
